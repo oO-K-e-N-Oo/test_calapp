@@ -27,7 +27,7 @@
   --ink-mid:     #6b6962;
   --ink-faint:   #a09d98;
   --border:      rgba(44,42,38,.18);
-  --border-soft: rgba(44,42,38,.22);
+  --border-soft: rgba(44,42,38,.30);
   --inactive-bg: #ece9e3;
   --tool-hover:  rgba(44,42,38,.07);
   --tool-active: #2c2a26;
@@ -100,8 +100,7 @@ button:focus-visible { outline: none; background: transparent; }
   align-items: flex-end;
   gap: 0;
   padding: 0 12px 0 8px;
-  border-bottom: 1px solid var(--border-soft);
-  background: var(--surface);
+  border-bottom: 1px solid rgba(44,42,38,.35);
 }
 .cal-tabs {
   display: flex;
@@ -213,11 +212,9 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  overflow: hidden;
+  overflow: visible;
   border-left:   1px solid var(--border-soft);
-  border-top:    1px solid var(--border-soft);
-  border-bottom: 1px solid var(--border-soft);
-  box-shadow: 0 2px 12px rgba(0,0,0,.10), 0 0 0 1px var(--border);
+  box-shadow: 0 2px 12px rgba(0,0,0,.10);
   align-content: start;
 }
 #cal-screen { overflow: hidden; position: relative; }
@@ -241,7 +238,11 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-cell.is-sun   { background: var(--sun-bg); }
 .cal-cell.is-sat   { background: var(--sat-bg); }
 .cal-cell.is-hol   { background: var(--hol-bg); }
-.cal-cell.drag-over { background: rgba(58,111,168,.10) !important; box-shadow: inset 0 0 0 2px #3a6fa8; }
+.cal-cell.last-row,
+.cal-cell.last-row.is-sun,
+.cal-cell.last-row.is-sat,
+.cal-cell.last-row.is-hol,
+.cal-cell.last-row.is-blank { border-bottom: 1px solid rgba(44,42,38,.35); }
 
 .cell-top {
   display: flex;
@@ -311,6 +312,7 @@ button:focus-visible { outline: none; background: transparent; }
   display: flex;
   align-items: flex-start;
   justify-content: center;
+  padding-bottom: 16px;
 }
 @keyframes cal-fadein { from { opacity: 0; } to { opacity: 1; } }
 .cal-grid-area.tab-switching { animation: cal-fadein 0.4s ease forwards; }
@@ -735,47 +737,81 @@ button:focus-visible { outline: none; background: transparent; }
 .ctx-sep            { height: 1px; background: var(--border-soft); margin: 3px 0; }
 
 /* ════════════════════════════════════════════
-   YEAR-MONTH PICKER
+   YEAR-MONTH DRUM PICKER
 ════════════════════════════════════════════ */
-.ym-panel {
-  background: var(--surface);
-  border-radius: 16px;
-  box-shadow: var(--shadow-md);
-  padding: 20px 16px 16px;
-  width: 300px;
-  position: relative;
-  z-index: 1;
+#ym-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
 }
-.ym-header {
+#ym-picker {
+  display: none;
+  position: fixed;
+  z-index: 1101;
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.18);
+  overflow: hidden;
+  width: 220px;
+}
+#ym-backdrop.open,
+#ym-picker.open { display: block; }
+.ym-drum-wrap {
+  display: flex;
+  height: 180px;
+  position: relative;
+}
+.ym-drum-col {
+  flex: 1;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 72px 0;
+}
+.ym-drum-col::-webkit-scrollbar { display: none; }
+.ym-drum-item {
+  height: 36px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-.ym-year-label {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--ink);
-}
-.ym-months {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-.ym-month-btn {
-  padding: 10px 4px;
-  border-radius: 8px;
-  border: none;
-  background: none;
-  font-size: 14px;
+  justify-content: center;
+  font-size: 16px;
   font-family: var(--font-body);
   color: var(--ink-mid);
+  scroll-snap-align: center;
   cursor: pointer;
-  transition: background .12s, color .12s;
-  text-align: center;
+  transition: color .15s;
+  user-select: none;
 }
-.ym-month-btn:hover   { background: var(--tool-hover); }
-.ym-month-btn.current { background: var(--ink); color: #fff; font-weight: 600; }
+.ym-drum-item.selected { color: var(--ink); font-weight: 600; }
+.ym-select-bar {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  right: 8px;
+  height: 36px;
+  transform: translateY(-50%);
+  background: rgba(44,42,38,.07);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 1;
+}
+.ym-fade-top, .ym-fade-bot {
+  position: absolute;
+  left: 0; right: 0;
+  height: 72px;
+  pointer-events: none;
+  z-index: 2;
+}
+.ym-fade-top {
+  top: 0;
+  background: linear-gradient(to bottom, var(--surface) 20%, transparent);
+}
+.ym-fade-bot {
+  bottom: 0;
+  background: linear-gradient(to top, var(--surface) 20%, transparent);
+}
 /* #transition-canvas は inline style で制御 */
 </style>
 </head>
@@ -938,16 +974,16 @@ button:focus-visible { outline: none; background: transparent; }
 </div>
 
 <!-- ══ YEAR-MONTH PICKER ══ -->
-<div class="overlay" id="ym-overlay">
-  <div class="ovl-bd" id="ym-bd"></div>
-  <div class="ym-panel" id="ym-panel">
-    <div class="ym-header">
-      <button class="icon-btn" id="ym-prev-year"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-      <span class="ym-year-label" id="ym-year-label"></span>
-      <button class="icon-btn" id="ym-next-year"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button>
-    </div>
-    <div class="ym-months" id="ym-months"></div>
+<!-- ══ YEAR-MONTH DRUM PICKER ══ -->
+<div id="ym-backdrop"></div>
+<div id="ym-picker">
+  <div class="ym-drum-wrap">
+    <div class="ym-drum-col" id="ym-year-drum"></div>
+    <div class="ym-drum-col" id="ym-month-drum"></div>
   </div>
+  <div class="ym-select-bar"></div>
+  <div class="ym-fade-top"></div>
+  <div class="ym-fade-bot"></div>
 </div>
 
 <!-- ══ STICKER DROPDOWN ══ -->
@@ -2377,11 +2413,9 @@ function navigateDayCell(dir) {
 
     const cleanup = () => {
       wrappers.forEach(({ wrapper, el }) => {
-        // ラッパーを解除して元の親に戻す
-        const parent = wrapper.parentNode;
-        parent.insertBefore(el, wrapper);
+        // ラッパーをelで置き換える（元の位置に正確に戻す）
         el.classList.remove(inClass);
-        wrapper.remove();
+        wrapper.parentNode.replaceChild(el, wrapper);
       });
     };
 
@@ -2392,18 +2426,21 @@ function navigateDayCell(dir) {
   }));
 }
 
-// topbar（縦長）＋ sidebar（横長）フリック検出
+// topbar（縦長）＋ sidebar（横長）＋ draw-wrap余白 フリック検出
 ;(function() {
-  function attachFlick(el) {
-    let sx = 0, sy = 0, st = 0;
+  function attachFlick(el, skipIfCanvas = false) {
+    let sx = 0, sy = 0, st = 0, skip = false;
     el.addEventListener('touchstart', e => {
       if (e.touches.length !== 1) return;
+      // キャンバス上のタッチはスキップ
+      skip = skipIfCanvas && e.target === document.getElementById('draw-canvas');
+      if (skip) return;
       sx = e.touches[0].clientX;
       sy = e.touches[0].clientY;
       st = Date.now();
     }, { passive: true });
     el.addEventListener('touchend', e => {
-      if (e.changedTouches.length !== 1) return;
+      if (skip || e.changedTouches.length !== 1) return;
       const dx = e.changedTouches[0].clientX - sx;
       const dy = e.changedTouches[0].clientY - sy;
       const dt = Math.max(1, Date.now() - st);
@@ -2414,6 +2451,7 @@ function navigateDayCell(dir) {
   }
   attachFlick(document.getElementById('day-topbar'));
   attachFlick(document.getElementById('day-sidebar-land'));
+  attachFlick(document.getElementById('draw-wrap'), true); // キャンバス上はスキップ
 })();
 
 /* ════ TOOL SWITCHING ════ */
@@ -2809,6 +2847,13 @@ function renderCalendarDOM(descs, headers, isLand) {
 
     grid.appendChild(el);
   });
+
+  // 最終行のセルのborder-bottomを--borderに統一（シャドウと馴染ませる）
+  const cells = grid.children;
+  const total = cells.length;
+  for (let i = Math.max(0, total - 7); i < total; i++) {
+    cells[i].classList.add('last-row');
+  }
 }
 
 // ── セルの日付エリアを生成 ──
@@ -3640,40 +3685,119 @@ document.getElementById('lang-sel').addEventListener('change', e => {
   document.querySelector('#settings-panel-lang label') && null;
 });
 
-/* ════ YEAR-MONTH PICKER ════ */
-let ymPickYear = new Date().getFullYear();
+/* ════ YEAR-MONTH DRUM PICKER ════ */
+;(function() {
+  const ITEM_H = 36;
+  const YEAR_RANGE = 20; // 前後20年
+  let isOpen = false;
 
-function openYMPicker() {
-  ymPickYear = S.year;
-  renderYMPicker();
-  document.getElementById('ym-overlay').classList.add('open');
-}
-function closeYMPicker() {
-  document.getElementById('ym-overlay').classList.remove('open');
-}
-function renderYMPicker() {
-  const l = L();
-  document.getElementById('ym-year-label').textContent = l.yearFmt(ymPickYear);
-  const grid = document.getElementById('ym-months');
-  grid.innerHTML = '';
-  l.monthsFull.forEach((name, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'ym-month-btn';
-    btn.textContent = name;
-    if (ymPickYear === S.year && i === S.month) btn.classList.add('current');
-    btn.addEventListener('click', () => {
-      S.year = ymPickYear;
-      S.month = i;
-      renderCalendar();
-      closeYMPicker();
+  const picker   = document.getElementById('ym-picker');
+  const backdrop = document.getElementById('ym-backdrop');
+  const yearDrum = document.getElementById('ym-year-drum');
+  const monthDrum= document.getElementById('ym-month-drum');
+
+  // ドラムを構築
+  function buildDrum(el, items, selectedIdx) {
+    el.innerHTML = '';
+    items.forEach((text, i) => {
+      const div = document.createElement('div');
+      div.className = 'ym-drum-item' + (i === selectedIdx ? ' selected' : '');
+      div.textContent = text;
+      el.appendChild(div);
     });
-    grid.appendChild(btn);
-  });
-}
+    // 選択項目が中央に来るようスクロール（アニメーションなし）
+    el.scrollTop = selectedIdx * ITEM_H;
+  }
 
-document.getElementById('ym-bd').addEventListener('click', closeYMPicker);
-document.getElementById('ym-prev-year').addEventListener('click', () => { ymPickYear--; renderYMPicker(); });
-document.getElementById('ym-next-year').addEventListener('click', () => { ymPickYear++; renderYMPicker(); });
+  // スクロール終了後に選択値を読み取る
+  function getSelected(el) {
+    return Math.round(el.scrollTop / ITEM_H);
+  }
+
+  // selected クラスを更新
+  function updateSelected(el) {
+    const idx = getSelected(el);
+    Array.from(el.children).forEach((c, i) => {
+      c.classList.toggle('selected', i === idx);
+    });
+    return idx;
+  }
+
+  // ピッカーを開く
+  window.openYMPicker = function() {
+    if (isOpen) return;
+    isOpen = true;
+    const l = L();
+
+    // 年リスト
+    const baseYear = today.getFullYear();
+    const years = [];
+    for (let y = baseYear - YEAR_RANGE; y <= baseYear + YEAR_RANGE; y++) years.push(l.yearFmt(y));
+    const yearIdx = S.year - (baseYear - YEAR_RANGE);
+
+    // 月リスト
+    const months = l.monthsFull;
+
+    buildDrum(yearDrum,  years,  yearIdx);
+    buildDrum(monthDrum, months, S.month);
+
+    // cal-titleの位置を取得してピッカーを上に配置
+    const titleRect = document.getElementById('cal-title').getBoundingClientRect();
+    const pickerH = 180;
+    const pickerW = 220;
+    const margin = 8;
+    const top = titleRect.top - pickerH - margin;
+    const left = Math.max(8, Math.min(
+      titleRect.left + titleRect.width/2 - pickerW/2,
+      window.innerWidth - pickerW - 8
+    ));
+
+    picker.style.top  = Math.max(8, top) + 'px';
+    picker.style.left = left + 'px';
+
+    backdrop.classList.add('open');
+    picker.classList.add('open');
+  };
+
+  window.closeYMPicker = function() {
+    if (!isOpen) return;
+    isOpen = false;
+    // 選択値を確定
+    const baseYear = today.getFullYear();
+    const newYear  = (baseYear - YEAR_RANGE) + getSelected(yearDrum);
+    const newMonth = getSelected(monthDrum);
+    if (newYear !== S.year || newMonth !== S.month) {
+      S.year = newYear;
+      S.month = newMonth;
+      renderCalendar();
+    }
+    backdrop.classList.remove('open');
+    picker.classList.remove('open');
+  };
+
+  // スクロール中にselectedを更新
+  let yearTimer, monthTimer;
+  yearDrum.addEventListener('scroll', () => {
+    updateSelected(yearDrum);
+    clearTimeout(yearTimer);
+    yearTimer = setTimeout(() => {
+      // スナップ後の値を確定
+      yearDrum.scrollTop = getSelected(yearDrum) * ITEM_H;
+      updateSelected(yearDrum);
+    }, 150);
+  });
+  monthDrum.addEventListener('scroll', () => {
+    updateSelected(monthDrum);
+    clearTimeout(monthTimer);
+    monthTimer = setTimeout(() => {
+      monthDrum.scrollTop = getSelected(monthDrum) * ITEM_H;
+      updateSelected(monthDrum);
+    }, 150);
+  });
+
+  // 背景タップで閉じる
+  backdrop.addEventListener('click', () => window.closeYMPicker());
+})();
 
 // cal-title: シングルタップ→ピッカー、ダブルタップ→当月移動
 ;(function() {
@@ -3940,6 +4064,6 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v219</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v231</div>
 </body>
 </html>
