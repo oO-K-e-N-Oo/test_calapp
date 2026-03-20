@@ -2304,9 +2304,10 @@ function navigateDayCell(dir) {
   // 旧画面をクローンして絶対配置で重ねる
   const oldClone = dayScreen.cloneNode(true);
   oldClone.id = 'day-screen-old';
-  // id衝突防止・activeクラス除去
+  // id衝突防止・activeクラス除去・オプションエリアを空に
   oldClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
   oldClone.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
+  oldClone.querySelectorAll('.tb-row3, .land-opts').forEach(el => { el.innerHTML = ''; });
   oldClone.style.cssText += ';pointer-events:none;z-index:10;';
   dayScreen.parentNode.appendChild(oldClone);
 
@@ -3868,6 +3869,6 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v215</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v216</div>
 </body>
 </html>
