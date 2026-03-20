@@ -1603,7 +1603,12 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
     } else if (obj.type === 'text' || obj.type === 'sticker') {
       obj.x = cx + (snap.x - cx) * scale;
       obj.y = cy + (snap.y - cy) * scale;
-      obj.size = (snap.size || 1) * scale;
+      const newSize = (snap.size || 1) * scale;
+      if (obj.type === 'text') {
+        obj.size = Math.max(10, Math.min(CANVAS_SRC, newSize));
+      } else {
+        obj.size = Math.max(20, Math.min(CANVAS_SRC, newSize));
+      }
     }
   }
 
@@ -2210,6 +2215,9 @@ function navigateDayCell(dir) {
   // 旧画面をクローンして絶対配置で重ねる
   const oldClone = dayScreen.cloneNode(true);
   oldClone.id = 'day-screen-old';
+  // id衝突防止・activeクラス除去
+  oldClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+  oldClone.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
   oldClone.style.cssText += ';pointer-events:none;z-index:10;';
   dayScreen.parentNode.appendChild(oldClone);
 
@@ -3679,6 +3687,6 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v204</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v207</div>
 </body>
 </html>
