@@ -2476,15 +2476,23 @@ function bindOpts(container) {
 
 function renderOpts() {
   const html = buildOptsHTML(S.tool);
-  // 縦長: Row3
+
+  // 縦長: Row3 — 子要素を全削除してから書き込む
   const p = document.getElementById('tb-opts-portrait');
+  p.dataset.tool = S.tool; // デバッグ用
+  while (p.firstChild) p.removeChild(p.firstChild);
   p.innerHTML = html;
   bindOpts(p);
-  // 横長: サイドパネル（opt-blockを縦並びに）
+
+  // 横長: サイドパネル — 子要素を全削除してから書き込む
   const l = document.getElementById('land-opts');
-  l.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;">
+  while (l.firstChild) l.removeChild(l.firstChild);
+  const landHtml = html
+    ? `<div style="display:flex;flex-direction:column;gap:8px;">
     ${html.replace(/class="opt-block"/g, 'class="opt-block" style="flex-direction:column;align-items:flex-start;"')}
-  </div>`;
+  </div>`
+    : '';
+  l.innerHTML = landHtml;
   bindOpts(l);
 }
 
@@ -3860,6 +3868,6 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v214</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v215</div>
 </body>
 </html>
