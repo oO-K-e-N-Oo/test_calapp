@@ -2072,7 +2072,7 @@ function doRedo(){ if(!Draw.redoStk.length)return; const a=Draw.redoStk.pop(); a
 
 // 現在開いているセルのキー（goBackで戻る先のミニキャンバスを特定するため）
 
-function openDayCell(key, label) {
+function openDayCell(key, label, keepTool = false) {
   Cal.selObjId=null; Cal.selCellKey=null;
   S.clipboard=null;
   finalizePenObjs(); removeTextInput();
@@ -2116,7 +2116,7 @@ function openDayCell(key, label) {
   showScreen('day');
   updateOrientation();
   sizeCanvas();
-  switchTool('pen');
+  if (!keepTool) switchTool('pen');
 
   if (!fromRect || fromRect.width < 2) return; // アニメーション不可なら即表示
 
@@ -2272,15 +2272,39 @@ document.getElementById('btn-back-land').addEventListener('click', goBack);
 /* ════ 日付セル画面：前後セル移動 ════ */
 
 // 当月のセル記述子を使って前後のkeyを取得（blankはスキップして隣の有効セルへ）
+// 前後セルのキーと、必要であれば月変更情報を返す
 function getAdjacentCellKey(currentKey, dir) {
   const descs = buildCellDescs(); // 現在のS.year/S.monthで生成
-  // blank・dateセルだけ対象（inactiveは除く）
   const cells = descs.filter(d => d.type === 'date' || d.type === 'blank');
   const idx = cells.findIndex(d => d.key === currentKey);
   if (idx < 0) return null;
   const next = idx + dir;
-  if (next < 0 || next >= cells.length) return null;
-  return cells[next].key;
+
+  // 当月の範囲内
+  if (next >= 0 && next < cells.length) {
+    return { key: cells[next].key, yearDelta: 0, monthDelta: 0 };
+  }
+
+  // 月またぎ：前月末 or 翌月頭に移動
+  if (dir < 0) {
+    // 前月の最終dateセルを取得
+    let y = S.year, m = S.month - 1;
+    if (m < 0) { m = 11; y--; }
+    const prevDescs = buildCellDescsFor(y, m);
+    const prevCells = prevDescs.filter(d => d.type === 'date' || d.type === 'blank');
+    if (prevCells.length === 0) return null;
+    const lastCell = prevCells[prevCells.length - 1];
+    return { key: lastCell.key, year: y, month: m };
+  } else {
+    // 翌月の最初のdateセルを取得
+    let y = S.year, m = S.month + 1;
+    if (m > 11) { m = 0; y++; }
+    const nextDescs = buildCellDescsFor(y, m);
+    const nextCells = nextDescs.filter(d => d.type === 'date' || d.type === 'blank');
+    if (nextCells.length === 0) return null;
+    const firstCell = nextCells[0];
+    return { key: firstCell.key, year: y, month: m };
+  }
 }
 
 function navigateDayCell(dir) {
@@ -2293,60 +2317,103 @@ function navigateDayCell(dir) {
   const nextKey = getAdjacentCellKey(S.currentKey, dir);
   if (!nextKey) return;
 
+  // 月またぎの場合はS.year/S.monthを更新
+  if (nextKey.year !== undefined) {
+    S.year  = nextKey.year;
+    S.month = nextKey.month;
+  }
+
   const descs = buildCellDescs();
-  const desc = descs.find(d => d.key === nextKey);
+  const desc = descs.find(d => d.key === nextKey.key);
   const label = desc && desc.type === 'date' ? desc.d : undefined;
 
-  const dayScreen = document.getElementById('day-screen');
   const inClass  = dir > 0 ? 'draw-slide-in-right' : 'draw-slide-in-left';
   const outClass = dir > 0 ? 'draw-slide-out-left'  : 'draw-slide-out-right';
 
-  // 旧画面をクローンして絶対配置で重ねる
-  const oldClone = dayScreen.cloneNode(true);
-  oldClone.id = 'day-screen-old';
-  // id衝突防止・activeクラス除去・オプションエリアを空に
-  oldClone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-  oldClone.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
-  oldClone.querySelectorAll('.tb-row3, .land-opts').forEach(el => { el.innerHTML = ''; });
-  oldClone.style.cssText += ';pointer-events:none;z-index:10;';
-  dayScreen.parentNode.appendChild(oldClone);
+  // スライド対象要素を取得（縦長・横長共通＋縦長固有・横長固有）
+  const isLand = document.getElementById('day-sidebar-land').offsetParent !== null;
+  const slideTargets = isLand
+    ? [
+        document.querySelector('.land-badge'),
+        document.querySelector('#day-sidebar-land .ur-row'),
+        document.getElementById('draw-wrap'),
+      ]
+    : [
+        document.querySelector('.tb-row1'),
+        document.getElementById('draw-wrap'),
+      ];
 
-  // 新しいセルを開く
-  openDayCell(nextKey, label);
+  // 各対象要素をラッパーで囲んでクリッピング
+  const wrappers = slideTargets.filter(Boolean).map(el => {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `overflow:hidden;position:relative;`;
+    // 元のスタイルを継承
+    const computed = getComputedStyle(el);
+    if (computed.flex && computed.flex !== '0 1 auto') {
+      wrapper.style.flex = computed.flex;
+    }
+    el.parentNode.insertBefore(wrapper, el);
+    wrapper.appendChild(el);
+
+    // クローンを作成して退場
+    const oldClone = el.cloneNode(true);
+    oldClone.style.cssText += ';position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+    // クローン内のidを削除
+    oldClone.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+    wrapper.appendChild(oldClone);
+
+    return { wrapper, el, oldClone };
+  });
+
+  // 新しいセルを開く（ツール保持）
+  openDayCell(nextKey.key, label, true);
 
   // アニメーション
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    oldClone.classList.add(outClass);
-    dayScreen.classList.add(inClass);
+    wrappers.forEach(({ el, oldClone }) => {
+      oldClone.classList.add(outClass);
+      el.classList.add(inClass);
+    });
 
     const cleanup = () => {
-      oldClone.remove();
-      dayScreen.classList.remove(inClass);
+      wrappers.forEach(({ wrapper, el }) => {
+        // ラッパーを解除して元の親に戻す
+        const parent = wrapper.parentNode;
+        parent.insertBefore(el, wrapper);
+        el.classList.remove(inClass);
+        wrapper.remove();
+      });
     };
-    dayScreen.addEventListener('animationend', cleanup, { once: true });
-    setTimeout(cleanup, 500);
+
+    if (wrappers.length > 0) {
+      wrappers[0].el.addEventListener('animationend', cleanup, { once: true });
+      setTimeout(cleanup, 500);
+    }
   }));
 }
 
-// topbar（縦長）フリック検出
+// topbar（縦長）＋ sidebar（横長）フリック検出
 ;(function() {
-  const topbar = document.getElementById('day-topbar');
-  let sx = 0, sy = 0, st = 0;
-  topbar.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) return;
-    sx = e.touches[0].clientX;
-    sy = e.touches[0].clientY;
-    st = Date.now();
-  }, { passive: true });
-  topbar.addEventListener('touchend', e => {
-    if (e.changedTouches.length !== 1) return;
-    const dx = e.changedTouches[0].clientX - sx;
-    const dy = e.changedTouches[0].clientY - sy;
-    const dt = Math.max(1, Date.now() - st);
-    if (Math.abs(dy) > Math.abs(dx)) return;
-    if (Math.abs(dx) < 30 || Math.abs(dx) / dt < 0.2) return;
-    navigateDayCell(dx < 0 ? 1 : -1);
-  }, { passive: true });
+  function attachFlick(el) {
+    let sx = 0, sy = 0, st = 0;
+    el.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) return;
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+      st = Date.now();
+    }, { passive: true });
+    el.addEventListener('touchend', e => {
+      if (e.changedTouches.length !== 1) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      const dy = e.changedTouches[0].clientY - sy;
+      const dt = Math.max(1, Date.now() - st);
+      if (Math.abs(dy) > Math.abs(dx)) return;
+      if (Math.abs(dx) < 30 || Math.abs(dx) / dt < 0.2) return;
+      navigateDayCell(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  }
+  attachFlick(document.getElementById('day-topbar'));
+  attachFlick(document.getElementById('day-sidebar-land'));
 })();
 
 /* ════ TOOL SWITCHING ════ */
@@ -2648,24 +2715,28 @@ function renderWeekdayHeader(headers) {
 
 // ── セル記述子の配列を生成 ──
 function buildCellDescs() {
-  const holidays = getHolidays(S.year);
-  const first    = new Date(S.year, S.month, 1);
-  const last     = new Date(S.year, S.month + 1, 0);
+  return buildCellDescsFor(S.year, S.month);
+}
+
+function buildCellDescsFor(year, month) {
+  const holidays = getHolidays(year);
+  const first    = new Date(year, month, 1);
+  const last     = new Date(year, month + 1, 0);
   const descs    = [];
 
-  // 1日前の空白セル → 特殊キー（例: 2026-03-pre-0, pre-1, ...）
+  // 1日前の空白セル
   const preCount = colOf(first.getDay());
   for (let i = 0; i < preCount; i++) {
     descs.push({
       type: 'blank',
-      key: `${S.year}-${String(S.month + 1).padStart(2,'0')}-pre-${i}`,
+      key: `${year}-${String(month + 1).padStart(2,'0')}-pre-${i}`,
     });
   }
 
   // 当月の日付セル
   for (let d = 1; d <= last.getDate(); d++) {
-    const dt  = new Date(S.year, S.month, d);
-    const key = cellKey(S.year, S.month + 1, d);
+    const dt  = new Date(year, month, d);
+    const key = cellKey(year, month + 1, d);
     descs.push({
       type: 'date', d, dow: dt.getDay(), key,
       isToday: dt.toDateString() === today.toDateString(),
@@ -2673,12 +2744,12 @@ function buildCellDescs() {
     });
   }
 
-  // 最終日後の空白セル → 特殊キー（例: 2026-03-post-0, post-1, ...）
+  // 最終日後の空白セル
   const postCount = (7 - (descs.length % 7)) % 7;
   for (let i = 0; i < postCount; i++) {
     descs.push({
       type: 'blank',
-      key: `${S.year}-${String(S.month + 1).padStart(2,'0')}-post-${i}`,
+      key: `${year}-${String(month + 1).padStart(2,'0')}-post-${i}`,
     });
   }
 
@@ -3869,6 +3940,6 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v216</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v219</div>
 </body>
 </html>
