@@ -214,8 +214,10 @@ button:focus-visible { outline: none; background: transparent; }
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   overflow: hidden;
-  border-left: 1px solid var(--border-soft);
-  border-top: 1px solid var(--border-soft);
+  border-left:   1px solid var(--border-soft);
+  border-top:    1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  box-shadow: 0 2px 12px rgba(0,0,0,.10), 0 0 0 1px var(--border);
   align-content: start;
 }
 #cal-screen { overflow: hidden; position: relative; }
@@ -733,8 +735,47 @@ button:focus-visible { outline: none; background: transparent; }
 .ctx-sep            { height: 1px; background: var(--border-soft); margin: 3px 0; }
 
 /* ════════════════════════════════════════════
-   TRANSITION LAYER（画面遷移アニメーション用）
+   YEAR-MONTH PICKER
 ════════════════════════════════════════════ */
+.ym-panel {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  padding: 20px 16px 16px;
+  width: 300px;
+  position: relative;
+  z-index: 1;
+}
+.ym-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.ym-year-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ym-months {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.ym-month-btn {
+  padding: 10px 4px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-family: var(--font-body);
+  color: var(--ink-mid);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  text-align: center;
+}
+.ym-month-btn:hover   { background: var(--tool-hover); }
+.ym-month-btn.current { background: var(--ink); color: #fff; font-weight: 600; }
 /* #transition-canvas は inline style で制御 */
 </style>
 </head>
@@ -758,7 +799,7 @@ button:focus-visible { outline: none; background: transparent; }
       <button class="icon-btn" id="btn-prev">
         <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
-      <div class="cal-title">
+      <div class="cal-title" id="cal-title" style="cursor:pointer;">
         <span class="cal-title-year" id="hdr-year"></span>
         <span id="hdr-month"></span>
       </div>
@@ -882,6 +923,10 @@ button:focus-visible { outline: none; background: transparent; }
       <label>週の始まり</label>
       <select id="week-start-sel"><option value="0">日曜日</option><option value="1">月曜日</option></select>
     </div>
+    <div class="s-row">
+      <label>表示言語</label>
+      <select id="lang-sel"><option value="ja">日本語</option><option value="en">English</option></select>
+    </div>
     <div class="s-row" style="margin-bottom:0">
       <label>ユーザー管理</label>
       <button id="btn-user-mgmt" class="s-btn">
@@ -889,6 +934,19 @@ button:focus-visible { outline: none; background: transparent; }
         ユーザーを管理...
       </button>
     </div>
+  </div>
+</div>
+
+<!-- ══ YEAR-MONTH PICKER ══ -->
+<div class="overlay" id="ym-overlay">
+  <div class="ovl-bd" id="ym-bd"></div>
+  <div class="ym-panel" id="ym-panel">
+    <div class="ym-header">
+      <button class="icon-btn" id="ym-prev-year"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <span class="ym-year-label" id="ym-year-label"></span>
+      <button class="icon-btn" id="ym-next-year"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+    <div class="ym-months" id="ym-months"></div>
   </div>
 </div>
 
@@ -1144,6 +1202,7 @@ const S = {
   clipboard: null,                 // { type:'cell'|'obj', data:... }
   // ── ツール設定 ──
   tool:       'pen',
+  lang:       'ja',   // 'ja' | 'en'
   penColor:   '#1c1a18',
   penSize:    3,
   eraserSize: 12,
@@ -1188,7 +1247,26 @@ let   CANVAS_PX   = 600;
 function uid()     { return Math.random().toString(36).slice(2,9); }
 function clone(v)  { return JSON.parse(JSON.stringify(v)); }
 
-/* ════ PERSISTENCE（localStorage） ════ */
+/* ════ I18N ════ */
+const I18N = {
+  ja: {
+    months:  ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+    monthsFull: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+    weekSun: ['日','月','火','水','木','金','土'],
+    weekMon: ['月','火','水','木','金','土','日'],
+    yearFmt: y => `${y}年`,
+    monthFmt: (y, m) => `${y}年 ${m+1}月`,
+  },
+  en: {
+    months:  ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    monthsFull: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+    weekSun: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    weekMon: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    yearFmt: y => String(y),
+    monthFmt: (y, m) => `${['January','February','March','April','May','June','July','August','September','October','November','December'][m]} ${y}`,
+  },
+};
+function L() { return I18N[S.lang] || I18N.ja; }
 const STORAGE_KEY = 'calapp_v1';
 
 function saveToStorage() {
@@ -2005,16 +2083,27 @@ function openDayCell(key, label) {
   Draw.activePenObjRef=null; Draw.activeStroke=null;
   syncUR();
 
+  const l = L();
+  const isEn = S.lang === 'en';
   const isBlank = key.includes('-pre-') || key.includes('-post-');
-  const labelStr = isBlank ? 'メモ' : (typeof label==='number') ? label+'日' : (label || 'メモ');
+  const memoLabel = isEn ? 'Memo' : 'メモ';
+  const labelStr = isBlank ? memoLabel
+    : (typeof label === 'number') ? (isEn ? String(label) : label + '日')
+    : (label || memoLabel);
   document.getElementById('day-num-p').textContent = labelStr;
   document.getElementById('day-num-l').textContent = labelStr;
-  document.getElementById('day-sub-p').textContent = `${S.year}年 ${S.month+1}月`;
-  document.getElementById('day-sub-l').textContent = `${S.year}年 ${S.month+1}月`;
+
+  const subStr = isEn
+    ? `${l.months[S.month]} ${S.year}`
+    : `${S.year}年 ${S.month+1}月`;
+  document.getElementById('day-sub-p').textContent = subStr;
+  document.getElementById('day-sub-l').textContent = subStr;
 
   const DOW_JA = ['日','月','火','水','木','金','土'];
+  const DOW_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dowArr = isEn ? DOW_EN : DOW_JA;
   const dowStr = (!isBlank && typeof label === 'number')
-    ? DOW_JA[new Date(S.year, S.month, label).getDay()]
+    ? dowArr[new Date(S.year, S.month, label).getDay()]
     : '';
   document.getElementById('day-dow-p').textContent = dowStr;
   document.getElementById('day-dow-l').textContent = dowStr;
@@ -2513,13 +2602,11 @@ function isLandscapeCalendar() {
 }
 
 function renderCalendar() {
-  const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  document.getElementById('hdr-month').textContent = MONTHS[S.month];
-  document.getElementById('hdr-year').textContent  = S.year + '年';
+  const l = L();
+  document.getElementById('hdr-month').textContent = l.months[S.month];
+  document.getElementById('hdr-year').textContent  = l.yearFmt(S.year);
 
-  const headers = S.weekStart === 0
-    ? ['日','月','火','水','木','金','土']
-    : ['月','火','水','木','金','土','日'];
+  const headers = S.weekStart === 0 ? l.weekSun : l.weekMon;
   const isLand = isLandscapeCalendar();
 
   renderWeekdayHeader(headers);
@@ -2652,7 +2739,7 @@ function buildCellTop(desc) {
   num.className = 'cell-num';
   num.textContent = desc.type === 'date' ? desc.d : desc.label;
   top.appendChild(num);
-  if (desc.holName) {
+  if (desc.holName && S.lang !== 'en') {
     const hn = document.createElement('div');
     hn.className = 'cell-hol-name';
     hn.textContent = desc.holName;
@@ -3461,6 +3548,86 @@ document.getElementById('settings-bd').addEventListener('click',()=>{
 document.getElementById('week-start-sel').addEventListener('change',e=>{
   S.weekStart=+e.target.value; renderCalendar();
 });
+
+document.getElementById('lang-sel').addEventListener('change', e => {
+  S.lang = e.target.value;
+  renderCalendar();
+  // 設定パネルの週の始まりオプションも更新
+  const wSel = document.getElementById('week-start-sel');
+  wSel.options[0].text = S.lang === 'en' ? 'Sunday'   : '日曜日';
+  wSel.options[1].text = S.lang === 'en' ? 'Monday'   : '月曜日';
+  document.querySelector('.settings-panel h3').textContent = S.lang === 'en' ? 'Settings' : '設定';
+  document.querySelector('#settings-panel-lang label') && null;
+});
+
+/* ════ YEAR-MONTH PICKER ════ */
+let ymPickYear = new Date().getFullYear();
+
+function openYMPicker() {
+  ymPickYear = S.year;
+  renderYMPicker();
+  document.getElementById('ym-overlay').classList.add('open');
+}
+function closeYMPicker() {
+  document.getElementById('ym-overlay').classList.remove('open');
+}
+function renderYMPicker() {
+  const l = L();
+  document.getElementById('ym-year-label').textContent = l.yearFmt(ymPickYear);
+  const grid = document.getElementById('ym-months');
+  grid.innerHTML = '';
+  l.monthsFull.forEach((name, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'ym-month-btn';
+    btn.textContent = name;
+    if (ymPickYear === S.year && i === S.month) btn.classList.add('current');
+    btn.addEventListener('click', () => {
+      S.year = ymPickYear;
+      S.month = i;
+      renderCalendar();
+      closeYMPicker();
+    });
+    grid.appendChild(btn);
+  });
+}
+
+document.getElementById('ym-bd').addEventListener('click', closeYMPicker);
+document.getElementById('ym-prev-year').addEventListener('click', () => { ymPickYear--; renderYMPicker(); });
+document.getElementById('ym-next-year').addEventListener('click', () => { ymPickYear++; renderYMPicker(); });
+
+// cal-title: シングルタップ→ピッカー、ダブルタップ→当月移動
+;(function() {
+  let lastTap = 0;
+  let tapTimer = null;
+  document.getElementById('cal-title').addEventListener('click', () => {
+    const now = Date.now();
+    if (now - lastTap < 350) {
+      // ダブルタップ
+      clearTimeout(tapTimer);
+      lastTap = 0;
+      const t = today;
+      if (S.year === t.getFullYear() && S.month === t.getMonth()) return;
+      S.year = t.getFullYear();
+      S.month = t.getMonth();
+      renderCalendar();
+      const area = document.getElementById('cal-grid-area');
+      area.style.transition = 'none';
+      area.style.opacity = '0';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        area.style.transition = 'opacity 0.6s ease';
+        area.style.opacity = '1';
+        area.addEventListener('transitionend', () => {
+          area.style.transition = '';
+          area.style.opacity = '';
+        }, { once: true });
+      }));
+      return;
+    }
+    lastTap = now;
+    // シングルタップ：350ms待ってダブルタップでなければピッカーを開く
+    tapTimer = setTimeout(() => { openYMPicker(); }, 350);
+  });
+})();
 document.getElementById('btn-user-mgmt').addEventListener('click', () => {
   // TODO: ユーザー管理ダイアログを実装
   document.getElementById('settings-overlay').classList.remove('open');
@@ -3656,29 +3823,35 @@ function showScreen(name){
 
 function updateOrientation(){
   const ds=document.getElementById('day-screen');
-  const lnd = window.visualViewport
-    ? window.visualViewport.width > window.visualViewport.height
-    : window.innerWidth > window.innerHeight;
+  // screen.orientationでデバイスの物理向きを取得（キーボード表示の影響を受けない）
+  let lnd;
+  if (screen.orientation) {
+    lnd = screen.orientation.type.startsWith('landscape');
+  } else {
+    // fallback: screen.width/heightは物理画面サイズなのでキーボード影響なし
+    lnd = screen.width > screen.height;
+  }
   ds.classList.toggle('landscape',lnd);
   ds.classList.toggle('portrait',!lnd);
 }
 
 window.addEventListener('resize',()=>{
-  if(S.screen==='day'){updateOrientation();sizeCanvas();}
+  // resizeはキーボード表示でも発火するのでsizeCanvasのみ（向き判定はしない）
+  if(S.screen==='day') sizeCanvas();
   if(S.screen==='calendar') renderCalendar();
 });
-window.addEventListener('orientationchange', () => {
+
+// 物理的な向き変更のみ検出（キーボード表示では発火しない）
+const onOrientationChange = () => {
   setTimeout(() => {
     if(S.screen==='day'){updateOrientation();sizeCanvas();}
     if(S.screen==='calendar') renderCalendar();
   }, 100);
-});
-// iPhoneのSafariではvisualViewportのresizeで向き変更を検出
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => {
-    if(S.screen==='day'){updateOrientation();sizeCanvas();}
-    if(S.screen==='calendar') renderCalendar();
-  });
+};
+if (screen.orientation) {
+  screen.orientation.addEventListener('change', onOrientationChange);
+} else {
+  window.addEventListener('orientationchange', onOrientationChange);
 }
 
 /* ════ INIT ════ */
@@ -3687,6 +3860,6 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v207</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v214</div>
 </body>
 </html>
