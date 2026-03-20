@@ -15,37 +15,47 @@
 /* ════════════════════════════════════════════
    DESIGN TOKENS
 ════════════════════════════════════════════ */
-:root{
-  /* サイズ */
-  --toolbar-h:   152px;   /* 縦長: ツールバー固定高さ */
-  --sidebar-w:   310px;   /* 横長: サイドパネル幅 */
+:root {
+  /* Layout */
+  --toolbar-h: 152px;
+  --sidebar-w: 310px;
+  --r:         6px;
 
-  /* カラー */
+  /* Colors — surface */
   --bg:          #f5f3ef;
   --surface:     #faf9f7;
-  --ink:         #2c2a26;
-  --ink-mid:     #6b6962;
-  --ink-faint:   #a09d98;
+  --inactive-bg: #ece9e3;
+
+  /* Colors — ink */
+  --ink:       #2c2a26;
+  --ink-mid:   #6b6962;
+  --ink-faint: #a09d98;
+
+  /* Colors — border */
   --border:      rgba(44,42,38,.18);
   --border-soft: rgba(44,42,38,.30);
-  --inactive-bg: #ece9e3;
+  --border-bold: rgba(44,42,38,.35);
+
+  /* Colors — interaction */
   --tool-hover:  rgba(44,42,38,.07);
   --tool-active: #2c2a26;
-  --today-ring:  #c8a84b;
-  --sun-bg:      rgba(180,40,40,.05);
-  --sun-txt:     #b42828;
-  --sat-bg:      rgba(40,80,180,.05);
-  --sat-txt:     #2850b4;
-  --hol-bg:      rgba(180,40,40,.05);
-  --hol-txt:     #b42828;
-  --shadow-md:   0 4px 20px rgba(0,0,0,.10);
 
-  /* タイポグラフィ */
+  /* Colors — semantic */
+  --today-ring: #c8a84b;
+  --sun-bg:     rgba(180,40,40,.05);
+  --sun-txt:    #b42828;
+  --sat-bg:     rgba(40,80,180,.05);
+  --sat-txt:    #2850b4;
+  --hol-bg:     rgba(180,40,40,.05);
+  --hol-txt:    #b42828;
+
+  /* Shadow */
+  --shadow-md:  0 4px 20px rgba(0,0,0,.10);
+  --shadow-sm:  0 2px 12px rgba(0,0,0,.10);
+
+  /* Typography */
   --font-body: 'M PLUS Rounded 1c', 'Hiragino Sans', sans-serif;
   --font-disp: 'M PLUS Rounded 1c', 'Hiragino Sans', sans-serif;
-
-  /* その他 */
-  --r: 6px;
 }
 
 /* ════════════════════════════════════════════
@@ -75,13 +85,59 @@ button:focus-visible { outline: none; background: transparent; }
 /* ════════════════════════════════════════════
    SCREENS
 ════════════════════════════════════════════ */
-.screen {
-  display: none;
-  position: absolute;
-  inset: 0;
-  flex-direction: column;
+.screen         { display: none; position: absolute; inset: 0; flex-direction: column; }
+.screen.active  { display: flex; }
+
+/* ════════════════════════════════════════════
+   SHARED — アイコンボタン
+════════════════════════════════════════════ */
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--r);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  outline: none;
+  -webkit-appearance: none;
 }
-.screen.active { display: flex; }
+@media (hover: hover) { .icon-btn:hover { background: var(--tool-hover); } }
+.icon-btn:focus,
+.icon-btn:active,
+.icon-btn:focus-visible,
+.icon-btn:focus:not(:focus-visible) { outline: none; background: transparent; }
+.icon-btn svg         { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn svg.filled  { fill: currentColor; stroke: none; }
+
+/* ════════════════════════════════════════════
+   SHARED — Undo/Redoボタン
+════════════════════════════════════════════ */
+.ur-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  color: var(--ink);
+  border-radius: var(--r);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s, opacity .12s;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  outline: none;
+}
+.ur-btn:hover                        { background: var(--tool-hover); }
+.ur-btn:focus,
+.ur-btn:active,
+.ur-btn:focus-visible                { outline: none; background: transparent; }
+.ur-btn:disabled                     { opacity: .28; cursor: default; }
+.ur-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ════════════════════════════════════════════
    CALENDAR SCREEN — ヘッダー
@@ -94,13 +150,12 @@ button:focus-visible { outline: none; background: transparent; }
   flex-shrink: 0;
 }
 
-/* 上段: タブ + カレンダー追加ボタン */
+/* タブ行 */
 .cal-header-top {
   display: flex;
   align-items: flex-end;
-  gap: 0;
   padding: 0 12px 0 8px;
-  border-bottom: 1px solid rgba(44,42,38,.35);
+  border-bottom: 1px solid var(--border-bold);
 }
 .cal-tabs {
   display: flex;
@@ -145,51 +200,36 @@ button:focus-visible { outline: none; background: transparent; }
   min-width: 40px;
   padding: 0;
 }
-.btn-add-group {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  margin-left: 4px;
-  margin-bottom: 6px;
-  align-self: center;
-  background: none;
-  border: 1.5px solid var(--border);
-  border-radius: var(--r);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  font-family: var(--font-body);
-  color: var(--ink-mid);
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: background .15s, border-color .15s, color .15s;
-}
-.btn-add-group:hover { background: var(--tool-hover); border-color: var(--ink-mid); color: var(--ink); }
-.btn-add-group svg   { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; flex-shrink: 0; }
 
-/* 下段: 月ナビゲーション */
+/* 月ナビ行 */
 .cal-header-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
   padding: 8px 16px;
+  position: relative;
 }
+.cal-nav-left, .cal-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+.cal-nav-right    { justify-content: flex-end; }
 .cal-title {
   font-family: var(--font-disp);
   font-size: 22px;
   letter-spacing: .02em;
-  flex: 1;
   text-align: center;
   display: flex;
   align-items: baseline;
   gap: 6px;
   justify-content: center;
+  white-space: nowrap;
 }
 .cal-title-year { font-size: 13px; color: var(--ink-mid); font-family: var(--font-body); font-weight: 300; }
 
 /* ════════════════════════════════════════════
-   CALENDAR SCREEN — グリッド
+   CALENDAR SCREEN — 曜日ヘッダー & グリッド
 ════════════════════════════════════════════ */
 .cal-weekdays {
   display: grid;
@@ -209,17 +249,29 @@ button:focus-visible { outline: none; background: transparent; }
 .wd.sun { color: var(--sun-txt); }
 .wd.sat { color: var(--sat-txt); }
 
+.cal-grid-area {
+  flex: 1;
+  overflow: hidden;
+  overflow-x: auto;
+  position: relative;
+  background: var(--bg);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-bottom: 16px;
+}
+#cal-screen { overflow: hidden; position: relative; }
+
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   overflow: visible;
-  border-left:   1px solid var(--border-soft);
-  box-shadow: 0 2px 12px rgba(0,0,0,.10);
+  border-left: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-sm);
   align-content: start;
 }
-#cal-screen { overflow: hidden; position: relative; }
-#cal-screen.landscape-grid .cal-grid { align-content: start; }
 
+/* セル */
 .cal-cell {
   border-right: 1px solid var(--border-soft);
   border-bottom: 1px solid var(--border-soft);
@@ -231,23 +283,24 @@ button:focus-visible { outline: none; background: transparent; }
   overflow: hidden;
   transition: filter .12s;
 }
-.cal-cell:active   { filter: brightness(.96); }
-.cal-cell.inactive { background: var(--inactive-bg); pointer-events: none; }
-.cal-cell.is-blank  { background: var(--inactive-bg); }
-.cal-cell.today    { box-shadow: inset 0 0 0 2px var(--today-ring); }
-.cal-cell.is-sun   { background: var(--sun-bg); }
-.cal-cell.is-sat   { background: var(--sat-bg); }
-.cal-cell.is-hol   { background: var(--hol-bg); }
+.cal-cell:active             { filter: brightness(.96); }
+.cal-cell.inactive           { background: var(--inactive-bg); pointer-events: none; }
+.cal-cell.is-blank           { background: var(--inactive-bg); }
+.cal-cell.today              { box-shadow: inset 0 0 0 2px var(--today-ring); }
+.cal-cell.is-sun             { background: var(--sun-bg); }
+.cal-cell.is-sat             { background: var(--sat-bg); }
+.cal-cell.is-hol             { background: var(--hol-bg); }
+.cal-cell.drag-over          { background: rgba(58,111,168,.10) !important; box-shadow: inset 0 0 0 2px #3a6fa8; }
 .cal-cell.last-row,
 .cal-cell.last-row.is-sun,
 .cal-cell.last-row.is-sat,
 .cal-cell.last-row.is-hol,
-.cal-cell.last-row.is-blank { border-bottom: 1px solid rgba(44,42,38,.35); }
+.cal-cell.last-row.is-blank  { border-bottom: 1px solid var(--border-bold); }
 
+/* セル内レイアウト */
 .cell-top {
   display: flex;
   align-items: center;
-  flex-direction: row;
   gap: 3px;
   padding: 3px 5px 2px;
   flex-shrink: 0;
@@ -262,10 +315,6 @@ button:focus-visible { outline: none; background: transparent; }
   white-space: nowrap;
   flex-shrink: 0;
 }
-.cal-cell.today .cell-num { font-weight: 700; color: var(--ink); }
-.cal-cell.is-sun .cell-num { color: var(--sun-txt); }
-.cal-cell.is-sat .cell-num { color: var(--sat-txt); }
-.cal-cell.is-hol .cell-num { color: var(--hol-txt); }
 .cell-hol-name {
   font-size: 11px;
   color: var(--hol-txt);
@@ -279,92 +328,51 @@ button:focus-visible { outline: none; background: transparent; }
   overflow: hidden;
   flex-shrink: 0;
 }
-.cal-cell.landscape-cell {
-  flex-direction: row;
-}
-.cal-cell.landscape-cell .cell-top {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  padding: 4px 6px;
-  overflow: hidden;
-  height: auto;
-}
-.cal-cell.landscape-cell .cell-num {
-  font-size: 9px;
-  overflow: visible;
-}
-.cal-cell.landscape-cell .cell-hol-name {
-  font-size: 9px;
-  overflow: visible;
-  white-space: nowrap;
-}
-.cell-remaining {
-  flex: 1;
-  background: var(--inactive-bg);
-}
-.cal-grid-area {
-  flex: 1;
-  overflow: hidden;
-  overflow-x: auto;
-  position: relative;
-  background: var(--bg);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-bottom: 16px;
-}
-@keyframes cal-fadein { from { opacity: 0; } to { opacity: 1; } }
-.cal-grid-area.tab-switching { animation: cal-fadein 0.4s ease forwards; }
+.cell-remaining { flex: 1; background: var(--inactive-bg); }
 
-/* 月切り替えスライドアニメーション */
-@keyframes slide-in-from-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+/* セル — 数字カラー */
+.cal-cell.today .cell-num  { font-weight: 700; color: var(--ink); }
+.cal-cell.is-sun .cell-num { color: var(--sun-txt); }
+.cal-cell.is-sat .cell-num { color: var(--sat-txt); }
+.cal-cell.is-hol .cell-num { color: var(--hol-txt); }
+
+/* 横長グリッド */
+.cal-cell.landscape-cell               { flex-direction: row; }
+.cal-cell.landscape-cell .cell-top     { flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 4px 6px; overflow: hidden; height: auto; }
+.cal-cell.landscape-cell .cell-num     { font-size: 9px; overflow: visible; }
+.cal-cell.landscape-cell .cell-hol-name{ font-size: 9px; white-space: nowrap; }
+
+/* ════════════════════════════════════════════
+   CALENDAR SCREEN — アニメーション
+════════════════════════════════════════════ */
+@keyframes cal-fadein          { from { opacity: 0; }          to { opacity: 1; } }
+@keyframes slide-in-from-right { from { transform: translateX( 100%); } to { transform: translateX(0); } }
 @keyframes slide-in-from-left  { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes slide-out-to-left   { from { transform: translateX(0); } to { transform: translateX(-100%); } }
-@keyframes slide-out-to-right  { from { transform: translateX(0); } to { transform: translateX(100%); } }
-.cal-grid.slide-in-right  { animation: slide-in-from-right 0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
-.cal-grid.slide-in-left   { animation: slide-in-from-left  0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
-.cal-grid.slide-out-left  { animation: slide-out-to-left   0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
-.cal-grid.slide-out-right { animation: slide-out-to-right  0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
+@keyframes slide-out-to-right  { from { transform: translateX(0); } to { transform: translateX( 100%); } }
 
-/* 日付セル画面スライドアニメーション */
-.draw-slide-in-right  { animation: slide-in-from-right 0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
-.draw-slide-in-left   { animation: slide-in-from-left  0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
-.draw-slide-out-left  { animation: slide-out-to-left   0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
-.draw-slide-out-right { animation: slide-out-to-right  0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
+.cal-grid-area.tab-switching { animation: cal-fadein 0.4s ease forwards; }
+
+.cal-grid.slide-in-right,
+.draw-slide-in-right  { animation: slide-in-from-right 0.4s cubic-bezier(.4,0,.2,1) forwards; }
+.cal-grid.slide-in-left,
+.draw-slide-in-left   { animation: slide-in-from-left  0.4s cubic-bezier(.4,0,.2,1) forwards; }
+.cal-grid.slide-out-left,
+.draw-slide-out-left  { animation: slide-out-to-left   0.4s cubic-bezier(.4,0,.2,1) forwards; }
+.cal-grid.slide-out-right,
+.draw-slide-out-right { animation: slide-out-to-right  0.4s cubic-bezier(.4,0,.2,1) forwards; }
 
 /* ════════════════════════════════════════════
    DAY CELL SCREEN — 共通
 ════════════════════════════════════════════ */
-#day-screen { background: var(--bg); }
+#day-screen           { background: var(--bg); }
 #day-screen.portrait  { flex-direction: column; }
 #day-screen.landscape { flex-direction: row; }
 
-/* 共通: アイコンボタン */
-.icon-btn {
-  width: 34px;
-  height: 34px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: var(--r);
-  color: var(--ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  outline: none;
-  -webkit-appearance: none;
-  -webkit-tap-highlight-color: transparent;
-}
-@media (hover: hover) {
-  .icon-btn:hover { background: var(--tool-hover); }
-}
-.icon-btn:focus,
-.icon-btn:active,
-.icon-btn:focus-visible,
-.icon-btn:focus:not(:focus-visible) { outline: none; background: transparent; }
-.icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#day-screen.portrait  .day-topbar       { display: flex; }
+#day-screen.portrait  .day-sidebar-land { display: none; }
+#day-screen.landscape .day-topbar       { display: none; }
+#day-screen.landscape .day-sidebar-land { display: flex; }
 
 /* ════════════════════════════════════════════
    DAY CELL SCREEN — 縦長（portrait）
@@ -378,16 +386,11 @@ button:focus-visible { outline: none; background: transparent; }
   height: var(--toolbar-h);
   overflow: hidden;
 }
-#day-screen.portrait  .day-topbar      { display: flex; }
-#day-screen.portrait  .day-sidebar-land{ display: none; }
-#day-screen.landscape .day-topbar      { display: none; }
-#day-screen.landscape .day-sidebar-land{ display: flex; }
 
 /* Row1: 戻る / 日付 / Undo */
 .tb-row1 {
   display: flex;
   align-items: flex-end;
-  gap: 0;
   padding: 10px 16px 8px;
   flex-shrink: 0;
 }
@@ -398,38 +401,11 @@ button:focus-visible { outline: none; background: transparent; }
   align-self: center;
 }
 .day-date-row { display: flex; align-items: baseline; gap: 8px; }
-.day-num  { font-size: 26px; font-weight: 600; color: var(--ink-faint); line-height: 1; }
-.day-dow  { font-size: 14px; color: var(--ink-faint); font-weight: 400; }
-.day-sub  { font-size: 11px; color: var(--ink-faint); font-weight: 300; }
-.spacer   { flex: 1; }
-.ur-row {
-  display: flex;
-  gap: 2px;
-  padding-right: 8px;
-  align-self: flex-end;
-  padding-bottom: 2px;
-  margin-left: 16px;
-}
-.ur-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 6px 8px;
-  color: var(--ink);
-  border-radius: var(--r);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background .12s, opacity .12s;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-appearance: none;
-  outline: none;
-}
-.ur-btn:hover                              { background: var(--tool-hover); }
-.ur-btn:focus, .ur-btn:active,
-.ur-btn:focus-visible                      { outline: none; background: transparent; }
-.ur-btn:disabled                           { opacity: .28; cursor: default; }
-.ur-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.day-num { font-size: 26px; font-weight: 600; color: var(--ink-faint); line-height: 1; }
+.day-dow { font-size: 14px; color: var(--ink-faint); font-weight: 400; }
+.day-sub { font-size: 11px; color: var(--ink-faint); font-weight: 300; }
+.spacer  { flex: 1; }
+.ur-row  { display: flex; gap: 2px; padding-right: 8px; align-self: flex-end; padding-bottom: 2px; margin-left: 16px; }
 
 /* 縦長: 戻るボタン */
 #btn-back {
@@ -449,7 +425,6 @@ button:focus-visible { outline: none; background: transparent; }
   display: flex;
   align-items: center;
   padding: 0 8px;
-  gap: 0;
   flex-shrink: 0;
 }
 .tool-btn {
@@ -475,7 +450,7 @@ button:focus-visible { outline: none; background: transparent; }
 .tool-btn:hover  { background: var(--tool-hover); }
 .tool-btn.active { background: var(--tool-active); color: #fff; }
 
-/* Row3: オプション（JSで内容を差し替え）*/
+/* Row3: オプション */
 .tb-row3 {
   display: flex;
   align-items: center;
@@ -504,7 +479,6 @@ button:focus-visible { outline: none; background: transparent; }
 .land-row1 {
   display: flex;
   align-items: flex-end;
-  gap: 0;
   flex-wrap: nowrap;
   margin-left: -12px;
 }
@@ -520,12 +494,8 @@ button:focus-visible { outline: none; background: transparent; }
 .land-day-sub  { font-size: 10px; color: var(--ink-faint); font-weight: 300; white-space: nowrap; }
 
 /* 横長: 戻るボタン */
-#btn-back-land {
-  width: 80px;
-  height: 80px;
-  align-self: center;
-}
-#btn-back-land svg { width: 56px; height: 56px; stroke-width: 2.4; }
+#btn-back-land          { width: 80px; height: 80px; align-self: center; }
+#btn-back-land svg      { width: 56px; height: 56px; stroke-width: 2.4; }
 
 .land-tool-group {
   display: flex;
@@ -557,42 +527,35 @@ button:focus-visible { outline: none; background: transparent; }
 
 .land-opts      { display: flex; flex-direction: column; gap: 10px; }
 .land-opt-label { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-weight: 600; margin-bottom: 4px; }
-.land-swatches  { display: flex; gap: 5px; flex-wrap: wrap; }
 
 /* ════════════════════════════════════════════
    DAY CELL SCREEN — キャンバスエリア
 ════════════════════════════════════════════ */
-.draw-wrap {
-  flex: 1;
-  display: flex;
-  background: var(--bg);
-  overflow: hidden;
-}
-.draw-wrap.portrait-wrap  { align-items: flex-start; justify-content: center; }
-.draw-wrap.landscape-wrap { align-items: center;     justify-content: flex-start; }
+.draw-wrap               { flex: 1; display: flex; background: var(--bg); overflow: hidden; }
+.draw-wrap.portrait-wrap { align-items: flex-start; justify-content: center; }
+.draw-wrap.landscape-wrap{ align-items: center;     justify-content: flex-start; }
 #draw-canvas {
   background: #fff;
-  box-shadow: 0 2px 12px rgba(0,0,0,.10), 0 0 0 1px var(--border);
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--border);
   display: block;
   touch-action: none;
 }
 
 /* ════════════════════════════════════════════
-   TOOL OPTIONS（ペン/消しゴム/テキスト）
+   TOOL OPTIONS（ペン / マーカー / テキスト）
 ════════════════════════════════════════════ */
-.opt-block  { display: flex; align-items: center; gap: 10px; }
-.opt-label  { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-weight: 600; white-space: nowrap; }
-.swatches   { display: flex; gap: 10px; flex-wrap: wrap; }
+.opt-block { display: flex; align-items: center; gap: 10px; }
+.opt-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-weight: 600; white-space: nowrap; }
+.swatches  { display: flex; gap: 10px; flex-wrap: wrap; }
 .swatch {
   width: 22px;
   height: 22px;
   border-radius: 50%;
   border: 2.5px solid transparent;
   cursor: pointer;
-  transition: transform .1s, border-color .1s, outline .1s;
+  transition: transform .1s, outline .1s;
 }
 .swatch.on {
-  border-color: transparent;
   outline: 2px solid var(--ink);
   outline-offset: 2px;
   transform: scale(1.1);
@@ -610,18 +573,19 @@ button:focus-visible { outline: none; background: transparent; }
   height: 26px;
   transition: background .12s, border-color .12s;
 }
-.sz-btn.on           { background: var(--ink); border-color: var(--ink); }
-.dot                 { border-radius: 50%; background: var(--ink); display: block; pointer-events: none; }
-.sz-btn.on .dot      { background: #fff; }
-.sz-lbl              { font-size: 13px; font-family: var(--font-body); pointer-events: none; padding: 0 2px; }
-.sz-btn.on .sz-lbl   { color: #fff; }
+.sz-btn.on         { background: var(--ink); border-color: var(--ink); }
+.dot               { border-radius: 50%; background: var(--ink); display: block; pointer-events: none; }
+.sz-btn.on .dot    { background: #fff; }
+.sz-lbl            { font-size: 13px; font-family: var(--font-body); pointer-events: none; padding: 0 2px; }
+.sz-btn.on .sz-lbl { color: #fff; }
 
 /* ════════════════════════════════════════════
    SETTINGS OVERLAY
 ════════════════════════════════════════════ */
-.overlay { display: none; position: fixed; inset: 0; z-index: 80; }
+.overlay      { display: none; position: fixed; inset: 0; z-index: 80; }
 .overlay.open { display: flex; }
-.ovl-bd { position: absolute; inset: 0; background: rgba(0,0,0,.15); }
+.ovl-bd       { position: absolute; inset: 0; background: rgba(0,0,0,.15); }
+
 .settings-panel {
   position: absolute;
   right: 12px;
@@ -634,9 +598,9 @@ button:focus-visible { outline: none; background: transparent; }
   min-width: 210px;
   z-index: 1;
 }
-.settings-panel h3 { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mid); margin-bottom: 14px; }
-.s-row             { margin-bottom: 12px; }
-.s-row label       { display: block; font-size: 11px; color: var(--ink-mid); margin-bottom: 5px; }
+.settings-panel h3   { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mid); margin-bottom: 14px; }
+.s-row               { margin-bottom: 12px; }
+.s-row label         { display: block; font-size: 11px; color: var(--ink-mid); margin-bottom: 5px; }
 .s-row select {
   width: 100%;
   border: 1px solid var(--border);
@@ -681,8 +645,8 @@ button:focus-visible { outline: none; background: transparent; }
   z-index: 500;
   width: min(360px, 90vw);
 }
-#stk-dropdown.open { display: block; }
-.stk-inline-grid   { display: flex; flex-wrap: wrap; gap: 6px; }
+#stk-dropdown.open     { display: block; }
+.stk-inline-grid       { display: flex; flex-wrap: wrap; gap: 6px; }
 .stk-inline-item {
   width: 40px;
   height: 40px;
@@ -694,9 +658,9 @@ button:focus-visible { outline: none; background: transparent; }
   border: 2px solid transparent;
   transition: transform .1s;
 }
-.stk-inline-item:hover      { background: var(--tool-hover); transform: scale(1.1); }
+.stk-inline-item:hover        { background: var(--tool-hover); transform: scale(1.1); }
 .stk-inline-item.stk-selected { border-color: var(--ink); background: var(--tool-hover); }
-.stk-inline-item svg        { width: 26px; height: 26px; }
+.stk-inline-item svg          { width: 26px; height: 26px; }
 
 /* ════════════════════════════════════════════
    CONTEXT MENUS
@@ -712,6 +676,8 @@ button:focus-visible { outline: none; background: transparent; }
   min-width: 180px;
   padding: 4px 0;
   overflow: hidden;
+  pointer-events: all;
+  touch-action: auto;
 }
 .ctx-menu.open { display: block; }
 .ctx-item {
@@ -725,16 +691,16 @@ button:focus-visible { outline: none; background: transparent; }
   transition: background .1s;
   color: var(--ink);
 }
-.ctx-item:hover    { background: var(--tool-hover); }
-.ctx-item.ctx-hover{ background: var(--tool-hover); }
+.ctx-item:hover     { background: var(--tool-hover); }
+.ctx-item.ctx-hover { background: var(--tool-hover); }
+.ctx-item.danger    { color: #b84040; }
+.ctx-item svg       { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ctx-sep            { height: 1px; background: var(--border-soft); margin: 3px 0; }
 @keyframes ctx-blink {
   0%, 100% { background: var(--tool-hover); }
   40%      { background: #c8e0f8; }
 }
 .ctx-item.ctx-blink { animation: ctx-blink 0.25s ease 2; }
-.ctx-item.danger    { color: #b84040; }
-.ctx-item svg       { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.ctx-sep            { height: 1px; background: var(--border-soft); margin: 3px 0; }
 
 /* ════════════════════════════════════════════
    YEAR-MONTH DRUM PICKER
@@ -757,6 +723,7 @@ button:focus-visible { outline: none; background: transparent; }
 }
 #ym-backdrop.open,
 #ym-picker.open { display: block; }
+
 .ym-drum-wrap {
   display: flex;
   height: 180px;
@@ -792,7 +759,7 @@ button:focus-visible { outline: none; background: transparent; }
   right: 8px;
   height: 36px;
   transform: translateY(-50%);
-  background: rgba(44,42,38,.07);
+  background: var(--tool-hover);
   border-radius: 8px;
   pointer-events: none;
   z-index: 1;
@@ -804,16 +771,73 @@ button:focus-visible { outline: none; background: transparent; }
   pointer-events: none;
   z-index: 2;
 }
-.ym-fade-top {
-  top: 0;
-  background: linear-gradient(to bottom, var(--surface) 20%, transparent);
+.ym-fade-top { top: 0;    background: linear-gradient(to bottom, var(--surface) 20%, transparent); }
+.ym-fade-bot { bottom: 0; background: linear-gradient(to top,   var(--surface) 20%, transparent); }
+
+/* ════════════════════════════════════════════
+   CLIP VIEWER
+════════════════════════════════════════════ */
+#clip-viewer {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
 }
-.ym-fade-bot {
-  bottom: 0;
-  background: linear-gradient(to top, var(--surface) 20%, transparent);
+#clip-viewer.open { display: block; }
+#clip-viewer-bd {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.85);
 }
+#clip-viewer-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+#clip-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  pointer-events: all;
+}
+#clip-viewer-toolbar .icon-btn { color: #fff; }
+#clip-viewer-toolbar .icon-btn:hover { background: rgba(255,255,255,.15); }
+#clip-viewer-page-info {
+  font-size: 13px;
+  color: rgba(255,255,255,.7);
+  font-family: var(--font-body);
+}
+#clip-viewer-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: all;
+}
+#clip-viewer-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 24px;
+}
+#clip-viewer-pages img {
+  max-width: 100%;
+  display: block;
+  border-radius: 4px;
+}
+#clip-viewer-pages canvas {
+  max-width: 100%;
+  display: block;
+  border-radius: 4px;
+}
+
 /* #transition-canvas は inline style で制御 */
 </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
@@ -825,26 +849,33 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-tabs" id="cal-tabs">
         <!-- JSで描画 -->
       </div>
-      <button class="btn-add-group" id="btn-add-group">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        カレンダーを追加
-      </button>
     </div>
     <!-- 下段：月ナビゲーション -->
     <div class="cal-header-nav">
-      <button class="icon-btn" id="btn-prev">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="cal-title" id="cal-title" style="cursor:pointer;">
-        <span class="cal-title-year" id="hdr-year"></span>
-        <span id="hdr-month"></span>
+      <div class="cal-nav-left"></div>
+      <div style="display:flex;align-items:flex-end;gap:8px;">
+        <button class="icon-btn" id="btn-prev">
+          <svg class="filled" viewBox="0 0 24 24"><path d="M18 5 Q19 5.5 19 6.5 L19 17.5 Q19 18.5 18 19 Q17 19 16 18 L8 13 Q7 12 8 11 L16 6 Q17 5 18 5 Z"/></svg>
+        </button>
+        <div class="cal-title" id="cal-title" style="cursor:pointer;">
+          <span class="cal-title-year" id="hdr-year"></span>
+          <span id="hdr-month"></span>
+        </div>
+        <button class="icon-btn" id="btn-next">
+          <svg class="filled" viewBox="0 0 24 24"><path d="M6 5 Q5 5.5 5 6.5 L5 17.5 Q5 18.5 6 19 Q7 19 8 18 L16 13 Q17 12 16 11 L8 6 Q7 5 6 5 Z"/></svg>
+        </button>
       </div>
-      <button class="icon-btn" id="btn-next">
-        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-      <button class="icon-btn" id="btn-settings">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
+      <div class="cal-nav-right">
+        <button class="ur-btn" id="cal-btn-undo" disabled>
+          <svg viewBox="0 0 24 24"><path d="M8 7H17a5 5 0 0 1 0 10H7"/><polyline points="11 4 8 7 11 10"/></svg>
+        </button>
+        <button class="ur-btn" id="cal-btn-redo" disabled>
+          <svg viewBox="0 0 24 24"><path d="M16 7H7a5 5 0 0 0 0 10h10"/><polyline points="13 4 16 7 13 10"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
     </div>
   </div>
   <div class="cal-weekdays" id="cal-wd"></div>
@@ -890,6 +921,9 @@ button:focus-visible { outline: none; background: transparent; }
       </button>
       <button class="tool-btn" data-tool="sticker">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M8 14.5 Q12 18 16 14.5"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="clip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
       </button>
       <button class="tool-btn" data-tool="select">
         <svg viewBox="4 2 15 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 18 C8 20 16 20 16 18 L16 10 C16 8.5 14.5 8 14 9 L14 6 C14 4.5 12 4.5 12 6 L12 4.5 C12 3 10 3 10 4.5 L10 6 C10 4.5 8 4.5 8 6 L8 18Z"/><path d="M8 11 C6 11 5 12 5 13.5 C5 15 6 16 8 16"/></svg>
@@ -937,6 +971,9 @@ button:focus-visible { outline: none; background: transparent; }
       <button class="land-tool-btn" data-tool="sticker">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M8 14.5 Q12 18 16 14.5"/></svg>
       </button>
+      <button class="land-tool-btn" data-tool="clip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
       <button class="land-tool-btn" data-tool="select">
         <svg viewBox="4 2 15 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 18 C8 20 16 20 16 18 L16 10 C16 8.5 14.5 8 14 9 L14 6 C14 4.5 12 4.5 12 6 L12 4.5 C12 3 10 3 10 4.5 L10 6 C10 4.5 8 4.5 8 6 L8 18Z"/><path d="M8 11 C6 11 5 12 5 13.5 C5 15 6 16 8 16"/></svg>
       </button>
@@ -947,6 +984,25 @@ button:focus-visible { outline: none; background: transparent; }
 
   <div class="draw-wrap" id="draw-wrap">
     <canvas id="draw-canvas"></canvas>
+  </div>
+</div>
+
+<!-- ══ CLIP FILE INPUT ══ -->
+<input type="file" id="clip-file-input" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style="display:none">
+
+<!-- ══ CLIP VIEWER ══ -->
+<div id="clip-viewer">
+  <div id="clip-viewer-bd"></div>
+  <div id="clip-viewer-panel">
+    <div id="clip-viewer-toolbar">
+      <button class="icon-btn" id="clip-viewer-close">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <span id="clip-viewer-page-info"></span>
+    </div>
+    <div id="clip-viewer-content">
+      <div id="clip-viewer-pages"></div>
+    </div>
   </div>
 </div>
 
@@ -1200,6 +1256,9 @@ const PALETTE = [
 ══════════════════════════════════════════════ */
 const today = new Date();
 
+// 携帯電話（非タブレット）の判定：UA文字列でiPhone/Android端末を検出
+const IS_PHONE = /iPhone/.test(navigator.userAgent) || (/Android/.test(navigator.userAgent) && /Mobile/.test(navigator.userAgent));
+
 // ── カレンダー一覧（タブごとのデータを管理） ──
 const calendars = [
   { id: 'cal-a', name: 'アーティストAのカレンダー', cellData: {} },
@@ -1245,9 +1304,9 @@ const S = {
   markerColor:'#f0a030',
   markerSize: 12,
   textColor:  '#1c1a18',
+  textBold:   false,
   textSize:   null,   // openDayCell 時に calcTextSizes() で確定
-  _textSmall: null,   // calcTextSizes() が設定するフォントサイズ（小）
-  _textLarge: null,   // calcTextSizes() が設定するフォントサイズ（大）
+  _textSmall: null,
   // ── 日付セル画面 ──
   currentKey: null,   // 現在開いているセルのkey
 };
@@ -1261,20 +1320,27 @@ const Draw = {
   selId:            null,   // 選択中オブジェクトのID
   dragInfo:         null,   // ドラッグ操作の状態 {objId, sx, sy, origObj}
   pendingStickerId: null,   // 選択済みスタンプのID（配置待ち）
+  pendingClipId:    null,   // 選択済みクリップのデータ（配置待ち）
   activeTextEl:     null,   // テキスト入力中の要素情報
   activePenObjRef:  null,   // 描画中のペンオブジェクトへの参照（objects内の参照）
   activeStroke:     null,   // 現在ドラッグ中の1ストローク
+  textJustFinished: false,  // テキスト確定直後フラグ（次クリックでの誤新規作成を防ぐ）
+  _lastTextTap:     0,      // テキストツールのダブルタップ検出用タイムスタンプ
+  _textTapTimer:    null,   // シングルタップ遅延タイマー
+  _globalLastTap:   0,      // グローバルダブルタップ検出用タイムスタンプ
 };
 
 // ── カレンダー画面の選択・操作状態 ──
 const Cal = {
-  selCellKey:    null,  // 選択中セルのkey
-  selObjId:      null,  // 選択中オブジェクトのID
-  currentCellKey:null,  // 現在開いているセルのkey（戻り先特定用）
-  dragGhost:     null,  // ドラッグ中のゴースト要素
-  ctxCellKey:    null,  // コンテキストメニュー対象のセルkey
-  ctxObjKey:     null,  // オブジェクトメニュー対象のセルkey
-  ctxObjId:      null,  // オブジェクトメニュー対象のオブジェクトID
+  selCellKey:    null,
+  selObjId:      null,
+  currentCellKey:null,
+  dragGhost:     null,
+  ctxCellKey:    null,
+  ctxObjKey:     null,
+  ctxObjId:      null,
+  undoStk:       [],   // カレンダー画面専用Undoスタック
+  redoStk:       [],   // カレンダー画面専用Redoスタック
 };
 
 const CANVAS_SRC  = 600;
@@ -1332,7 +1398,6 @@ loadFromStorage();
 function getCellObjs(key)      { return getActiveCalendar().cellData[key] || []; }
 function setCellObjs(key, arr) { getActiveCalendar().cellData[key] = arr; }
 function cellKey(y,m1,d)       { return `${y}-${String(m1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
-function memoCellKey(lbl)      { return `${S.year}-${String(S.month+1).padStart(2,'0')}-${lbl}`; }
 
 /* ════ CANVAS ════ */
 const cvs = document.getElementById('draw-canvas');
@@ -1369,21 +1434,9 @@ function sizeCanvas() {
 /* 描画エリア幅(CANVAS_SRC=600の論理座標系)で
    「小」= 横15文字、「大」= 小×1.3 になるよう計算 */
 function calcTextSizes() {
-  // CANVAS_SRC=600 の論理空間で、15文字で横幅いっぱいになるサイズ
-  // 日本語全角文字は「font-size ≒ 文字幅」なので:
-  //   font-size_small = CANVAS_SRC / 15
-  const small = Math.round(CANVAS_SRC / 15);  // = 40px (論理座標)
-  const large = Math.round(small * 1.3);
-
-  const prev = S.textSize;
-  // 現在「小」が選ばれていたら小のまま、「大」が選ばれていたら大のまま維持
-  if (!prev || prev === S._textSmall) {
-    S.textSize = small;
-  } else {
-    S.textSize = large;
-  }
+  const small = Math.round(CANVAS_SRC / 15); // = 40px (論理座標)
+  if (!S.textSize) S.textSize = small;
   S._textSmall = small;
-  S._textLarge = large;
 }
 
 /* ════ RENDER ════ */
@@ -1410,9 +1463,11 @@ function redraw() {
 }
 
 function drawObj(c, obj, sc) {
+  if (obj._hidden) return;
   if (obj.type==='pen')     drawPenObj(c, obj, sc);
   if (obj.type==='text')    drawTextObj(c, obj, sc);
   if (obj.type==='sticker') drawStickerObj(c, obj, sc);
+  if (obj.type==='clip')    drawClipObj(c, obj, sc);
 }
 
 function drawPenObj(c, obj, sc) {
@@ -1441,7 +1496,8 @@ function drawStroke(c, path, sc) {
 
 function drawTextObj(c, obj, sc) {
   c.save();
-  c.font         = `${(obj.size||16)*sc}px 'Noto Sans JP',sans-serif`;
+  const weight = obj.bold ? '700' : '400';
+  c.font         = `${weight} ${(obj.size||16)*sc}px 'Noto Sans JP',sans-serif`;
   c.fillStyle    = obj.color||'#1c1a18';
   c.textBaseline = 'top';
   (obj.text||'').split('\n').forEach((line,i)=>{
@@ -1469,6 +1525,84 @@ function drawStickerObj(c, obj, sc) {
   const {w, h} = stickerDrawSize(img, sz);
   c.save();
   c.drawImage(img, obj.x * sc - w/2, obj.y * sc - h/2, w, h);
+  c.restore();
+}
+
+function drawClipObj(c, obj, sc) {
+  const dpr  = window.devicePixelRatio || 1;
+  const sz   = (obj.size || 60) * sc;
+  const cx2  = obj.x * sc;
+  const cy2  = obj.y * sc;
+  const w    = sz;
+  const h    = sz * 1.2;
+  const rx   = sz * 0.12;
+  const x0   = cx2 - w/2;
+  const y0   = cy2 - h/2;
+
+  c.save();
+
+  // カード背景
+  c.fillStyle   = '#fff';
+  c.strokeStyle = '#3a6fa8';
+  c.lineWidth   = 1.5 * dpr;
+  c.beginPath();
+  c.moveTo(x0+rx, y0);
+  c.lineTo(x0+w-rx, y0);
+  c.quadraticCurveTo(x0+w, y0, x0+w, y0+rx);
+  c.lineTo(x0+w, y0+h-rx);
+  c.quadraticCurveTo(x0+w, y0+h, x0+w-rx, y0+h);
+  c.lineTo(x0+rx, y0+h);
+  c.quadraticCurveTo(x0, y0+h, x0, y0+h-rx);
+  c.lineTo(x0, y0+rx);
+  c.quadraticCurveTo(x0, y0, x0+rx, y0);
+  c.closePath();
+  c.fill(); c.stroke();
+
+  // ヘッダー帯（ファイルタイプの色）
+  const isPdf = obj.fileType === 'application/pdf';
+  c.fillStyle = isPdf ? '#e03030' : '#3a6fa8';
+  c.beginPath();
+  c.moveTo(x0+rx, y0);
+  c.lineTo(x0+w-rx, y0);
+  c.quadraticCurveTo(x0+w, y0, x0+w, y0+rx);
+  c.lineTo(x0+w, y0+h*0.32);
+  c.lineTo(x0, y0+h*0.32);
+  c.lineTo(x0, y0+rx);
+  c.quadraticCurveTo(x0, y0, x0+rx, y0);
+  c.closePath();
+  c.fill();
+
+  // ファイルタイプラベル
+  c.fillStyle = '#fff';
+  c.font = `bold ${sz*0.22}px sans-serif`;
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(isPdf ? 'PDF' : 'IMG', cx2, y0 + h*0.16);
+
+  // 横線（コンテンツ表示のイメージ）
+  c.strokeStyle = 'rgba(58,107,168,.3)';
+  c.lineWidth   = 1 * dpr;
+  const lx1 = x0 + w*0.15;
+  const lx2 = x0 + w*0.85;
+  [0.48, 0.62, 0.76].forEach(yRatio => {
+    const ly = y0 + h * yRatio;
+    c.beginPath(); c.moveTo(lx1, ly); c.lineTo(lx2, ly); c.stroke();
+  });
+
+  // ページ数バッジ
+  if (obj.pageCount && obj.pageCount > 1) {
+    const br = sz * 0.18;
+    const bx = x0 + w - br*0.8;
+    const by = y0 + h - br*0.8;
+    c.fillStyle = isPdf ? '#e03030' : '#3a6fa8';
+    c.beginPath(); c.arc(bx, by, br, 0, Math.PI*2); c.fill();
+    c.fillStyle = '#fff';
+    c.font = `bold ${br}px sans-serif`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(String(obj.pageCount), bx, by);
+  }
+
   c.restore();
 }
 
@@ -1500,6 +1634,12 @@ function getObjBounds(obj) {
       return {x: obj.x*sc - w/2, y: obj.y*sc - h/2, w, h};
     }
     return {x:obj.x*sc-sz/2, y:obj.y*sc-sz/2, w:sz, h:sz};
+  }
+  if (obj.type==='clip') {
+    const sz = (obj.size||60)*sc;
+    const w  = sz;
+    const h  = sz * 1.2;
+    return {x: obj.x*sc - w/2, y: obj.y*sc - h/2, w, h};
   }
   return {x:0,y:0,w:20,h:20};
 }
@@ -1714,7 +1854,7 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
         }))
       }));
       obj.size = snap.size; // 線幅はそのまま
-    } else if (obj.type === 'text' || obj.type === 'sticker') {
+    } else if (obj.type === 'text' || obj.type === 'sticker' || obj.type === 'clip') {
       obj.x = cx + (snap.x - cx) * scale;
       obj.y = cy + (snap.y - cy) * scale;
       const newSize = (snap.size || 1) * scale;
@@ -1765,6 +1905,26 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
   }, { passive: false });
 })();
 
+// オブジェクト選択＋ドラッグ待機（select/text/stickerツールで共用）
+function startObjSelect(found, lp, clientX, clientY) {
+  Draw.selId = found.id;
+  redraw();
+  const origObj = clone(found);
+  const onTryDrag = mv => {
+    const {clientX:mx, clientY:my} = evtCoords(mv);
+    if (Math.hypot(mx-clientX, my-clientY) > 6) {
+      document.removeEventListener('pointermove', onTryDrag);
+      document.removeEventListener('pointerup', onUpAfterHit);
+      Draw.dragInfo = {objId: found.id, sx: lp.x, sy: lp.y, origObj};
+    }
+  };
+  const onUpAfterHit = () => {
+    document.removeEventListener('pointermove', onTryDrag);
+  };
+  document.addEventListener('pointermove', onTryDrag);
+  document.addEventListener('pointerup', onUpAfterHit, {once:true});
+}
+
 function onDown(e) {
   if (document.getElementById('ctx-day-obj').classList.contains('open') ||
       document.getElementById('ctx-day-paste').classList.contains('open')) return;
@@ -1772,6 +1932,29 @@ function onDown(e) {
   const {clientX,clientY} = evtCoords(e);
   const lp = toLogical(clientX,clientY);
   const pp = toPhysical(clientX,clientY);
+
+  // ── グローバルダブルタップ：テキストオブジェクト上ならどのツールからでも編集 ──
+  const nowDt = Date.now();
+  if (S.tool !== 'text' && nowDt - (Draw._globalLastTap||0) < 350) {
+    const hit = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp.x, pp.y));
+    if (hit) {
+      showTextInput(hit.x, hit.y, hit);
+      Draw._globalLastTap = 0;
+      return;
+    }
+  }
+
+  // ── クリップアイコンのダブルタップ → ビューワー起動（selectツールのみ） ──
+  if (S.tool === 'select' && nowDt - (Draw._globalLastTap||0) < 350) {
+    const hitClip = [...Draw.objects].reverse().find(o => o.type==='clip' && hitObj(o, pp.x, pp.y));
+    if (hitClip) {
+      openClipViewer(hitClip.clipId);
+      Draw._globalLastTap = 0;
+      return;
+    }
+  }
+
+  Draw._globalLastTap = nowDt;
 
   if (S.tool==='select') {
     // ×ボタンのヒットテスト
@@ -1795,32 +1978,7 @@ function onDown(e) {
     }
 
     if (found) {
-      // オブジェクトにヒット → 即選択 ＋ ドラッグ待機
-      Draw.selId = found.id;
-      redraw();
-
-      const origObj  = clone(found);
-      let   didAction = false;
-
-      // ドラッグ検出（6px以上動いたら開始）
-      const onTryDrag = mv => {
-        const {clientX:mx, clientY:my} = evtCoords(mv);
-        if (Math.hypot(mx-clientX, my-clientY) > 6) {
-          didAction = true;
-          document.removeEventListener('pointermove', onTryDrag);
-          document.removeEventListener('pointerup', onUpAfterHit);
-          // ドラッグ開始（sx/sy は pointerdown 時の論理座標を起点に）
-          Draw.dragInfo = {objId: found.id, sx: lp.x, sy: lp.y, origObj};
-        }
-      };
-
-      const onUpAfterHit = () => {
-        document.removeEventListener('pointermove', onTryDrag);
-        // 動かずに離した → 選択確定（何もしない、selIdはそのまま）
-      };
-
-      document.addEventListener('pointermove', onTryDrag);
-      document.addEventListener('pointerup', onUpAfterHit, {once:true});
+      startObjSelect(found, lp, clientX, clientY);
       return;
     }
 
@@ -1842,11 +2000,66 @@ function onDown(e) {
     eraseAt(lp); return;
   }
   if (S.tool==='text') {
-    showTextInput(lp.x,lp.y,null); return;
+    if (Draw.activeTextEl) {
+      finalizeText();
+      return;
+    }
+    if (Draw.textJustFinished) return;
+
+    const now = Date.now();
+    const {clientX: ecx, clientY: ecy} = evtCoords(e);
+    const pp2 = toPhysical(ecx, ecy);
+    const hitText = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp2.x, pp2.y));
+
+    if (now - (Draw._lastTextTap||0) < 350) {
+      // ダブルタップ
+      clearTimeout(Draw._textTapTimer);
+      Draw._lastTextTap = 0;
+      if (hitText) {
+        showTextInput(hitText.x, hitText.y, hitText);
+      } else {
+        showTextInput(lp.x, lp.y, null);
+      }
+      return;
+    }
+    Draw._lastTextTap = now;
+
+    if (hitText) {
+      // シングルタップ：350ms待ってダブルタップでなければドラッグ開始
+      Draw._textTapTimer = setTimeout(() => {
+        startObjSelect(hitText, lp, clientX, clientY);
+      }, 350);
+    } else {
+      // テキストオブジェクト外
+      if (Draw.selId) {
+        // 選択中なら解除のみ（新規入力しない）
+        Draw.selId = null; redraw();
+        Draw._lastTextTap = 0;
+        return;
+      }
+      // 選択なし：350ms待って新規入力
+      Draw._textTapTimer = setTimeout(() => {
+        if (Draw.activeTextEl || Draw.textJustFinished) return;
+        showTextInput(lp.x, lp.y, null);
+      }, 350);
+    }
+    return;
   }
   if (S.tool==='sticker') {
     if (Draw.pendingStickerId) {
       placeSticker(lp);
+      return;
+    }
+    // スタンプ未選択時：スタンプオブジェクトにヒットしたらドラッグ
+    const hitSticker = [...Draw.objects].reverse().find(o => o.type==='sticker' && hitObj(o, pp.x, pp.y));
+    if (hitSticker) {
+      startObjSelect(hitSticker, lp, clientX, clientY);
+    }
+    return;
+  }
+  if (S.tool==='clip') {
+    if (Draw.pendingClipId) {
+      handleClipPointerDown(lp);
     }
     return;
   }
@@ -1911,36 +2124,207 @@ function showTextInput(x,y,editObj) {
   const r  = cvs.getBoundingClientRect();
   const sc = r.width/CANVAS_SRC;
   const ta = document.createElement('textarea');
-  ta.style.cssText=`position:fixed;left:${r.left+x*sc}px;top:${r.top+y*sc}px;
-    font:${(editObj?.size||S.textSize)*sc}px 'Noto Sans JP',sans-serif;
+  const fontSize = (editObj?.size||S.textSize)*sc;
+  const weight   = (editObj?.bold ?? S.textBold) ? '700' : '400';
+  ta.style.cssText=`position:fixed;left:${r.left+x*sc}px;top:${r.top+y*sc-14}px;
+    font:${weight} ${fontSize}px 'Noto Sans JP',sans-serif;
     color:${editObj?.color||S.textColor};min-width:80px;min-height:28px;
-    border:1.5px dashed #3a6fa8;background:rgba(255,255,255,.93);
-    outline:none;resize:none;padding:2px 4px;line-height:1.35;
+    border:none;outline:1.5px dashed #3a6fa8;background:rgba(255,255,255,.93);
+    resize:none;padding:0;margin:0;line-height:1.35;
+    vertical-align:top;box-sizing:content-box;
     border-radius:3px;z-index:600;`;
-  if (editObj) ta.value=editObj.text||'';
+  if (editObj) {
+    ta.value = editObj.text||'';
+    // 編集中は元オブジェクトをキャンバスから隠す
+    editObj._hidden = true;
+    redraw();
+  }
   document.body.appendChild(ta); ta.focus();
   Draw.activeTextEl={el:ta,x,y,editObj};
-  const fin=ev=>{if(ev.target!==ta){finalizeText();document.removeEventListener('pointerdown',fin,true);}};
-  setTimeout(()=>document.addEventListener('pointerdown',fin,true),80);
+  Draw.textJustFinished=false;
+
+  // textarea外のpointerdownで確定
+  const onOutsideDown = ev => {
+    if (ev.target !== ta) {
+      finalizeText();
+      document.removeEventListener('pointerdown', onOutsideDown, true);
+    }
+  };
+  setTimeout(() => document.addEventListener('pointerdown', onOutsideDown, true), 80);
 }
 
 function finalizeText() {
   if (!Draw.activeTextEl) return;
   const {el,x,y,editObj}=Draw.activeTextEl;
+  if (editObj) editObj._hidden = false;
   const txt=el.value;
+
   if (txt.trim()) {
     if (editObj) {
       const prev=clone(editObj); editObj.text=txt;
       pushUndo({type:'edit',objId:editObj.id,from:prev,to:clone(editObj)});
     } else {
-      const obj={id:uid(),type:'text',x,y,text:txt,color:S.textColor,size:S.textSize};
+      const obj={id:uid(),type:'text',x,y,text:txt,color:S.textColor,size:S.textSize,bold:S.textBold};
       pushUndo({type:'create',obj:clone(obj)}); Draw.objects.push(obj);
     }
     flushCell(); redraw();
   }
-  el.remove(); Draw.activeTextEl=null;
+  el.remove();
+  Draw.activeTextEl=null;
+  Draw.textJustFinished=true;
+  setTimeout(()=>{ Draw.textJustFinished=false; }, 320);
 }
-function removeTextInput(){if(Draw.activeTextEl){activeTextEl.el.remove();Draw.activeTextEl=null;}}
+
+function removeTextInput(){
+  if(Draw.activeTextEl){
+    if(Draw.activeTextEl.editObj) Draw.activeTextEl.editObj._hidden = false;
+    Draw.activeTextEl.el.remove();
+    Draw.activeTextEl=null;
+    redraw();
+  }
+}
+
+/* ════ CLIP ════ */
+;(function(){
+  // LocalStorageキープレフィックス
+  const CLIP_PREFIX = 'calapp_clip_';
+
+  // ファイルデータをLocalStorageに保存してIDを返す
+  function saveClipData(dataUrl, fileName, fileType, pageCount) {
+    const id = 'clip_' + uid();
+    try {
+      localStorage.setItem(CLIP_PREFIX + id, JSON.stringify({dataUrl, fileName, fileType, pageCount}));
+    } catch(e) {
+      alert('ファイルが大きすぎて保存できません。より小さいファイルを使用してください。');
+      return null;
+    }
+    return id;
+  }
+
+  // LocalStorageからファイルデータを取得
+  window.getClipData = function(clipId) {
+    try {
+      const raw = localStorage.getItem(CLIP_PREFIX + clipId);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+  };
+
+  // クリップオブジェクトを配置
+  function placeClip(lp, clipId, pageCount, fileType) {
+    const obj = {
+      id: uid(), type:'clip',
+      x: lp.x, y: lp.y,
+      size: 60,
+      clipId, pageCount, fileType,
+    };
+    pushUndo({type:'create', obj: clone(obj)});
+    Draw.objects.push(obj);
+    Draw.pendingClipId = null;
+    flushCell(); redraw();
+  }
+
+  // ファイル選択ハンドラ
+  const fileInput = document.getElementById('clip-file-input');
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    fileInput.value = '';
+
+    const fileType = file.type;
+    let dataUrl, pageCount = 1;
+
+    if (fileType === 'application/pdf') {
+      // PDFをDataURLとして読み込む
+      dataUrl = await readFileAsDataUrl(file);
+      // ページ数を取得
+      try {
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        if (pdfjsLib) {
+          const pdf = await pdfjsLib.getDocument({url: dataUrl}).promise;
+          pageCount = pdf.numPages;
+        }
+      } catch(e) {}
+    } else {
+      dataUrl = await readFileAsDataUrl(file);
+    }
+
+    const clipId = saveClipData(dataUrl, file.name, fileType, pageCount);
+    if (!clipId) return;
+
+    Draw.pendingClipId = {clipId, pageCount, fileType};
+    // カーソルに+マーク追加（スタンプと同様）
+    applyCanvasCursor('clip');
+  });
+
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // クリップツール選択時のポインターダウン処理
+  window.handleClipPointerDown = function(lp) {
+    if (Draw.pendingClipId) {
+      placeClip(lp, Draw.pendingClipId.clipId, Draw.pendingClipId.pageCount, Draw.pendingClipId.fileType);
+    }
+  };
+
+  // ビューワー
+  const viewer = document.getElementById('clip-viewer');
+  const viewerPages = document.getElementById('clip-viewer-pages');
+  const viewerPageInfo = document.getElementById('clip-viewer-page-info');
+
+  window.openClipViewer = async function(clipId) {
+    const data = getClipData(clipId);
+    if (!data) return;
+
+    viewer.classList.add('open');
+    viewerPages.innerHTML = '';
+    viewerPageInfo.textContent = '';
+
+    if (data.fileType === 'application/pdf') {
+      try {
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdf = await pdfjsLib.getDocument({url: data.dataUrl}).promise;
+        viewerPageInfo.textContent = `${pdf.numPages}ページ`;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({scale: window.innerWidth / page.getViewport({scale:1}).width * 0.92});
+          const cvs2 = document.createElement('canvas');
+          cvs2.width  = viewport.width;
+          cvs2.height = viewport.height;
+          cvs2.style.width  = '92vw';
+          cvs2.style.maxWidth = '800px';
+          viewerPages.appendChild(cvs2);
+          await page.render({canvasContext: cvs2.getContext('2d'), viewport}).promise;
+        }
+      } catch(e) {
+        viewerPages.innerHTML = '<p style="color:#fff;padding:24px">PDFの読み込みに失敗しました</p>';
+      }
+    } else {
+      // 画像
+      const img = document.createElement('img');
+      img.src = data.dataUrl;
+      img.style.width = '92vw';
+      img.style.maxWidth = '800px';
+      viewerPages.appendChild(img);
+    }
+  };
+
+  document.getElementById('clip-viewer-close').addEventListener('click', () => {
+    viewer.classList.remove('open');
+    viewerPages.innerHTML = '';
+  });
+  document.getElementById('clip-viewer-bd').addEventListener('click', () => {
+    viewer.classList.remove('open');
+    viewerPages.innerHTML = '';
+  });
+})();
 
 /* ════ STICKER ════ */
 (function(){
@@ -2087,6 +2471,80 @@ function flushCell(){
   renderMiniCanvases();
 }
 
+/* ════ CALENDAR SCREEN UNDO/REDO ════ */
+function calPushUndo(act) {
+  Cal.undoStk.push(act);
+  Cal.redoStk = [];
+  syncCalUR();
+}
+function syncCalUR() {
+  const uBtn = document.getElementById('cal-btn-undo');
+  const rBtn = document.getElementById('cal-btn-redo');
+  if (uBtn) uBtn.disabled = Cal.undoStk.length === 0;
+  if (rBtn) rBtn.disabled = Cal.redoStk.length === 0;
+}
+function clearCalUR() {
+  Cal.undoStk = [];
+  Cal.redoStk = [];
+  syncCalUR();
+}
+
+function applyCalUndo(act) {
+  if (act.type === 'cal-delete') {
+    // 削除を元に戻す → オブジェクトを復元
+    const objs = clone(getCellObjs(act.key));
+    objs.push(clone(act.obj));
+    setCellObjs(act.key, objs);
+  } else if (act.type === 'cal-create') {
+    // 作成を元に戻す → オブジェクトを削除
+    const objs = getCellObjs(act.key).filter(o => o.id !== act.obj.id);
+    setCellObjs(act.key, objs);
+  } else if (act.type === 'cal-move') {
+    // 移動を元に戻す
+    setCellObjs(act.toKey, getCellObjs(act.toKey).filter(o => o.id !== act.obj.id));
+    const fromObjs = clone(getCellObjs(act.fromKey));
+    fromObjs.push(clone(act.obj));
+    setCellObjs(act.fromKey, fromObjs);
+  }
+  saveToStorage();
+  renderMiniCanvases();
+}
+
+function applyCalRedo(act) {
+  if (act.type === 'cal-delete') {
+    const objs = getCellObjs(act.key).filter(o => o.id !== act.obj.id);
+    setCellObjs(act.key, objs);
+  } else if (act.type === 'cal-create') {
+    const objs = clone(getCellObjs(act.key));
+    objs.push(clone(act.obj));
+    setCellObjs(act.key, objs);
+  } else if (act.type === 'cal-move') {
+    const fromObjs = getCellObjs(act.fromKey).filter(o => o.id !== act.obj.id);
+    setCellObjs(act.fromKey, fromObjs);
+    const toObjs = clone(getCellObjs(act.toKey));
+    toObjs.push(clone(act.movedObj));
+    setCellObjs(act.toKey, toObjs);
+  }
+  saveToStorage();
+  renderMiniCanvases();
+}
+
+function doCalUndo() {
+  if (Cal.undoStk.length === 0) return;
+  const act = Cal.undoStk.pop();
+  Cal.redoStk.push(act);
+  applyCalUndo(act);
+  syncCalUR();
+}
+
+function doCalRedo() {
+  if (Cal.redoStk.length === 0) return;
+  const act = Cal.redoStk.pop();
+  Cal.undoStk.push(act);
+  applyCalRedo(act);
+  syncCalUR();
+}
+
 /* ════ UNDO/REDO ════ */
 function pushUndo(act){ Draw.undoStk.push(act); Draw.redoStk=[]; syncUR(); }
 
@@ -2117,6 +2575,7 @@ function openDayCell(key, label, keepTool = false) {
   Draw.objects=clone(getCellObjs(key));
   Draw.undoStk=[]; Draw.redoStk=[]; Draw.selId=null;
   Draw.activePenObjRef=null; Draw.activeStroke=null;
+  clearCalUR();
   syncUR();
 
   const l = L();
@@ -2455,8 +2914,6 @@ function navigateDayCell(dir) {
 })();
 
 /* ════ TOOL SWITCHING ════ */
-// Tool options HTML builders (called once, cached)
-/* ════ TOOL SWITCHING ════ */
 
 // パレットのスウォッチHTMLを生成するヘルパー
 function buildSwatchesHTML(id, dataAttr, currentColor) {
@@ -2504,19 +2961,17 @@ function buildOptsHTML(tool) {
       </div>`;
   }
   if (tool === 'text') {
-    const sm = S._textSmall || Math.round(CANVAS_SRC / 15);
-    const lg = S._textLarge || Math.round(sm * 1.3);
     return `
       <div class="opt-block">
         ${buildSwatchesHTML('to-colors', 'data-tcolor', S.textColor)}
       </div>
       <div class="opt-block">
         <div class="sz-row">
-          <button class="sz-btn${S.textSize===sm?' on':''}" data-tsize="${sm}">
-            <span class="sz-lbl">小</span>
+          <button class="sz-btn${!S.textBold?' on':''}" data-tbold="false">
+            <span class="sz-lbl" style="font-weight:400;">A</span>
           </button>
-          <button class="sz-btn${S.textSize===lg?' on':''}" data-tsize="${lg}">
-            <span class="sz-lbl">大</span>
+          <button class="sz-btn${S.textBold?' on':''}" data-tbold="true">
+            <span class="sz-lbl" style="font-weight:700;">A</span>
           </button>
         </div>
       </div>`;
@@ -2572,10 +3027,10 @@ function bindOpts(container) {
       syncActive(container, 'data-tcolor', S.textColor);
     });
   });
-  container.querySelectorAll('[data-tsize]').forEach(el => {
+  container.querySelectorAll('[data-tbold]').forEach(el => {
     el.addEventListener('click', () => {
-      S.textSize = +el.dataset.tsize;
-      syncActive(container, 'data-tsize', S.textSize);
+      S.textBold = el.dataset.tbold === 'true';
+      syncActive(container, 'data-tbold', String(S.textBold));
     });
   });
 }
@@ -2614,10 +3069,17 @@ function switchTool(tool) {
   // スタンプツール選択 → ドロップダウンを開く
   if (tool==='sticker') {
     Draw.pendingStickerId = null;
-    // renderOpts後にボタン位置が確定してから開く
     setTimeout(openStickerDropdown, 0);
   } else {
     closeStickerDropdown();
+  }
+
+  // クリップツール選択 → ファイル選択ダイアログを開く
+  if (tool==='clip') {
+    Draw.pendingClipId = null;
+    setTimeout(() => document.getElementById('clip-file-input').click(), 0);
+  } else {
+    Draw.pendingClipId = null;
   }
 
   applyCanvasCursor(tool);
@@ -2708,7 +3170,7 @@ const DATE_H  = 20;  // 縦長: 上部日付エリア高さ(px)
 const DATE_W  = 56;  // 横長: 左側日付エリア幅(px)
 
 function isLandscapeCalendar() {
-  // iPhoneのSafariではvisualViewportが正確
+  if (IS_PHONE) return false; // 携帯電話は縦長固定
   if (window.visualViewport) {
     return window.visualViewport.width > window.visualViewport.height;
   }
@@ -2843,7 +3305,20 @@ function renderCalendarDOM(descs, headers, isLand) {
     el.appendChild(prev);
 
     el.addEventListener('pointerdown', e => onCellPointerDown(e, el, desc));
-    el.addEventListener('contextmenu', e => { e.preventDefault(); openCellCtx(e, desc.key); });
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const mc = el.querySelector('canvas');
+      if (mc) {
+        const r  = mc.getBoundingClientRect();
+        const sc = Math.min(mc.width / CANVAS_SRC, mc.height / CANVAS_SRC);
+        const lx = (e.clientX - r.left) / r.width  * (mc.width  / sc);
+        const ly = (e.clientY - r.top)  / r.height * (mc.height / sc);
+        const objs = getCellObjs(desc.key);
+        const hit  = findMiniHitObj(objs, lx, ly, desc.key);
+        if (hit) { openObjCtx(e.clientX, e.clientY, desc.key, hit.id); return; }
+      }
+      openCellCtx(e, desc.key);
+    });
 
     grid.appendChild(el);
   });
@@ -2864,7 +3339,7 @@ function buildCellTop(desc) {
   num.className = 'cell-num';
   num.textContent = desc.type === 'date' ? desc.d : desc.label;
   top.appendChild(num);
-  if (desc.holName && S.lang !== 'en') {
+  if (desc.holName && S.lang !== 'en' && !IS_PHONE) {
     const hn = document.createElement('div');
     hn.className = 'cell-hol-name';
     hn.textContent = desc.holName;
@@ -2927,6 +3402,18 @@ function findMiniHitObj(objs, lx, ly, key) {
 
 // オブジェクトヒット時：即選択 → ドラッグ or 長押しメニュー待機
 function handleObjHit(e, key, obj) {
+  // クリップオブジェクトのダブルタップ → ビューワー起動
+  if (obj.type === 'clip') {
+    const now = Date.now();
+    if (now - (handleObjHit._lastTap||0) < 350 && handleObjHit._lastId === obj.id) {
+      handleObjHit._lastTap = 0;
+      openClipViewer(obj.clipId);
+      return;
+    }
+    handleObjHit._lastTap = now;
+    handleObjHit._lastId  = obj.id;
+  }
+
   Cal.selCellKey = key;
   Cal.selObjId   = obj.id;
   renderMiniCanvases();
@@ -2936,7 +3423,8 @@ function handleObjHit(e, key, obj) {
   const longPressTimer = setTimeout(() => {
     didAction = true;
     document.removeEventListener('pointermove', onTryDrag);
-    openObjCtx(e.clientX, e.clientY, key, obj.id);
+    document.removeEventListener('pointerup', onUp);
+    openObjCtx(e.clientX, e.clientY, key, obj.id, true);
   }, 500);
 
   const onTryDrag = mv => {
@@ -2952,6 +3440,7 @@ function handleObjHit(e, key, obj) {
   const onUp = () => {
     clearTimeout(longPressTimer);
     document.removeEventListener('pointermove', onTryDrag);
+    // メニューが表示されている場合はattachLongPressMenuTrackingに任せる
   };
 
   document.addEventListener('pointermove', onTryDrag);
@@ -3116,6 +3605,12 @@ function getMiniObjBounds(obj) {
     const { w, h } = img ? stickerDrawSize(img, sz) : { w: sz, h: sz };
     return { x: obj.x-w/2-MINI_PAD, y: obj.y-h/2-MINI_PAD, w: w+MINI_PAD*2, h: h+MINI_PAD*2 };
   }
+  if (obj.type === 'clip') {
+    const sz = obj.size || 60;
+    const w  = sz;
+    const h  = sz * 1.2;
+    return { x: obj.x-w/2-MINI_PAD, y: obj.y-h/2-MINI_PAD, w: w+MINI_PAD*2, h: h+MINI_PAD*2 };
+  }
   return null;
 }
 
@@ -3169,38 +3664,58 @@ function startCalDrag(e, srcKey, obj) {
   e.preventDefault();
   calDragInfo = {objId: obj.id, srcKey, origObj: clone(obj)};
 
-  // ミニキャンバスの実サイズを取得してゴーストのサイズとする
   const miniMc = document.querySelector(`.cell-preview canvas[data-key="${srcKey}"]`);
   const miniRect = miniMc ? miniMc.getBoundingClientRect() : null;
   const ghostSize = miniRect ? Math.round(miniRect.width) : 80;
-
-  const ghost = document.createElement('canvas');
-  ghost.width  = ghostSize;
-  ghost.height = ghostSize;
-  ghost.style.cssText = `position:fixed;pointer-events:none;z-index:9999;
-    width:${ghostSize}px;height:${ghostSize}px;
-    opacity:0.75;transform:translate(-50%,-50%);transition:none;`;
-  const gc = ghost.getContext('2d');
   const sc = ghostSize / CANVAS_SRC;
 
-  // ゴーストにオブジェクトをミニキャンバスと同じスケールで描画
+  // オブジェクトのバウンディングボックスを取得
+  const bounds = getMiniObjBounds(obj);
+  const pad = 4;
+  const bx = bounds ? bounds.x : 0;
+  const by = bounds ? bounds.y : 0;
+  const bw = bounds ? bounds.w : ghostSize;
+  const bh = bounds ? bounds.h : ghostSize;
+
+  // ゴーストをバウンディングボックスのサイズで作成
+  const gw = Math.ceil((bw + pad*2) * sc);
+  const gh = Math.ceil((bh + pad*2) * sc);
+
+  const ghost = document.createElement('canvas');
+  ghost.width  = gw;
+  ghost.height = gh;
+  ghost.style.cssText = `position:fixed;pointer-events:none;z-index:9999;
+    width:${gw}px;height:${gh}px;
+    opacity:0.75;transition:none;`;
+
+  const gc = ghost.getContext('2d');
+  // オブジェクトをバウンディングボックス左上が(pad,pad)に来るようにオフセット
   gc.save();
+  gc.translate((-bx + pad) * sc, (-by + pad) * sc);
   gc.scale(sc, sc);
   drawObjMini(gc, obj);
   gc.restore();
 
-  ghost.style.left = e.clientX + 'px';
-  ghost.style.top  = e.clientY + 'px';
+  // ポインター位置をオブジェクト内での相対位置に合わせてゴーストを配置
+  const miniLeft = miniRect ? miniRect.left : 0;
+  const miniTop  = miniRect ? miniRect.top  : 0;
+  // ポインターのミニキャンバス内での論理座標
+  const plx = (e.clientX - miniLeft) / sc;
+  const ply = (e.clientY - miniTop)  / sc;
+  // ゴースト内でのポインター相対位置
+  const offsetX = (plx - bx + pad) * sc;
+  const offsetY = (ply - by + pad) * sc;
+
+  const setPos = (cx, cy) => {
+    ghost.style.left = (cx - offsetX) + 'px';
+    ghost.style.top  = (cy - offsetY) + 'px';
+  };
+  setPos(e.clientX, e.clientY);
   document.body.appendChild(ghost);
   Cal.dragGhost = ghost;
 
-  // pointermove: ゴーストを追従
-  const onMove = ev => {
-    ghost.style.left = ev.clientX + 'px';
-    ghost.style.top  = ev.clientY + 'px';
-  };
+  const onMove = ev => { setPos(ev.clientX, ev.clientY); };
 
-  // pointerup: ドロップ先を判定してオブジェクト移動
   const onUp = ev => {
     document.removeEventListener('pointermove', onMove, true);
     document.removeEventListener('pointerup',   onUp,   true);
@@ -3429,6 +3944,39 @@ function drawObjMini(c,obj){
     const sz = obj.size || 44;
     const {w, h} = stickerDrawSize(img, sz);
     c.drawImage(img, obj.x - w/2, obj.y - h/2, w, h);
+  } else if (obj.type==='clip'){
+    const sz  = obj.size || 60;
+    const w   = sz;
+    const h   = sz * 1.2;
+    const rx  = sz * 0.12;
+    const x0  = obj.x - w/2;
+    const y0  = obj.y - h/2;
+    const isPdf = obj.fileType === 'application/pdf';
+    c.save();
+    // カード背景
+    c.fillStyle = '#fff'; c.strokeStyle = '#3a6fa8'; c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(x0+rx,y0); c.lineTo(x0+w-rx,y0); c.quadraticCurveTo(x0+w,y0,x0+w,y0+rx);
+    c.lineTo(x0+w,y0+h-rx); c.quadraticCurveTo(x0+w,y0+h,x0+w-rx,y0+h);
+    c.lineTo(x0+rx,y0+h); c.quadraticCurveTo(x0,y0+h,x0,y0+h-rx);
+    c.lineTo(x0,y0+rx); c.quadraticCurveTo(x0,y0,x0+rx,y0);
+    c.closePath(); c.fill(); c.stroke();
+    // ヘッダー帯
+    c.fillStyle = isPdf ? '#e03030' : '#3a6fa8';
+    c.beginPath();
+    c.moveTo(x0+rx,y0); c.lineTo(x0+w-rx,y0); c.quadraticCurveTo(x0+w,y0,x0+w,y0+rx);
+    c.lineTo(x0+w,y0+h*0.32); c.lineTo(x0,y0+h*0.32); c.lineTo(x0,y0+rx);
+    c.quadraticCurveTo(x0,y0,x0+rx,y0); c.closePath(); c.fill();
+    // ラベル
+    c.fillStyle='#fff'; c.font=`bold ${sz*0.22}px sans-serif`;
+    c.textAlign='center'; c.textBaseline='middle';
+    c.fillText(isPdf?'PDF':'IMG', obj.x, y0+h*0.16);
+    // 横線
+    c.strokeStyle='rgba(58,107,168,.3)'; c.lineWidth=1;
+    [0.48,0.62,0.76].forEach(yr=>{
+      c.beginPath(); c.moveTo(x0+w*0.15,y0+h*yr); c.lineTo(x0+w*0.85,y0+h*yr); c.stroke();
+    });
+    c.restore();
   }
 }
 
@@ -3438,17 +3986,34 @@ function drawObjMini(c,obj){
  * 長押し発火後にポインターを追跡して、離した位置のメニュー項目を実行する。
  * 指を離してから普通にクリックする従来操作も引き続き動作する。
  */
-function attachLongPressMenuTracking(menuEl) {
+function attachLongPressMenuTracking(menuEl, initialX, initialY) {
   let hoveredItem = null;
 
-  const onMove = e => {
-    // ポインター下の要素を取得
-    const target = document.elementFromPoint(e.clientX, e.clientY);
-    const item   = target?.closest('.ctx-item');
+  function itemAtPoint(x, y) {
+    const items = menuEl.querySelectorAll('.ctx-item');
+    for (const item of items) {
+      const r = item.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return item;
+    }
+    return null;
+  }
 
+  // 初期位置でのヒット確認
+  if (initialX !== undefined && initialY !== undefined) {
+    requestAnimationFrame(() => {
+      const item = itemAtPoint(initialX, initialY);
+      if (item) {
+        hoveredItem = item;
+        hoveredItem.classList.add('ctx-hover');
+      }
+    });
+  }
+
+  const onMove = e => {
+    const item = itemAtPoint(e.clientX, e.clientY);
     if (item !== hoveredItem) {
       if (hoveredItem) hoveredItem.classList.remove('ctx-hover');
-      hoveredItem = item && menuEl.contains(item) ? item : null;
+      hoveredItem = item || null;
       if (hoveredItem) hoveredItem.classList.add('ctx-hover');
     }
   };
@@ -3457,21 +4022,18 @@ function attachLongPressMenuTracking(menuEl) {
     document.removeEventListener('pointermove', onMove, true);
     document.removeEventListener('pointerup',   onUp,   true);
 
-    if (!hoveredItem) {
-      // メニュー外で離した → 閉じる
-      const target = document.elementFromPoint(e.clientX, e.clientY);
-      if (!target?.closest('.ctx-menu')) closeContextMenus();
+    const item = hoveredItem || itemAtPoint(e.clientX, e.clientY);
+
+    if (!item) {
+      const r = menuEl.getBoundingClientRect();
+      const inMenu = e.clientX >= r.left && e.clientX <= r.right &&
+                     e.clientY >= r.top  && e.clientY <= r.bottom;
+      if (!inMenu) closeContextMenus();
       return;
     }
 
-    // メニュー項目上で離した → ブリンク後に click を発火
-    const item = hoveredItem;
     item.classList.remove('ctx-hover');
-    item.classList.add('ctx-blink');
-    item.addEventListener('animationend', () => {
-      item.classList.remove('ctx-blink');
-      item.click(); // 既存の click ハンドラを呼ぶ
-    }, { once: true });
+    item.click();
   };
 
   document.addEventListener('pointermove', onMove, true);
@@ -3486,7 +4048,6 @@ function openCellCtx(e, key) {
   document.getElementById('cctx-paste-cell').style.display = (S.clipboard?.type==='cell') ? '' : 'none';
   document.getElementById('cctx-paste-obj').style.display  = (S.clipboard?.type==='obj')  ? '' : 'none';
   m.classList.add('open');
-  attachLongPressMenuTracking(m);
 }
 
 function closeContextMenus(){
@@ -3508,34 +4069,58 @@ function execCalCellAction(action) {
   if (action === 'copy') {
     S.clipboard = {type:'cell', data: clone(getCellObjs(key))};
   } else if (action === 'cut') {
-    S.clipboard = {type:'cell', data: clone(getCellObjs(key))};
-    setCellObjs(key, []); renderMiniCanvases();
+    const before = clone(getCellObjs(key));
+    S.clipboard = {type:'cell', data: before};
+    // Undo: カットした全オブジェクトを個別にcal-deleteとして登録
+    before.forEach(obj => calPushUndo({type:'cal-delete', key, obj: clone(obj)}));
+    setCellObjs(key, []); saveToStorage(); renderMiniCanvases();
   } else if (action === 'paste-cell' && S.clipboard?.type === 'cell') {
-    setCellObjs(key, clone(S.clipboard.data)); renderMiniCanvases();
+    const newObjs = clone(S.clipboard.data);
+    newObjs.forEach(obj => calPushUndo({type:'cal-create', key, obj: clone(obj)}));
+    setCellObjs(key, newObjs); saveToStorage(); renderMiniCanvases();
   } else if (action === 'paste-obj' && S.clipboard?.type === 'obj') {
     const newObj = clone(S.clipboard.data);
     newObj.id = uid();
     if (newObj.type !== 'pen') { newObj.x += 20; newObj.y += 20; }
+    calPushUndo({type:'cal-create', key, obj: clone(newObj)});
     const objs = getCellObjs(key);
     objs.push(newObj);
-    setCellObjs(key, objs);
+    setCellObjs(key, objs); saveToStorage();
     Cal.selCellKey = key; Cal.selObjId = newObj.id;
     renderMiniCanvases();
   } else if (action === 'delete') {
-    setCellObjs(key, []); renderMiniCanvases();
+    const before = clone(getCellObjs(key));
+    before.forEach(obj => calPushUndo({type:'cal-delete', key, obj: clone(obj)}));
+    setCellObjs(key, []); saveToStorage(); renderMiniCanvases();
   }
   closeContextMenus();
 }
 
-document.getElementById('cctx-copy').addEventListener('click',       () => execCalCellAction('copy'));
-document.getElementById('cctx-cut').addEventListener('click',        () => execCalCellAction('cut'));
-document.getElementById('cctx-paste-cell').addEventListener('click', () => execCalCellAction('paste-cell'));
-document.getElementById('cctx-paste-obj').addEventListener('click',  () => execCalCellAction('paste-obj'));
-document.getElementById('cctx-delete').addEventListener('click',     () => execCalCellAction('delete'));
+// メニュー項目クリック時にブリンクしてから実行
+function blinkAndExec(itemId, fn) {
+  const el = document.getElementById(itemId);
+  el.addEventListener('click', () => {
+    el.classList.add('ctx-blink');
+    el.addEventListener('animationend', () => {
+      el.classList.remove('ctx-blink');
+      fn();
+    }, { once: true });
+  });
+}
 
+blinkAndExec('cctx-copy',       () => execCalCellAction('copy'));
+blinkAndExec('cctx-cut',        () => execCalCellAction('cut'));
+blinkAndExec('cctx-paste-cell', () => execCalCellAction('paste-cell'));
+blinkAndExec('cctx-paste-obj',  () => execCalCellAction('paste-obj'));
+blinkAndExec('cctx-delete',     () => execCalCellAction('delete'));
+blinkAndExec('octx-copy',       () => execCalObjAction('copy'));
+blinkAndExec('octx-cut',        () => execCalObjAction('cut'));
+blinkAndExec('octx-paste-obj',  () => execCalObjAction('paste-obj'));
+blinkAndExec('octx-paste-cell', () => execCalObjAction('paste-cell'));
+blinkAndExec('octx-delete',     () => execCalObjAction('delete'));
 /* ════ OBJECT CONTEXT MENU ════ */
 
-function openObjCtx(clientX, clientY, key, objId) {
+function openObjCtx(clientX, clientY, key, objId, longPress = false) {
   Cal.ctxObjKey  = key;
   Cal.ctxObjId   = objId;
   Cal.selCellKey = key;
@@ -3549,7 +4134,7 @@ function openObjCtx(clientX, clientY, key, objId) {
   document.getElementById('octx-paste-obj').style.display  = (S.clipboard?.type==='obj')  ? '' : 'none';
   document.getElementById('octx-paste-cell').style.display = (S.clipboard?.type==='cell') ? '' : 'none';
   m.classList.add('open');
-  attachLongPressMenuTracking(m);
+  if (longPress) attachLongPressMenuTracking(m, clientX, clientY);
 }
 
 // カレンダー画面オブジェクトメニュー操作
@@ -3565,7 +4150,9 @@ function execCalObjAction(action) {
     const obj  = objs.find(o => o.id === objId);
     if (obj) {
       S.clipboard = {type:'obj', data: clone(obj)};
+      calPushUndo({type:'cal-delete', key, obj: clone(obj)});
       setCellObjs(key, objs.filter(o => o.id !== objId));
+      saveToStorage();
       Cal.selObjId = null; Cal.selCellKey = null;
       renderMiniCanvases();
     }
@@ -3573,42 +4160,32 @@ function execCalObjAction(action) {
     const newObj = clone(S.clipboard.data);
     newObj.id = uid();
     if (newObj.type !== 'pen') { newObj.x += 20; newObj.y += 20; }
+    calPushUndo({type:'cal-create', key, obj: clone(newObj)});
     const objs = getCellObjs(key);
     objs.push(newObj);
-    setCellObjs(key, objs);
+    setCellObjs(key, objs); saveToStorage();
     Cal.selCellKey = key; Cal.selObjId = newObj.id;
     renderMiniCanvases();
   } else if (action === 'paste-cell' && key && S.clipboard?.type === 'cell') {
-    setCellObjs(key, clone(S.clipboard.data));
+    const newObjs = clone(S.clipboard.data);
+    newObjs.forEach(obj => calPushUndo({type:'cal-create', key, obj: clone(obj)}));
+    setCellObjs(key, newObjs); saveToStorage();
     Cal.selObjId = null; Cal.selCellKey = null;
     renderMiniCanvases();
   } else if (action === 'delete' && key && objId) {
+    const obj = getCellObjs(key).find(o => o.id === objId);
+    if (obj) calPushUndo({type:'cal-delete', key, obj: clone(obj)});
     setCellObjs(key, getCellObjs(key).filter(o => o.id !== objId));
+    saveToStorage();
     Cal.selObjId = null; Cal.selCellKey = null;
     renderMiniCanvases();
   }
   closeContextMenus();
 }
 
-document.getElementById('octx-copy').addEventListener('click',       () => execCalObjAction('copy'));
-document.getElementById('octx-cut').addEventListener('click',        () => execCalObjAction('cut'));
-document.getElementById('octx-paste-obj').addEventListener('click',  () => execCalObjAction('paste-obj'));
-document.getElementById('octx-paste-cell').addEventListener('click', () => execCalObjAction('paste-cell'));
-document.getElementById('octx-delete').addEventListener('click',     () => execCalObjAction('delete'));
-
 /* ════ DAY OBJECT CONTEXT MENU ════ */
 
 // 空白領域長押し時の貼り付け専用メニュー
-function openDayPasteCtx(clientX, clientY, lp) {
-  const m = document.getElementById('ctx-day-paste');
-  m._pasteLp = lp;
-  const mw = 140, mh = 50;
-  m.style.left = Math.min(clientX, window.innerWidth  - mw - 8) + 'px';
-  m.style.top  = Math.min(clientY, window.innerHeight - mh - 8) + 'px';
-  m.classList.add('open');
-  attachLongPressMenuTracking(m);
-}
-
 document.getElementById('dpctx-paste').addEventListener('click', () => {
   const lp = document.getElementById('ctx-day-paste')._pasteLp || {x: CANVAS_SRC/2, y: CANVAS_SRC/2};
   if (S.clipboard?.type === 'obj') {
@@ -3622,17 +4199,6 @@ document.getElementById('dpctx-paste').addEventListener('click', () => {
   }
   closeContextMenus();
 });
-
-function openDayObjCtx(clientX, clientY, objId) {
-  const m  = document.getElementById('ctx-day-obj');
-  const mw = 160, mh = 160;
-  m.style.left = Math.min(clientX, window.innerWidth  - mw - 8) + 'px';
-  m.style.top  = Math.min(clientY, window.innerHeight - mh - 8) + 'px';
-  document.getElementById('dctx-paste').style.display = (S.clipboard?.type === 'obj') ? '' : 'none';
-  m._targetObjId = objId;
-  m.classList.add('open');
-  attachLongPressMenuTracking(m);
-}
 
 // 日付セル画面のオブジェクトメニュー操作を実行する共通関数
 function execDayObjAction(action) {
@@ -3664,6 +4230,9 @@ document.getElementById('dctx-paste').addEventListener('click',  () => execDayOb
 document.getElementById('dctx-delete').addEventListener('click', () => execDayObjAction('delete'));
 
 /* ════ SETTINGS ════ */
+document.getElementById('cal-btn-undo').addEventListener('click', doCalUndo);
+document.getElementById('cal-btn-redo').addEventListener('click', doCalRedo);
+
 document.getElementById('btn-settings').addEventListener('click',()=>{
   document.getElementById('settings-overlay').classList.toggle('open');
 });
@@ -3770,6 +4339,17 @@ document.getElementById('lang-sel').addEventListener('change', e => {
       S.year = newYear;
       S.month = newMonth;
       renderCalendar();
+      const area = document.getElementById('cal-grid-area');
+      area.style.transition = 'none';
+      area.style.opacity = '0';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        area.style.transition = 'opacity 0.6s ease';
+        area.style.opacity = '1';
+        area.addEventListener('transitionend', () => {
+          area.style.transition = '';
+          area.style.opacity = '';
+        }, { once: true });
+      }));
     }
     backdrop.classList.remove('open');
     picker.classList.remove('open');
@@ -3836,12 +4416,6 @@ document.getElementById('btn-user-mgmt').addEventListener('click', () => {
   // TODO: ユーザー管理ダイアログを実装
   document.getElementById('settings-overlay').classList.remove('open');
   alert('ユーザー管理機能は今後実装予定です');
-});
-
-// ── グループ追加（将来実装のプレースホルダー） ──
-document.getElementById('btn-add-group').addEventListener('click', () => {
-  // TODO: グループ追加ダイアログを実装
-  alert('グループ追加機能は今後実装予定です');
 });
 
 // タブを描画する
@@ -3922,17 +4496,6 @@ document.getElementById('cal-tabs').addEventListener('click', e => {
 })();
 
 /* ════ CALENDAR NAV ════ */
-function triggerCalFadeIn() {
-  const area = document.getElementById('cal-grid-area');
-  area.classList.remove('tab-switching');
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    area.classList.add('tab-switching');
-    area.addEventListener('animationend', () => {
-      area.classList.remove('tab-switching');
-    }, { once: true });
-  }));
-}
-
 // 月切り替えスライドアニメーション
 // dir: 'next'(翌月・右から入場) or 'prev'(前月・左から入場)
 function navigateMonth(dir) {
@@ -3941,6 +4504,7 @@ function navigateMonth(dir) {
   } else {
     if(--S.month<0){S.month=11;S.year--;}
   }
+  clearCalUR();
 
   const area = document.getElementById('cal-grid-area');
   const oldGrid = document.getElementById('cal-grid');
@@ -4027,12 +4591,15 @@ function showScreen(name){
 
 function updateOrientation(){
   const ds=document.getElementById('day-screen');
-  // screen.orientationでデバイスの物理向きを取得（キーボード表示の影響を受けない）
+  if (IS_PHONE) {
+    ds.classList.remove('landscape');
+    ds.classList.add('portrait');
+    return;
+  }
   let lnd;
   if (screen.orientation) {
     lnd = screen.orientation.type.startsWith('landscape');
   } else {
-    // fallback: screen.width/heightは物理画面サイズなのでキーボード影響なし
     lnd = screen.width > screen.height;
   }
   ds.classList.toggle('landscape',lnd);
@@ -4064,6 +4631,6 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v231</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:9px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v236</div>
 </body>
 </html>
