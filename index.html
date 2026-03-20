@@ -1089,6 +1089,10 @@ button:focus-visible { outline: none; background: transparent; }
 
 <!-- ══ DAY OBJECT CONTEXT MENU（日付セル画面用）══ -->
 <div class="ctx-menu" id="ctx-day-obj">
+  <div class="ctx-item" id="dctx-change-image" style="display:none">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>画像変更
+  </div>
+  <div class="ctx-sep" id="dctx-clip-sep" style="display:none"></div>
   <div class="ctx-item" id="dctx-copy">
     <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>コピー
   </div>
@@ -1544,7 +1548,7 @@ function drawClipObj(c, obj, sc) {
   // カード背景
   c.fillStyle   = '#fff';
   c.strokeStyle = '#3a6fa8';
-  c.lineWidth   = 1.5 * dpr;
+  c.lineWidth   = 6 * dpr;
   c.beginPath();
   c.moveTo(x0+rx, y0);
   c.lineTo(x0+w-rx, y0);
@@ -1860,6 +1864,8 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
       const newSize = (snap.size || 1) * scale;
       if (obj.type === 'text') {
         obj.size = Math.max(10, Math.min(CANVAS_SRC, newSize));
+      } else if (obj.type === 'clip') {
+        obj.size = Math.max(60, Math.min(CANVAS_SRC, newSize));
       } else {
         obj.size = Math.max(20, Math.min(CANVAS_SRC, newSize));
       }
@@ -1910,19 +1916,50 @@ function startObjSelect(found, lp, clientX, clientY) {
   Draw.selId = found.id;
   redraw();
   const origObj = clone(found);
+
+  const longPressTimer = setTimeout(() => {
+    document.removeEventListener('pointermove', onTryDrag);
+    document.removeEventListener('pointerup', onUpAfterHit);
+    openDayObjCtx(clientX, clientY, found.id);
+  }, 500);
+
   const onTryDrag = mv => {
     const {clientX:mx, clientY:my} = evtCoords(mv);
     if (Math.hypot(mx-clientX, my-clientY) > 6) {
+      clearTimeout(longPressTimer);
       document.removeEventListener('pointermove', onTryDrag);
       document.removeEventListener('pointerup', onUpAfterHit);
       Draw.dragInfo = {objId: found.id, sx: lp.x, sy: lp.y, origObj};
     }
   };
   const onUpAfterHit = () => {
+    clearTimeout(longPressTimer);
     document.removeEventListener('pointermove', onTryDrag);
   };
   document.addEventListener('pointermove', onTryDrag);
   document.addEventListener('pointerup', onUpAfterHit, {once:true});
+}
+
+function openDayObjCtx(clientX, clientY, objId) {
+  const m  = document.getElementById('ctx-day-obj');
+  const mw = 180, mh = 220;
+  m.style.left = Math.min(clientX, window.innerWidth  - mw - 8) + 'px';
+  m.style.top  = Math.min(clientY, window.innerHeight - mh - 8) + 'px';
+  m._targetObjId = objId;
+
+  const obj = Draw.objects.find(o => o.id === objId);
+  const isClip = obj && obj.type === 'clip';
+
+  // クリップの場合は「画像変更」のみ表示
+  document.getElementById('dctx-change-image').style.display = isClip ? '' : 'none';
+  document.getElementById('dctx-clip-sep').style.display     = isClip ? '' : 'none';
+  document.getElementById('dctx-copy').style.display         = isClip ? 'none' : '';
+  document.getElementById('dctx-cut').style.display          = isClip ? 'none' : '';
+  document.getElementById('dctx-delete').style.display       = isClip ? 'none' : '';
+  document.getElementById('dctx-paste').style.display = (!isClip && S.clipboard?.type === 'obj') ? '' : 'none';
+
+  m.classList.add('open');
+  attachLongPressMenuTracking(m, clientX, clientY);
 }
 
 function onDown(e) {
@@ -1944,8 +1981,9 @@ function onDown(e) {
     }
   }
 
-  // ── クリップアイコンのダブルタップ → ビューワー起動（selectツールのみ） ──
-  if (S.tool === 'select' && nowDt - (Draw._globalLastTap||0) < 350) {
+  // ── クリップアイコンのダブルタップ → ビューワー起動（スタンプ選択済のstickerツール以外） ──
+  const clipViewerBlocked = S.tool === 'sticker' && Draw.pendingStickerId;
+  if (!clipViewerBlocked && nowDt - (Draw._globalLastTap||0) < 350) {
     const hitClip = [...Draw.objects].reverse().find(o => o.type==='clip' && hitObj(o, pp.x, pp.y));
     if (hitClip) {
       openClipViewer(hitClip.clipId);
@@ -1955,6 +1993,16 @@ function onDown(e) {
   }
 
   Draw._globalLastTap = nowDt;
+
+  // ── クリップアイコンへのヒット（スタンプ選択済み以外）→ startObjSelectで長押し検出 ──
+  const clipViewerBlocked2 = S.tool === 'sticker' && Draw.pendingStickerId;
+  if (!clipViewerBlocked2 && S.tool !== 'select' && S.tool !== 'text') {
+    const hitClipObj = [...Draw.objects].reverse().find(o => o.type==='clip' && hitObj(o, pp.x, pp.y));
+    if (hitClipObj) {
+      startObjSelect(hitClipObj, lp, clientX, clientY);
+      return;
+    }
+  }
 
   if (S.tool==='select') {
     // ×ボタンのヒットテスト
@@ -2228,15 +2276,15 @@ function removeTextInput(){
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
     if (!file) return;
+    const changeTargetId = fileInput._changeTargetObjId;
+    fileInput._changeTargetObjId = null;
     fileInput.value = '';
 
     const fileType = file.type;
     let dataUrl, pageCount = 1;
 
     if (fileType === 'application/pdf') {
-      // PDFをDataURLとして読み込む
       dataUrl = await readFileAsDataUrl(file);
-      // ページ数を取得
       try {
         const pdfjsLib = window['pdfjs-dist/build/pdf'];
         if (pdfjsLib) {
@@ -2251,9 +2299,22 @@ function removeTextInput(){
     const clipId = saveClipData(dataUrl, file.name, fileType, pageCount);
     if (!clipId) return;
 
-    Draw.pendingClipId = {clipId, pageCount, fileType};
-    // カーソルに+マーク追加（スタンプと同様）
-    applyCanvasCursor('clip');
+    if (changeTargetId) {
+      // 画像変更モード：既存オブジェクトのclipIdを差し替え
+      const obj = Draw.objects.find(o => o.id === changeTargetId);
+      if (obj) {
+        const prev = clone(obj);
+        obj.clipId    = clipId;
+        obj.pageCount = pageCount;
+        obj.fileType  = fileType;
+        pushUndo({type:'edit', objId: obj.id, from: prev, to: clone(obj)});
+        flushCell(); redraw();
+      }
+    } else {
+      // 新規配置モード
+      Draw.pendingClipId = {clipId, pageCount, fileType};
+      applyCanvasCursor('clip');
+    }
   });
 
   function readFileAsDataUrl(file) {
@@ -3455,7 +3516,7 @@ function handleEmptyCellTap(e, desc) {
   const longPressTimer = setTimeout(() => {
     cellLongPressed = true;
     startCellDrag(e, desc.key,
-      () => { if (!cellDragStarted) openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key); },
+      () => { if (!cellDragStarted) openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, true); },
       () => { cellDragStarted = true; }
     );
   }, 500);
@@ -4040,7 +4101,7 @@ function attachLongPressMenuTracking(menuEl, initialX, initialY) {
   document.addEventListener('pointerup',   onUp,   true);
 }
 
-function openCellCtx(e, key) {
+function openCellCtx(e, key, longPress = false) {
   Cal.ctxCellKey = key;
   const m = document.getElementById('ctx-cell');
   m.style.left = e.clientX + 'px';
@@ -4048,6 +4109,7 @@ function openCellCtx(e, key) {
   document.getElementById('cctx-paste-cell').style.display = (S.clipboard?.type==='cell') ? '' : 'none';
   document.getElementById('cctx-paste-obj').style.display  = (S.clipboard?.type==='obj')  ? '' : 'none';
   m.classList.add('open');
+  if (longPress) attachLongPressMenuTracking(m, e.clientX, e.clientY);
 }
 
 function closeContextMenus(){
@@ -4228,6 +4290,16 @@ document.getElementById('dctx-copy').addEventListener('click',   () => execDayOb
 document.getElementById('dctx-cut').addEventListener('click',    () => execDayObjAction('cut'));
 document.getElementById('dctx-paste').addEventListener('click',  () => execDayObjAction('paste'));
 document.getElementById('dctx-delete').addEventListener('click', () => execDayObjAction('delete'));
+document.getElementById('dctx-change-image').addEventListener('click', () => {
+  const objId = document.getElementById('ctx-day-obj')._targetObjId;
+  const obj   = Draw.objects.find(o => o.id === objId);
+  if (!obj || obj.type !== 'clip') return;
+  closeContextMenus();
+  // ファイル選択ダイアログを表示してclipIdを差し替え
+  const input = document.getElementById('clip-file-input');
+  input._changeTargetObjId = objId;
+  input.click();
+});
 
 /* ════ SETTINGS ════ */
 document.getElementById('cal-btn-undo').addEventListener('click', doCalUndo);
