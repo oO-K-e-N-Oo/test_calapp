@@ -218,6 +218,7 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-title {
   font-family: var(--font-disp);
   font-size: 22px;
+  font-weight: 700;
   letter-spacing: .02em;
   text-align: center;
   display: flex;
@@ -226,7 +227,7 @@ button:focus-visible { outline: none; background: transparent; }
   justify-content: center;
   white-space: nowrap;
 }
-.cal-title-year { font-size: 13px; color: var(--ink-mid); font-family: var(--font-body); font-weight: 300; }
+.cal-title-year { font-size: 13px; color: inherit; font-family: var(--font-body); font-weight: 700; }
 
 /* ════════════════════════════════════════════
    CALENDAR SCREEN — 曜日ヘッダー & グリッド
@@ -253,12 +254,18 @@ button:focus-visible { outline: none; background: transparent; }
   flex: 1;
   overflow: hidden;
   overflow-x: auto;
+  overflow-y: auto;
   position: relative;
   background: var(--bg);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding-bottom: 16px;
+}
+.cal-wd-grid-wrap {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
 }
 #cal-screen { overflow: hidden; position: relative; }
 
@@ -393,17 +400,37 @@ button:focus-visible { outline: none; background: transparent; }
   align-items: flex-end;
   padding: 10px 16px 8px;
   flex-shrink: 0;
+  position: relative;
 }
-.day-badge-inline {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  align-self: center;
+.day-badge-inline { display: none; }
+.day-date-row { display: none; }
+/* 日付を画面中央に固定 */
+.day-num-center {
+  position: fixed;
+  left: 50vw;
+  transform: translateX(-50%);
+  font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+  /* top は JS で設定 */
 }
-.day-date-row { display: flex; align-items: baseline; gap: 8px; }
-.day-num { font-size: 26px; font-weight: 600; color: var(--ink-faint); line-height: 1; }
-.day-dow { font-size: 14px; color: var(--ink-faint); font-weight: 400; }
-.day-sub { font-size: 11px; color: var(--ink-faint); font-weight: 300; }
+/* 年月: 日付の左側（右揃え、日付との間隔は margin-right で確保） */
+.day-sub-left {
+  position: fixed;
+  font-size: 14px; font-weight: 700; color: var(--ink);
+  pointer-events: none;
+  white-space: nowrap;
+}
+/* 曜日: 日付の右側 */
+.day-dow-right {
+  position: fixed;
+  font-size: 14px; font-weight: 700; color: var(--ink);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.day-num { font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; }
+.day-dow { font-size: 14px; color: var(--ink); font-weight: 700; }
+.day-sub { font-size: 14px; color: var(--ink); font-weight: 700; }
 .spacer  { flex: 1; }
 .ur-row  { display: flex; gap: 2px; padding-right: 8px; align-self: flex-end; padding-bottom: 2px; margin-left: 16px; }
 
@@ -417,8 +444,8 @@ button:focus-visible { outline: none; background: transparent; }
   -webkit-appearance: none;
   outline: none;
 }
-#btn-back:focus, #btn-back:active { background: transparent; outline: none; }
-#btn-back svg { width: 40px; height: 40px; stroke-width: 2.4; }
+#btn-back:hover, #btn-back:focus, #btn-back:active { background: transparent !important; outline: none; }
+#btn-back svg { width: 43px; height: 30px; }
 
 /* Row2: ツールボタン */
 .tb-row2 {
@@ -489,13 +516,14 @@ button:focus-visible { outline: none; background: transparent; }
   align-self: center;
 }
 .land-date-row { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-.land-day-num  { font-size: 38px; color: var(--ink-faint); line-height: 1; white-space: nowrap; }
-.land-day-dow  { font-size: 16px; color: var(--ink-faint); font-weight: 400; white-space: nowrap; }
-.land-day-sub  { font-size: 10px; color: var(--ink-faint); font-weight: 300; white-space: nowrap; }
+.land-day-num  { font-size: 38px; color: var(--ink); font-weight: 700; line-height: 1; white-space: nowrap; }
+.land-day-dow  { font-size: 16px; color: var(--ink); font-weight: 700; white-space: nowrap; }
+.land-day-sub  { font-size: 10px; color: var(--ink); font-weight: 700; white-space: nowrap; }
 
 /* 横長: 戻るボタン */
 #btn-back-land          { width: 80px; height: 80px; align-self: center; }
-#btn-back-land svg      { width: 56px; height: 56px; stroke-width: 2.4; }
+#btn-back-land:hover, #btn-back-land:focus, #btn-back-land:active { background: transparent !important; outline: none; }
+#btn-back-land svg      { width: 57px; height: 40px; }
 
 .land-tool-group {
   display: flex;
@@ -904,9 +932,11 @@ button:focus-visible { outline: none; background: transparent; }
       </div>
     </div>
   </div>
-  <div class="cal-weekdays" id="cal-wd"></div>
   <div class="cal-grid-area" id="cal-grid-area">
-    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-wd-grid-wrap" id="cal-wd-grid-wrap">
+      <div class="cal-weekdays" id="cal-wd"></div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
   </div>
 </div>
 <div id="day-screen" class="screen portrait">
@@ -916,15 +946,25 @@ button:focus-visible { outline: none; background: transparent; }
     <!-- Row 1: back / date / undo -->
     <div class="tb-row1">
       <button class="icon-btn" id="btn-back">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        <svg viewBox="0 0 58 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 「<」 -->
+          <polyline points="10 14 5 20 10 26" stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- 外枠 -->
+          <rect x="22" y="7" width="32" height="28" rx="4.5" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>
+          <!-- ゴールドアクセントライン -->
+          <line x1="22" y1="17" x2="54" y2="17" stroke="var(--today-ring)" stroke-width="2"/>
+          <!-- リング（左） -->
+          <rect x="30" y="4" width="2.5" height="7" rx="1.25" fill="var(--ink)"/>
+          <!-- リング（右） -->
+          <rect x="43.5" y="4" width="2.5" height="7" rx="1.25" fill="var(--ink)"/>
+          <!-- スケジュールライン -->
+          <line x1="28" y1="24" x2="48" y2="24" stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="28" y1="29" x2="42" y2="29" stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
       </button>
-      <div class="day-badge-inline">
-        <div class="day-date-row">
-          <div class="day-num" id="day-num-p">1日</div>
-          <div class="day-dow" id="day-dow-p"></div>
-        </div>
-        <div class="day-sub" id="day-sub-p">2026年 3月</div>
-      </div>
+      <div class="day-num-center" id="day-num-p">1日</div>
+      <div class="day-sub-left" id="day-sub-p">2026年 3月</div>
+      <div class="day-dow-right" id="day-dow-p"></div>
       <div class="spacer"></div>
       <div class="ur-row">
         <button class="ur-btn" id="btn-undo" disabled><svg viewBox="0 0 24 24"><path d="M8 7H17a5 5 0 0 1 0 10H7"/><polyline points="11 4 8 7 11 10"/></svg></button>
@@ -965,7 +1005,21 @@ button:focus-visible { outline: none; background: transparent; }
   <div class="day-sidebar-land" id="day-sidebar-land">
     <div class="land-row1">
       <button class="icon-btn" id="btn-back-land">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        <svg viewBox="0 0 80 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 「<」 -->
+          <polyline points="14 20 7 28 14 36" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- 外枠 -->
+          <rect x="30" y="10" width="44" height="38" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="2.2"/>
+          <!-- ゴールドアクセントライン -->
+          <line x1="30" y1="23" x2="74" y2="23" stroke="var(--today-ring)" stroke-width="2.8"/>
+          <!-- リング（左） -->
+          <rect x="41" y="6" width="3.5" height="10" rx="1.75" fill="var(--ink)"/>
+          <!-- リング（右） -->
+          <rect x="59.5" y="6" width="3.5" height="10" rx="1.75" fill="var(--ink)"/>
+          <!-- スケジュールライン -->
+          <line x1="38" y1="33" x2="66" y2="33" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="38" y1="41" x2="58" y2="41" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
       </button>
       <div class="land-badge">
         <div class="land-date-row">
@@ -1381,14 +1435,6 @@ function clone(v)  { return JSON.parse(JSON.stringify(v)); }
 
 /* ════ I18N ════ */
 const I18N = {
-  ja: {
-    months:  ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
-    monthsFull: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
-    weekSun: ['日','月','火','水','木','金','土'],
-    weekMon: ['月','火','水','木','金','土','日'],
-    yearFmt: y => `${y}年`,
-    monthFmt: (y, m) => `${y}年 ${m+1}月`,
-  },
   en: {
     months:  ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
     monthsFull: ['January','February','March','April','May','June','July','August','September','October','November','December'],
@@ -1396,6 +1442,76 @@ const I18N = {
     weekMon: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
     yearFmt: y => String(y),
     monthFmt: (y, m) => `${['January','February','March','April','May','June','July','August','September','October','November','December'][m]} ${y}`,
+    // UI strings
+    settings: 'Settings',
+    weekStart: 'First day of week',
+    language: 'Language',
+    userMgmt: 'User management',
+    userMgmtBtn: 'Manage users...',
+    // cell context menu
+    cellCopy:    'Copy cell',
+    cellCut:     'Cut cell',
+    cellPasteCell: 'Paste cell',
+    cellPasteObj:  'Paste object',
+    cellDelete:  'Delete cell',
+    // object context menu (calendar screen)
+    objCopy:     'Copy object',
+    objCut:      'Cut object',
+    objPasteObj: 'Paste object',
+    objPasteCell:'Paste cell',
+    objDelete:   'Delete object',
+    // day screen context menu
+    changeImage: 'Change image',
+    copy:        'Copy',
+    cut:         'Cut',
+    paste:       'Paste',
+    delete:      'Delete',
+    // tool hints
+    stickerHint: 'Tap canvas to place',
+    selectHint:  'Tap object to select / move',
+    // toast
+    textToolPen: 'Use finger to select Text tool',
+    // pdf error
+    pdfError:    'Failed to load PDF',
+  },
+  ja: {
+    months:  ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+    monthsFull: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+    weekSun: ['日','月','火','水','木','金','土'],
+    weekMon: ['月','火','水','木','金','土','日'],
+    yearFmt: y => `${y}年`,
+    monthFmt: (y, m) => `${y}年 ${m+1}月`,
+    // UI strings
+    settings: '設定',
+    weekStart: '週の始まり',
+    language: '表示言語',
+    userMgmt: 'ユーザー管理',
+    userMgmtBtn: 'ユーザーを管理...',
+    // cell context menu
+    cellCopy:    '日付セルをコピー',
+    cellCut:     '日付セルをカット',
+    cellPasteCell: '日付セルを貼り付け',
+    cellPasteObj:  'オブジェクトを貼り付け',
+    cellDelete:  '日付セルを削除',
+    // object context menu (calendar screen)
+    objCopy:     'オブジェクトをコピー',
+    objCut:      'オブジェクトをカット',
+    objPasteObj: 'オブジェクトを貼り付け',
+    objPasteCell:'日付セルを貼り付け',
+    objDelete:   'オブジェクトを削除',
+    // day screen context menu
+    changeImage: '画像変更',
+    copy:        'コピー',
+    cut:         'カット',
+    paste:       '貼り付け',
+    delete:      '削除',
+    // tool hints
+    stickerHint: 'キャンバスをタップして配置',
+    selectHint:  'オブジェクトをタップして選択・移動',
+    // toast
+    textToolPen: 'テキストツールは指でタップしてください',
+    // pdf error
+    pdfError:    'PDFの読み込みに失敗しました',
   },
 };
 function L() { return I18N[S.lang] || I18N.ja; }
@@ -2411,7 +2527,7 @@ function removeTextInput(){
           await page.render({canvasContext: cvs2.getContext('2d'), viewport}).promise;
         }
       } catch(e) {
-        viewerPages.innerHTML = '<p style="color:#fff;padding:24px">PDFの読み込みに失敗しました</p>';
+        viewerPages.innerHTML = `<p style="color:#fff;padding:24px">${L().pdfError}</p>`;
       }
     } else {
       // 画像
@@ -2693,6 +2809,36 @@ function doRedo(){ if(!Draw.redoStk.length)return; const a=Draw.redoStk.pop(); a
 
 // 現在開いているセルのキー（goBackで戻る先のミニキャンバスを特定するため）
 
+function positionDateLabels() {
+  const numEl = document.getElementById('day-num-p');
+  const subEl = document.getElementById('day-sub-p');
+  const dowEl = document.getElementById('day-dow-p');
+  if (!numEl || !subEl || !dowEl) return;
+  const GAP = 8; // 日付との間隔(px)
+
+  // day-topbar の中央Y座標を取得
+  const topbar = document.getElementById('day-topbar');
+  const tbr = topbar ? topbar.getBoundingClientRect() : null;
+  const row1 = document.querySelector('.tb-row1');
+  const row1r = row1 ? row1.getBoundingClientRect() : null;
+  const midY = row1r ? row1r.top + row1r.height / 2 : (tbr ? tbr.top + tbr.height / 4 : 30);
+
+  // day-num の縦位置を設定
+  numEl.style.top = (midY - numEl.getBoundingClientRect().height / 2) + 'px';
+
+  // 設定後に再取得
+  const r = numEl.getBoundingClientRect();
+
+  // 年月: 日付左端の左側
+  const subW = subEl.getBoundingClientRect().width;
+  subEl.style.left = (r.left - subW - GAP) + 'px';
+  subEl.style.top  = (midY - subEl.getBoundingClientRect().height / 2) + 'px';
+
+  // 曜日: 日付右端の右側
+  dowEl.style.left = (r.right + GAP) + 'px';
+  dowEl.style.top  = (midY - dowEl.getBoundingClientRect().height / 2) + 'px';
+}
+
 function openDayCell(key, label, keepTool = false) {
   Cal.selObjId=null; Cal.selCellKey=null;
   S.clipboard=null;
@@ -2729,6 +2875,7 @@ function openDayCell(key, label, keepTool = false) {
     : '';
   document.getElementById('day-dow-p').textContent = dowStr;
   document.getElementById('day-dow-l').textContent = dowStr;
+  requestAnimationFrame(positionDateLabels);
 
   // ── ミニキャンバスの rect を取得（アニメーション開始位置） ──
   const miniMc = document.querySelector(`.cell-preview canvas[data-key="${key}"]`);
@@ -3103,9 +3250,10 @@ function buildOptsHTML(tool) {
         </div>
       </div>`;
   }
+  const l2 = L();
   const msg = tool === 'sticker'
-    ? (Draw.pendingStickerId ? 'キャンバスをタップして配置' : '')
-    : tool === 'select' ? 'オブジェクトをタップして選択・移動' : '';
+    ? (Draw.pendingStickerId ? l2.stickerHint : '')
+    : tool === 'select' ? l2.selectHint : '';
   return msg ? `<span style="font-size:12px;color:var(--ink-faint);">${msg}</span>` : '';
 }
 
@@ -3301,7 +3449,7 @@ document.querySelectorAll('.tool-btn').forEach(btn=>{
   btn.addEventListener('pointerdown', ev => {
     if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') {
       ev.preventDefault();
-      showToast('テキストツールは指でタップしてください');
+      showToast(L().textToolPen);
     }
   });
   btn.addEventListener('click', ev => {
@@ -3314,7 +3462,7 @@ document.querySelectorAll('.land-tool-btn').forEach(btn=>{
   btn.addEventListener('pointerdown', ev => {
     if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') {
       ev.preventDefault();
-      showToast('テキストツールは指でタップしてください');
+      showToast(L().textToolPen);
     }
   });
   btn.addEventListener('click', ev => {
@@ -3642,6 +3790,8 @@ function handleEmptyCellTap(e, desc) {
 function applyCellSizes(numRows, isLand) {
   const area = document.getElementById('cal-grid-area');
   const grid = document.getElementById('cal-grid');
+  const wd   = document.getElementById('cal-wd');
+  const wrap = document.getElementById('cal-wd-grid-wrap');
   const areaW = area.clientWidth;
   const areaH = area.clientHeight;
 
@@ -3656,12 +3806,18 @@ function applyCellSizes(numRows, isLand) {
     const cellW = Math.floor(areaW / 7);
     const squareSz = cellW;
     const cellH = DATE_H + squareSz;
+    const totalW = cellW * 7;
 
     // グリッド設定: 列幅均等、行高さ固定
     grid.style.gridTemplateColumns = `repeat(7, ${cellW}px)`;
     grid.style.gridTemplateRows    = `repeat(${numRows}, ${cellH}px)`;
-    grid.style.width  = `${cellW*7}px`;
+    grid.style.width  = `${totalW}px`;
     grid.style.height = `${cellH*numRows}px`;
+
+    // 曜日ヘッダーとwrapをグリッドと同幅に同期
+    wd.style.width = `${totalW}px`;
+    wd.style.gridTemplateColumns = `repeat(7, ${cellW}px)`;
+    if (wrap) wrap.style.width = `${totalW}px`;
 
     // 各セル
     grid.querySelectorAll('.cal-cell').forEach(el=>{
@@ -3692,11 +3848,17 @@ function applyCellSizes(numRows, isLand) {
     const cellH = (cellWfromH * 7 <= areaW) ? cellHfromH : Math.max(cellHfromW, 1);
     const squareSz = cellH;
     const cellW = DATE_W + squareSz;
+    const totalW = cellW * 7;
 
     grid.style.gridTemplateColumns = `repeat(7, ${cellW}px)`;
     grid.style.gridTemplateRows    = `repeat(${numRows}, ${cellH}px)`;
-    grid.style.width  = `${cellW*7}px`;
+    grid.style.width  = `${totalW}px`;
     grid.style.height = `${cellH*numRows}px`;
+
+    // 曜日ヘッダーとwrapをグリッドと同幅に同期
+    wd.style.width = `${totalW}px`;
+    wd.style.gridTemplateColumns = `repeat(7, ${cellW}px)`;
+    if (wrap) wrap.style.width = `${totalW}px`;
 
     grid.querySelectorAll('.cal-cell').forEach(el=>{
       el.style.width  = `${cellW}px`;
@@ -4421,15 +4583,67 @@ document.getElementById('week-start-sel').addEventListener('change',e=>{
   S.weekStart=+e.target.value; renderCalendar();
 });
 
+function updateI18nDOM() {
+  const l = L();
+  const isEn = S.lang === 'en';
+
+  // 設定パネル
+  document.querySelector('.settings-panel h3').textContent = l.settings;
+  const sRows = document.querySelectorAll('.settings-panel .s-row label');
+  if (sRows[0]) sRows[0].textContent = l.weekStart;
+  if (sRows[1]) sRows[1].textContent = l.language;
+  if (sRows[2]) sRows[2].textContent = l.userMgmt;
+  const userBtn = document.getElementById('btn-user-mgmt');
+  if (userBtn) {
+    const svg = userBtn.querySelector('svg');
+    userBtn.textContent = l.userMgmtBtn;
+    if (svg) userBtn.prepend(svg);
+  }
+  const wSel = document.getElementById('week-start-sel');
+  wSel.options[0].text = isEn ? 'Sunday'  : '日曜日';
+  wSel.options[1].text = isEn ? 'Monday'  : '月曜日';
+
+  // cell context menu
+  const setText = (id, svgEl, txt) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = txt;
+    if (svgEl) el.prepend(svgEl);
+  };
+  const svgOf = id => document.getElementById(id)?.querySelector('svg');
+
+  setText('cctx-copy',       svgOf('cctx-copy'),       l.cellCopy);
+  setText('cctx-cut',        svgOf('cctx-cut'),        l.cellCut);
+  setText('cctx-paste-cell', svgOf('cctx-paste-cell'), l.cellPasteCell);
+  setText('cctx-paste-obj',  svgOf('cctx-paste-obj'),  l.cellPasteObj);
+  setText('cctx-delete',     svgOf('cctx-delete'),     l.cellDelete);
+
+  // object context menu
+  setText('octx-copy',       svgOf('octx-copy'),       l.objCopy);
+  setText('octx-cut',        svgOf('octx-cut'),        l.objCut);
+  setText('octx-paste-obj',  svgOf('octx-paste-obj'),  l.objPasteObj);
+  setText('octx-paste-cell', svgOf('octx-paste-cell'), l.objPasteCell);
+  setText('octx-delete',     svgOf('octx-delete'),     l.objDelete);
+
+  // day screen context menu
+  setText('dctx-change-image', svgOf('dctx-change-image'), l.changeImage);
+  setText('dctx-copy',         svgOf('dctx-copy'),         l.copy);
+  setText('dctx-cut',          svgOf('dctx-cut'),          l.cut);
+  setText('dctx-paste',        svgOf('dctx-paste'),        l.paste);
+  setText('dctx-delete',       svgOf('dctx-delete'),       l.delete);
+  setText('dpctx-paste',       svgOf('dpctx-paste'),       l.paste);
+
+  // html lang属性
+  document.documentElement.lang = isEn ? 'en' : 'ja';
+
+  // ツールヒント（現在のツールを再描画）
+  renderOpts();
+}
+
 document.getElementById('lang-sel').addEventListener('change', e => {
   S.lang = e.target.value;
   renderCalendar();
-  // 設定パネルの週の始まりオプションも更新
-  const wSel = document.getElementById('week-start-sel');
-  wSel.options[0].text = S.lang === 'en' ? 'Sunday'   : '日曜日';
-  wSel.options[1].text = S.lang === 'en' ? 'Monday'   : '月曜日';
-  document.querySelector('.settings-panel h3').textContent = S.lang === 'en' ? 'Settings' : '設定';
-  document.querySelector('#settings-panel-lang label') && null;
+  updateI18nDOM();
 });
 
 /* ════ YEAR-MONTH DRUM PICKER ════ */
@@ -4808,8 +5022,10 @@ calcTextSizes();
 renderTabs();
 renderCalendar();
 renderOpts();
+updateI18nDOM();
+
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v334</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v353</div>
 <div id="app-toast"></div>
 </body>
 </html>
