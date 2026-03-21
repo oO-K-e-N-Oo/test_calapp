@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, interactive-widget=overlays-content">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Calapp">
@@ -339,8 +339,8 @@ button:focus-visible { outline: none; background: transparent; }
 /* 横長グリッド */
 .cal-cell.landscape-cell               { flex-direction: row; }
 .cal-cell.landscape-cell .cell-top     { flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 4px 6px; overflow: hidden; height: auto; }
-.cal-cell.landscape-cell .cell-num     { font-size: 9px; overflow: visible; }
-.cal-cell.landscape-cell .cell-hol-name{ font-size: 9px; white-space: nowrap; }
+.cal-cell.landscape-cell .cell-num     { font-size: 14px; overflow: visible; }
+.cal-cell.landscape-cell .cell-hol-name{ font-size: 11px; white-space: nowrap; }
 
 /* ════════════════════════════════════════════
    CALENDAR SCREEN — アニメーション
@@ -2085,9 +2085,18 @@ function onDown(e) {
         Draw._lastTextTap = 0;
         return;
       }
-      // 選択なし：350ms待って新規入力
+      // 選択なし：ダミーinputを即座にfocusしてiOSキーボードを起動、350ms後にtextareaへ引き継ぐ
+      const dummy = document.createElement('input');
+      dummy.id = '_text-dummy-input';
+      dummy.setAttribute('type', 'text');
+      dummy.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;font-size:16px;';
+      document.body.appendChild(dummy);
+      dummy.focus();
       Draw._textTapTimer = setTimeout(() => {
-        if (Draw.activeTextEl || Draw.textJustFinished) return;
+        if (Draw.activeTextEl || Draw.textJustFinished) {
+          dummy.remove();
+          return;
+        }
         showTextInput(lp.x, lp.y, null);
       }, 350);
     }
@@ -2187,7 +2196,18 @@ function showTextInput(x,y,editObj) {
     editObj._hidden = true;
     redraw();
   }
-  document.body.appendChild(ta); ta.focus();
+  document.body.appendChild(ta);
+
+  // ダミーinputがあればフォーカスを引き継ぐ（iOSキーボード維持）
+  // なければ直接focus（ダブルタップ等、同期呼び出しの場合）
+  const dummy = document.getElementById('_text-dummy-input');
+  if (dummy && document.activeElement === dummy) {
+    ta.focus();
+    dummy.remove();
+  } else {
+    ta.focus();
+  }
+
   Draw.activeTextEl={el:ta,x,y,editObj};
   Draw.textJustFinished=false;
 
@@ -2552,20 +2572,29 @@ function clearCalUR() {
 
 function applyCalUndo(act) {
   if (act.type === 'cal-delete') {
-    // 削除を元に戻す → オブジェクトを復元
     const objs = clone(getCellObjs(act.key));
     objs.push(clone(act.obj));
     setCellObjs(act.key, objs);
   } else if (act.type === 'cal-create') {
-    // 作成を元に戻す → オブジェクトを削除
     const objs = getCellObjs(act.key).filter(o => o.id !== act.obj.id);
     setCellObjs(act.key, objs);
   } else if (act.type === 'cal-move') {
-    // 移動を元に戻す
-    setCellObjs(act.toKey, getCellObjs(act.toKey).filter(o => o.id !== act.obj.id));
-    const fromObjs = clone(getCellObjs(act.fromKey));
-    fromObjs.push(clone(act.obj));
-    setCellObjs(act.fromKey, fromObjs);
+    // 同一セル内移動のUndo
+    const objs = getCellObjs(act.key);
+    const obj  = objs.find(o => o.id === act.objId);
+    if (obj) Object.assign(obj, act.from);
+    setCellObjs(act.key, objs);
+  } else if (act.type === 'cal-cross-move') {
+    // 別セル移動のUndo: dstから削除 → srcに復元
+    const dstObjs = getCellObjs(act.dstKey).filter(o => o.id !== act.newObj.id);
+    setCellObjs(act.dstKey, dstObjs);
+    const srcObjs = clone(getCellObjs(act.srcKey));
+    srcObjs.push(clone(act.origObj));
+    setCellObjs(act.srcKey, srcObjs);
+  } else if (act.type === 'cal-cell-move') {
+    // セル全体移動のUndo: dstを元に戻し、srcを復元
+    setCellObjs(act.dstKey, clone(act.dstObjsBefore));
+    setCellObjs(act.srcKey, clone(act.movedObjs));
   }
   saveToStorage();
   renderMiniCanvases();
@@ -2580,11 +2609,22 @@ function applyCalRedo(act) {
     objs.push(clone(act.obj));
     setCellObjs(act.key, objs);
   } else if (act.type === 'cal-move') {
-    const fromObjs = getCellObjs(act.fromKey).filter(o => o.id !== act.obj.id);
-    setCellObjs(act.fromKey, fromObjs);
-    const toObjs = clone(getCellObjs(act.toKey));
-    toObjs.push(clone(act.movedObj));
-    setCellObjs(act.toKey, toObjs);
+    // 同一セル内移動のRedo
+    const objs = getCellObjs(act.key);
+    const obj  = objs.find(o => o.id === act.objId);
+    if (obj) Object.assign(obj, act.to);
+    setCellObjs(act.key, objs);
+  } else if (act.type === 'cal-cross-move') {
+    // 別セル移動のRedo: srcから削除 → dstに追加
+    const srcObjs = getCellObjs(act.srcKey).filter(o => o.id !== act.origObj.id);
+    setCellObjs(act.srcKey, srcObjs);
+    const dstObjs = clone(getCellObjs(act.dstKey));
+    dstObjs.push(clone(act.newObj));
+    setCellObjs(act.dstKey, dstObjs);
+  } else if (act.type === 'cal-cell-move') {
+    // セル全体移動のRedo: srcをクリアしてdstに移動
+    setCellObjs(act.dstKey, clone(act.movedObjs));
+    setCellObjs(act.srcKey, []);
   }
   saveToStorage();
   renderMiniCanvases();
@@ -3411,7 +3451,7 @@ function buildCellTop(desc) {
 
 // ── セルのポインターイベントハンドラ ──
 function onCellPointerDown(e, el, desc) {
-  if (e.button !== 0) return;
+  if (e.button > 0) return;
   if (document.getElementById('ctx-obj').classList.contains('open') ||
       document.getElementById('ctx-cell').classList.contains('open')) return;
 
@@ -3423,6 +3463,18 @@ function onCellPointerDown(e, el, desc) {
   const lx   = (e.clientX - r.left) / r.width  * (mc.width  / sc);
   const ly   = (e.clientY - r.top)  / r.height * (mc.height / sc);
   const objs = getCellObjs(desc.key);
+
+  // ダブルタップでクリップビューワー起動（最優先）
+  const now = Date.now();
+  if (now - (onCellPointerDown._lastTap||0) < 350) {
+    const hitClip = objs.slice().reverse().find(o => o.type==='clip' && miniHitObj(o, lx, ly));
+    if (hitClip) {
+      onCellPointerDown._lastTap = 0;
+      openClipViewer(hitClip.clipId);
+      return;
+    }
+  }
+  onCellPointerDown._lastTap = now;
 
   // ① 選択済み×ボタン
   if (miniHandleDeleteBtn(e, r, sc, desc.key, objs)) return;
@@ -3463,18 +3515,6 @@ function findMiniHitObj(objs, lx, ly, key) {
 
 // オブジェクトヒット時：即選択 → ドラッグ or 長押しメニュー待機
 function handleObjHit(e, key, obj) {
-  // クリップオブジェクトのダブルタップ → ビューワー起動
-  if (obj.type === 'clip') {
-    const now = Date.now();
-    if (now - (handleObjHit._lastTap||0) < 350 && handleObjHit._lastId === obj.id) {
-      handleObjHit._lastTap = 0;
-      openClipViewer(obj.clipId);
-      return;
-    }
-    handleObjHit._lastTap = now;
-    handleObjHit._lastId  = obj.id;
-  }
-
   Cal.selCellKey = key;
   Cal.selObjId   = obj.id;
   renderMiniCanvases();
@@ -3798,9 +3838,12 @@ function startCalDrag(e, srcKey, obj) {
 
     if (dstKey === calDragInfo.srcKey) {
       // 同一セル内移動
+      const origObj = clone(movingObj);
       moveObjInCell(calDragInfo.srcKey, movingObj, nx, ny);
+      calPushUndo({type:'cal-move', key: dstKey, objId: movingObj.id, from: origObj, to: clone(movingObj)});
     } else {
-      // 別セルへ移動: srcから削除 → dstに追加
+      // 別セルへ移動: srcから削除 → dstに追加（1アクションとして記録）
+      const origObj = clone(movingObj);
       const newSrc = srcObjs.filter(o=>o.id!==movingObj.id);
       setCellObjs(calDragInfo.srcKey, newSrc);
 
@@ -3809,6 +3852,7 @@ function startCalDrag(e, srcKey, obj) {
       const dstObjs = getCellObjs(dstKey);
       dstObjs.push(newObj);
       setCellObjs(dstKey, dstObjs);
+      calPushUndo({type:'cal-cross-move', srcKey: calDragInfo.srcKey, dstKey, origObj, newObj: clone(newObj)});
 
       Cal.selCellKey = dstKey;
       Cal.selObjId   = newObj.id;
@@ -3922,8 +3966,11 @@ function startCellDrag(e, srcKey, onNoMove, onDragStart) {
     }
 
     // 全オブジェクトを src から dst に移動（元セルはクリア）
+    const dstObjsBefore = clone(getCellObjs(dstKey));
     setCellObjs(dstKey, clone(srcObjs));
     setCellObjs(srcKey, []);
+    calPushUndo({type:'cal-cell-move', srcKey, dstKey, movedObjs: clone(srcObjs), dstObjsBefore});
+    saveToStorage();
     Cal.selCellKey = null; Cal.selObjId = null;
     renderMiniCanvases();
   };
@@ -4703,6 +4750,6 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v324</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v330</div>
 </body>
 </html>
