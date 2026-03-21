@@ -997,7 +997,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v389</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v390</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -3847,75 +3847,92 @@ function handleObjHit(e, key, obj) {
   Cal.selObjId   = obj.id;
   renderMiniCanvases();
 
-  let longPressed = false;
+  let upBeforeTimer = false; // タイマー発火前に指が離れたか
 
   const onTryDrag = mv => {
     if (Math.hypot(mv.clientX - e.clientX, mv.clientY - e.clientY) > 6) {
       clearTimeout(longPressTimer);
       document.removeEventListener('pointermove', onTryDrag);
       document.removeEventListener('pointerup',   onUp);
+      document.removeEventListener('touchend',    onTouchUp, true);
       startCalDrag(e, key, obj);
     }
   };
 
-  const onUp = () => {
-    if (longPressed) return; // 長押し後は startCalDrag の onUp に任せる
+  const doUp = () => {
     clearTimeout(longPressTimer);
     document.removeEventListener('pointermove', onTryDrag);
     document.removeEventListener('pointerup',   onUp);
+    document.removeEventListener('touchend',    onTouchUp, true);
+    upBeforeTimer = true;
   };
 
-  // 長押し確定 → リスナーを先に削除してから startCalDrag に委譲
+  const onUp     = () => doUp();
+  const onTouchUp = () => doUp();
+
+  // 長押し確定
   const longPressTimer = setTimeout(() => {
-    longPressed = true;
     document.removeEventListener('pointermove', onTryDrag);
     document.removeEventListener('pointerup',   onUp);
+    document.removeEventListener('touchend',    onTouchUp, true);
 
-    // 既に指が離れていたらゴースト不要・即メニュー（longPress不要）
-    if (!isPointerStillDown()) {
+    if (upBeforeTimer) {
+      // 既に指が離れていた → 即メニュー
       openObjCtx(e.clientX, e.clientY, key, obj.id, false);
-      return;
+    } else {
+      // まだ指が触れている → ゴースト表示、指離しでメニュー
+      startCalDrag(e, key, obj,
+        () => openObjCtx(e.clientX, e.clientY, key, obj.id, false)
+      );
     }
-
-    startCalDrag(e, key, obj,
-      () => openObjCtx(e.clientX, e.clientY, key, obj.id, false)
-    );
   }, 500);
 
   document.addEventListener('pointermove', onTryDrag);
   document.addEventListener('pointerup',   onUp);
+  document.addEventListener('touchend',    onTouchUp, { capture: true, passive: true });
 }
 
 // 空白タップ：短タップ→遷移、長押しドラッグ→セル移動、長押しリリース→メニュー
 function handleEmptyCellTap(e, desc) {
-  let longPressed = false;
+  let longPressed    = false;
+  let upBeforeTimer  = false;
 
-  // 長押し前に指が動いたらキャンセル
   const onMoveCancel = mv => {
     if (Math.hypot(mv.clientX - e.clientX, mv.clientY - e.clientY) > 8) {
       clearTimeout(longPressTimer);
       document.removeEventListener('pointermove', onMoveCancel);
-      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointerup',   onUp);
+      document.removeEventListener('touchend',    onTouchUp, true);
     }
   };
 
-  // 長押し前に指を離したら → 短タップ → セル遷移
   const onUp = up => {
     clearTimeout(longPressTimer);
     document.removeEventListener('pointermove', onMoveCancel);
-    if (!longPressed && Math.hypot(up.clientX - e.clientX, up.clientY - e.clientY) < 5) {
+    document.removeEventListener('pointerup',   onUp);
+    document.removeEventListener('touchend',    onTouchUp, true);
+    if (longPressed) { upBeforeTimer = true; return; }
+    if (Math.hypot(up.clientX - e.clientX, up.clientY - e.clientY) < 5) {
       openDayCell(desc.key, desc.type === 'date' ? desc.d : desc.label);
     }
   };
 
-  // 長押し確定 → ゴースト＋ドラッグ or メニュー（startCellDragに全権委譲）
+  const onTouchUp = () => {
+    if (longPressed) { upBeforeTimer = true; return; }
+    clearTimeout(longPressTimer);
+    document.removeEventListener('pointermove', onMoveCancel);
+    document.removeEventListener('pointerup',   onUp);
+    document.removeEventListener('touchend',    onTouchUp, true);
+  };
+
   const longPressTimer = setTimeout(() => {
     longPressed = true;
     document.removeEventListener('pointermove', onMoveCancel);
-    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointerup',   onUp);
+    document.removeEventListener('touchend',    onTouchUp, true);
 
-    // 既に指が離れていたら何もしない（クリップボードあればメニュー・longPress不要）
-    if (!isPointerStillDown()) {
+    if (upBeforeTimer) {
+      // 既に指が離れていた → 即メニュー
       if (S.clipboard) openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
       return;
     }
@@ -3929,7 +3946,8 @@ function handleEmptyCellTap(e, desc) {
   }, 500);
 
   document.addEventListener('pointermove', onMoveCancel);
-  document.addEventListener('pointerup', onUp, { once: true });
+  document.addEventListener('pointerup',   onUp);
+  document.addEventListener('touchend',    onTouchUp, { capture: true, passive: true });
 }
 
 
