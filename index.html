@@ -580,6 +580,32 @@ button:focus-visible { outline: none; background: transparent; }
 .sz-btn.on .sz-lbl { color: #fff; }
 
 /* ════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════ */
+#app-toast {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: rgba(44,42,38,.88);
+  color: #fff;
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  padding: 9px 18px;
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .18s, transform .18s;
+}
+#app-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ════════════════════════════════════════════
    SETTINGS OVERLAY
 ════════════════════════════════════════════ */
 .overlay      { display: none; position: fixed; inset: 0; z-index: 80; }
@@ -1332,9 +1358,6 @@ const Draw = {
   _lastTextTap:     0,      // テキストツールのダブルタップ検出用タイムスタンプ
   _textTapTimer:    null,   // シングルタップ遅延タイマー
   _globalLastTap:   0,      // グローバルダブルタップ検出用タイムスタンプ
-  _lastInputWasPen:  false,  // 直前の入力がタッチペンだったか
-  _lastPenX:         null,   // 直前のペンタップ論理X座標
-  _lastPenY:         null,   // 直前のペンタップ論理Y座標
 };
 
 // ── カレンダー画面の選択・操作状態 ──
@@ -1972,25 +1995,6 @@ function onDown(e) {
   const {clientX,clientY} = evtCoords(e);
   const lp = toLogical(clientX,clientY);
   const pp = toPhysical(clientX,clientY);
-
-  // ── ペン/指の入力種別を記録（テキストツールのキーボードボタン強調に使用）──
-  const wasPen = e.pointerType === 'pen';
-  if (S.tool === 'text') {
-    if (wasPen) {
-      // ペンタップ位置を保存してボタン強調を更新
-      Draw._lastPenX = lp.x;
-      Draw._lastPenY = lp.y;
-      if (!Draw._lastInputWasPen) {
-        Draw._lastInputWasPen = true;
-        renderOpts();
-      }
-    } else if (e.pointerType === 'touch' || e.pointerType === 'mouse') {
-      if (Draw._lastInputWasPen) {
-        Draw._lastInputWasPen = false;
-        renderOpts();
-      }
-    }
-  }
 
   // ── グローバルダブルタップ：テキストオブジェクト上ならどのツールからでも編集 ──
   const nowDt = Date.now();
@@ -3084,10 +3088,6 @@ function buildOptsHTML(tool) {
       </div>`;
   }
   if (tool === 'text') {
-    const penActive = Draw._lastInputWasPen;
-    const kbStyle = penActive ? 'border-color:var(--today-ring);background:rgba(200,168,75,.12);' : '';
-    const kbSvgStroke = penActive ? 'var(--today-ring)' : 'currentColor';
-    const kbLblColor  = penActive ? 'color:var(--today-ring);' : '';
     return `
       <div class="opt-block">
         ${buildSwatchesHTML('to-colors', 'data-tcolor', S.textColor)}
@@ -3101,15 +3101,6 @@ function buildOptsHTML(tool) {
             <span class="sz-lbl" style="font-weight:700;">A</span>
           </button>
         </div>
-      </div>
-      <div class="opt-block">
-        <button id="btn-open-keyboard" class="sz-btn" style="width:auto;padding:0 8px;display:flex;align-items:center;gap:4px;${kbStyle}">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${kbSvgStroke}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;flex-shrink:0;">
-            <rect x="2" y="4" width="20" height="16" rx="2"/>
-            <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M10 13h.01M14 13h.01M18 13h.01M6 17h12"/>
-          </svg>
-          <span class="sz-lbl" style="font-size:10px;${kbLblColor}">キーボード</span>
-        </button>
       </div>`;
   }
   const msg = tool === 'sticker'
@@ -3170,58 +3161,6 @@ function bindOpts(container) {
     });
   });
 
-  // キーボードボタン：指タップの pointerdown 1つで完結させる
-  // click は DOM再生成で消えることがあるため使わない
-  const kbBtn = container.querySelector('#btn-open-keyboard');
-  if (kbBtn) {
-    kbBtn.addEventListener('pointerdown', ev => {
-      if (ev.pointerType === 'pen') return; // ペンでは反応しない（指専用）
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      // ① 同期的にtextareaを生成してfocus → iOSキーボード起動
-      const cx = Draw._lastPenX ?? CANVAS_SRC / 2;
-      const cy = Draw._lastPenY ?? CANVAS_SRC / 2;
-      const r   = cvs.getBoundingClientRect();
-      const sc  = r.width / CANVAS_SRC;
-      const fontSize = S.textSize * sc;
-      const weight   = S.textBold ? '700' : '400';
-
-      const ta = document.createElement('textarea');
-      ta.style.cssText = `position:fixed;left:${r.left + cx * sc}px;top:${r.top + cy * sc - 14}px;
-        font:${weight} ${fontSize}px 'Noto Sans JP',sans-serif;
-        color:${S.textColor};min-width:80px;min-height:28px;
-        border:none;outline:1.5px dashed #3a6fa8;background:rgba(255,255,255,.93);
-        resize:none;padding:0;margin:0;line-height:1.35;
-        vertical-align:top;box-sizing:content-box;
-        border-radius:3px;z-index:600;`;
-      document.body.appendChild(ta);
-      ta.focus(); // 同期コールバック内なのでiOSキーボードが起動する
-
-      // ② Draw状態に登録
-      Draw.activeTextEl = { el: ta, x: cx, y: cy, editObj: null };
-      Draw.textJustFinished = false;
-
-      // ③ ペンアクティブ状態をリセット（ボタン強調を外す）
-      Draw._lastInputWasPen = false;
-      // ボタン自体のスタイルだけ直接書き換え（renderOptsでDOM破棄しない）
-      kbBtn.style.borderColor = '';
-      kbBtn.style.background  = '';
-      const svg  = kbBtn.querySelector('svg');
-      const lbl  = kbBtn.querySelector('.sz-lbl');
-      if (svg) svg.style.stroke = '';
-      if (lbl) lbl.style.color  = '';
-
-      // ④ textarea外タップで確定
-      const onOutsideDown = ev2 => {
-        if (ev2.target !== ta) {
-          finalizeText();
-          document.removeEventListener('pointerdown', onOutsideDown, true);
-        }
-      };
-      setTimeout(() => document.addEventListener('pointerdown', onOutsideDown, true), 80);
-    });
-  }
 }
 
 function renderOpts() {
@@ -3344,12 +3283,44 @@ function setEraserCursor() {
 }
 
 // portrait tool btn clicks
+/* ════ TOAST ════ */
+let _toastTimer = null;
+function showToast(msg, duration) {
+  duration = duration || 2500;
+  const el = document.getElementById('app-toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// portrait tool btn clicks
 document.querySelectorAll('.tool-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>switchTool(btn.dataset.tool));
+  // ペンでテキストツールをタップしたらトーストを表示してswitchToolしない
+  btn.addEventListener('pointerdown', ev => {
+    if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') {
+      ev.preventDefault();
+      showToast('テキストツールは指でタップしてください');
+    }
+  });
+  btn.addEventListener('click', ev => {
+    if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') return;
+    switchTool(btn.dataset.tool);
+  });
 });
 // landscape tool btn clicks
 document.querySelectorAll('.land-tool-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>switchTool(btn.dataset.tool));
+  btn.addEventListener('pointerdown', ev => {
+    if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') {
+      ev.preventDefault();
+      showToast('テキストツールは指でタップしてください');
+    }
+  });
+  btn.addEventListener('click', ev => {
+    if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') return;
+    switchTool(btn.dataset.tool);
+  });
 });
 
 /* ════ CALENDAR RENDERING ════ */
@@ -4838,6 +4809,7 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v332</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v333</div>
+<div id="app-toast"></div>
 </body>
 </html>
