@@ -3170,31 +3170,56 @@ function bindOpts(container) {
     });
   });
 
-  // キーボードボタン：指タップの同期コールバック内でfocus() → iOSキーボード起動
+  // キーボードボタン：指タップの pointerdown 1つで完結させる
+  // click は DOM再生成で消えることがあるため使わない
   const kbBtn = container.querySelector('#btn-open-keyboard');
   if (kbBtn) {
     kbBtn.addEventListener('pointerdown', ev => {
       if (ev.pointerType === 'pen') return; // ペンでは反応しない（指専用）
+      ev.preventDefault();
       ev.stopPropagation();
-      // ダミーinputを同期的にfocus → キーボード起動
-      const dummy = document.createElement('input');
-      dummy.id = '_text-dummy-input';
-      dummy.setAttribute('type', 'text');
-      dummy.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;font-size:16px;';
-      document.body.appendChild(dummy);
-      dummy.focus();
-    });
-    kbBtn.addEventListener('click', ev => {
-      if (ev.pointerType === 'pen') return;
-      ev.stopPropagation();
-      // キャンバス中央を入力位置として showTextInput を呼ぶ
-      // （直前のペンタップ座標があればそちらを使う）
+
+      // ① 同期的にtextareaを生成してfocus → iOSキーボード起動
       const cx = Draw._lastPenX ?? CANVAS_SRC / 2;
       const cy = Draw._lastPenY ?? CANVAS_SRC / 2;
-      showTextInput(cx, cy, null);
-      // ペンアクティブ状態をリセットしてボタン強調を外す
+      const r   = cvs.getBoundingClientRect();
+      const sc  = r.width / CANVAS_SRC;
+      const fontSize = S.textSize * sc;
+      const weight   = S.textBold ? '700' : '400';
+
+      const ta = document.createElement('textarea');
+      ta.style.cssText = `position:fixed;left:${r.left + cx * sc}px;top:${r.top + cy * sc - 14}px;
+        font:${weight} ${fontSize}px 'Noto Sans JP',sans-serif;
+        color:${S.textColor};min-width:80px;min-height:28px;
+        border:none;outline:1.5px dashed #3a6fa8;background:rgba(255,255,255,.93);
+        resize:none;padding:0;margin:0;line-height:1.35;
+        vertical-align:top;box-sizing:content-box;
+        border-radius:3px;z-index:600;`;
+      document.body.appendChild(ta);
+      ta.focus(); // 同期コールバック内なのでiOSキーボードが起動する
+
+      // ② Draw状態に登録
+      Draw.activeTextEl = { el: ta, x: cx, y: cy, editObj: null };
+      Draw.textJustFinished = false;
+
+      // ③ ペンアクティブ状態をリセット（ボタン強調を外す）
       Draw._lastInputWasPen = false;
-      renderOpts();
+      // ボタン自体のスタイルだけ直接書き換え（renderOptsでDOM破棄しない）
+      kbBtn.style.borderColor = '';
+      kbBtn.style.background  = '';
+      const svg  = kbBtn.querySelector('svg');
+      const lbl  = kbBtn.querySelector('.sz-lbl');
+      if (svg) svg.style.stroke = '';
+      if (lbl) lbl.style.color  = '';
+
+      // ④ textarea外タップで確定
+      const onOutsideDown = ev2 => {
+        if (ev2.target !== ta) {
+          finalizeText();
+          document.removeEventListener('pointerdown', onOutsideDown, true);
+        }
+      };
+      setTimeout(() => document.addEventListener('pointerdown', onOutsideDown, true), 80);
     });
   }
 }
@@ -4813,6 +4838,6 @@ renderTabs();
 renderCalendar();
 renderOpts();
 </script>
-<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v331</div>
+<div id="_ver" style="position:fixed;bottom:6px;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;">v332</div>
 </body>
 </html>
