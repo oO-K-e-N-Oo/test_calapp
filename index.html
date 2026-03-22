@@ -1044,7 +1044,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v541</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v542</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4261,7 +4261,9 @@ function onCellPointerDown(e, el, desc) {
   // ③ 空白タップ → ヘッダーか描画領域かで処理を分岐
   Cal.selObjId = null; Cal.selCellKey = null;
   renderMiniCanvases();
-  if (e.target.closest('.cell-top')) {
+  if (e.target.closest('.cell-num')) {
+    handleCellNumTap(e, desc);
+  } else if (e.target.closest('.cell-top')) {
     handleCellHeaderTap(e, desc);
   } else {
     handleEmptyCellTap(e, desc);
@@ -4418,6 +4420,44 @@ function handleEmptyCellTap(e, desc) {
 }
 
 // 日付セルヘッダータップ：6px移動で即D&D、長押し500ms→ゴースト→指離しでメニュー、短タップ→何もしない
+// 日付番号タップ：短タップ→日付詳細画面遷移、長押し→handleCellHeaderTapに委譲
+function handleCellNumTap(e, desc) {
+  let longPressed = false;
+
+  const onTryDrag = mv => {
+    if (Math.hypot(mv.clientX - e.clientX, mv.clientY - e.clientY) > 6) {
+      clearTimeout(longPressTimer);
+      document.removeEventListener('pointermove', onTryDrag);
+      document.removeEventListener('pointerup',   onUp);
+      // ドラッグはヘッダー全体と同じ挙動
+      startCellDrag(e, desc.key, () => {}, () => {});
+    }
+  };
+
+  const onUp = () => {
+    clearTimeout(longPressTimer);
+    document.removeEventListener('pointermove', onTryDrag);
+    document.removeEventListener('pointerup',   onUp);
+    if (!longPressed) {
+      // 短タップ → 日付詳細画面へ遷移
+      if (desc.type === 'date') {
+        openDayCell(desc.key, desc.d);
+      }
+    }
+  };
+
+  const longPressTimer = setTimeout(() => {
+    longPressed = true;
+    document.removeEventListener('pointermove', onTryDrag);
+    document.removeEventListener('pointerup',   onUp);
+    // 長押し → ヘッダーと同じD&D・メニュー処理に委譲
+    handleCellHeaderTap(e, desc);
+  }, LONG_PRESS_MS);
+
+  document.addEventListener('pointermove', onTryDrag);
+  document.addEventListener('pointerup',   onUp);
+}
+
 function handleCellHeaderTap(e, desc) {
   let longPressed   = false;
   let upBeforeTimer = false;
