@@ -253,19 +253,20 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-grid-area {
   flex: 1;
   overflow: hidden;
-  overflow-x: auto;
-  overflow-y: auto;
   position: relative;
   background: var(--bg);
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-bottom: 16px;
+  flex-direction: column;
+  align-items: center;
 }
 .cal-wd-grid-wrap {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  flex: 1;
+  overflow: hidden;
+  width: 100%;
+  position: relative;
 }
 #cal-screen { overflow: hidden; position: relative; }
 
@@ -992,12 +993,12 @@ button:focus-visible { outline: none; background: transparent; }
     </div>
   </div>
   <div class="cal-grid-area" id="cal-grid-area">
+    <div class="cal-weekdays" id="cal-wd"></div>
     <div class="cal-wd-grid-wrap" id="cal-wd-grid-wrap">
-      <div class="cal-weekdays" id="cal-wd"></div>
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v390</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v391</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -5121,17 +5122,14 @@ function navigateMonth(dir) {
   }
   clearCalUR();
 
-  const area = document.getElementById('cal-grid-area');
+  const wrap    = document.getElementById('cal-wd-grid-wrap');
   const oldGrid = document.getElementById('cal-grid');
 
   // 旧グリッドをクローンして絶対位置で重ねる
-  const clone = oldGrid.cloneNode(true);
-  clone.id = 'cal-grid-old';
-  clone.style.cssText = `position:absolute;top:0;left:0;width:${oldGrid.offsetWidth}px;pointer-events:none;`;
-  area.appendChild(clone);
-
-  // アニメーション中はoverflow:visibleにして両グリッドを表示
-  area.style.overflow = 'visible';
+  const oldClone = oldGrid.cloneNode(true);
+  oldClone.id = 'cal-grid-old';
+  oldClone.style.cssText = `position:absolute;top:0;left:0;width:${oldGrid.offsetWidth}px;pointer-events:none;`;
+  wrap.appendChild(oldClone);
 
   // 新グリッドをレンダリング
   renderCalendar();
@@ -5141,17 +5139,16 @@ function navigateMonth(dir) {
   const outClass = dir === 'next' ? 'slide-out-left' : 'slide-out-right';
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    clone.classList.add(outClass);
+    oldClone.classList.add(outClass);
     const newGrid = document.getElementById('cal-grid');
     newGrid.classList.add(inClass);
 
     const cleanup = () => {
-      clone.remove();
+      oldClone.remove();
       newGrid.classList.remove(inClass);
-      area.style.overflow = '';
     };
     newGrid.addEventListener('animationend', cleanup, { once: true });
-    setTimeout(cleanup, 500); // フォールバック
+    setTimeout(cleanup, 500);
   }));
 }
 
