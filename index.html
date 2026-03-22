@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v513</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v514</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -5262,10 +5262,11 @@ document.getElementById('dctx-edit').addEventListener('pointerup', e => {
     input._changeTargetObjId = objId;
     closeContextMenus();
     input.click();
+    e.stopPropagation(); // attachLongPressMenuTrackingのonUpに伝わらないよう
   } else {
     execDayObjAction('edit');
   }
-});
+}, { capture: true });
 blinkAndExec('dctx-cut',     () => execDayObjAction('cut'));
 blinkAndExec('dctx-paste',   () => execDayObjAction('paste'));
 blinkAndExec('dctx-delete',  () => execDayObjAction('delete'));
