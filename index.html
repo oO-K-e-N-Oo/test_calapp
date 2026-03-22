@@ -944,11 +944,15 @@ button:focus-visible { outline: none; background: transparent; }
   pointer-events: none;
 }
 #clip-viewer-toolbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
   pointer-events: all;
+  z-index: 2001;
+  background: linear-gradient(to bottom, rgba(0,0,0,.6), transparent);
 }
 #clip-viewer-toolbar .icon-btn { color: #fff; }
 #clip-viewer-toolbar .icon-btn:hover { background: rgba(255,255,255,.15); }
@@ -1033,7 +1037,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v479</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v489</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1219,6 +1223,7 @@ button:focus-visible { outline: none; background: transparent; }
       <button class="icon-btn" id="clip-viewer-close">
         <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
+      <span id="clip-viewer-title" style="font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
       <span id="clip-viewer-page-info"></span>
     </div>
     <div id="clip-viewer-content">
@@ -1822,9 +1827,62 @@ function drawStickerObj(c, obj, sc) {
   c.restore();
 }
 
+// クリップアイコン内テキスト描画（改行対応・5行上限・縦横中央）
+function drawClipLabel(c, displayName, cx, cy, w, h, fontSize) {
+  if (!displayName) return;
+  const MAX_LINES = 5;
+  const lineH = fontSize * 1.3;
+  c.font = `600 ${fontSize}px 'Noto Sans JP', sans-serif`;
+
+  // 折り返し処理
+  const chars = displayName.split('');
+  const lines = [];
+  let current = '';
+  let truncated = false;
+  for (let ci = 0; ci < chars.length; ci++) {
+    const ch = chars[ci];
+    if (ch === '\n') {
+      lines.push(current); current = '';
+    } else if (c.measureText(current + ch).width > w * 0.82) {
+      lines.push(current); current = ch;
+    } else {
+      current += ch;
+    }
+    if (lines.length >= MAX_LINES) { truncated = true; break; }
+  }
+  if (!truncated && current) lines.push(current);
+  else if (truncated && current) {
+    // まだ未処理の文字が残っているか確認
+    // lines が MAX_LINES に達した時点でループを抜けたので残りあり
+    truncated = true;
+  }
+  const shown = lines.slice(0, MAX_LINES);
+
+  // 5行で打ち切られた、またはまだ文字が残っている場合は最終行に…
+  const hasMore = truncated || current.length > 0;
+  if (hasMore && shown.length > 0) {
+    const last = shown[shown.length - 1];
+    const ellipsis = '…';
+    let trimmed = last;
+    while (trimmed.length > 0 && c.measureText(trimmed + ellipsis).width > w * 0.82) {
+      trimmed = trimmed.slice(0, -1);
+    }
+    shown[shown.length - 1] = trimmed + ellipsis;
+  }
+
+  const totalH = shown.length * lineH;
+  const startY = cy - totalH / 2 + lineH / 2;
+
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  shown.forEach((line, i) => {
+    c.fillText(line, cx, startY + i * lineH);
+  });
+}
+
 function drawClipObj(c, obj, sc) {
   const sz   = (obj.size || 60) * sc;
-  const w    = sz * 0.85;
+  const w    = sz * 1.3;        // 横長
   const h    = sz * 1.3;
   const rx   = sz * 0.08;
   const fold = sz * 0.18;
@@ -1858,6 +1916,22 @@ function drawClipObj(c, obj, sc) {
 
   c.shadowColor = 'transparent';
 
+  // 枠線
+  c.strokeStyle = 'rgba(200,120,0,.9)';
+  c.lineWidth   = Math.max(4.5, sz * 0.06);
+  c.beginPath();
+  c.moveTo(x0 + rx, y0);
+  c.lineTo(x0 + w - fold, y0);
+  c.lineTo(x0 + w, y0 + fold);
+  c.lineTo(x0 + w, y0 + h - rx);
+  c.quadraticCurveTo(x0+w, y0+h, x0+w-rx, y0+h);
+  c.lineTo(x0 + rx, y0 + h);
+  c.quadraticCurveTo(x0, y0+h, x0, y0+h-rx);
+  c.lineTo(x0, y0 + rx);
+  c.quadraticCurveTo(x0, y0, x0+rx, y0);
+  c.closePath();
+  c.stroke();
+
   // 折れ角
   c.fillStyle = '#f9e44a';
   c.beginPath();
@@ -1867,31 +1941,9 @@ function drawClipObj(c, obj, sc) {
   c.closePath();
   c.fill();
 
-  // 罫線
-  c.strokeStyle = 'rgba(180,160,0,.25)';
-  c.lineWidth   = Math.max(1, sz * 0.025);
-  const lx1 = x0 + w * 0.1;
-  const lx2 = x0 + w * 0.9;
-  const lineStart = y0 + h * 0.42;
-  const lineStep  = h * 0.14;
-  for (let i = 0; i < 3; i++) {
-    const ly = lineStart + i * lineStep;
-    c.beginPath(); c.moveTo(lx1, ly); c.lineTo(lx2, ly); c.stroke();
-  }
-
-  // 表示名テキスト
-  const displayName = obj.displayName || '';
-  if (displayName) {
-    c.fillStyle = '#5d4e00';
-    c.font = `600 ${sz * 0.16}px 'Noto Sans JP', sans-serif`;
-    c.textAlign = 'center';
-    c.textBaseline = 'top';
-    const maxW = w * 0.85;
-    let text = displayName;
-    while (text.length > 1 && c.measureText(text).width > maxW) text = text.slice(0, -1);
-    if (text !== displayName) text += '…';
-    c.fillText(text, cx2, y0 + h * 0.08);
-  }
+  // 表示名テキスト（中央・改行対応・5行上限）
+  c.fillStyle = '#5d4e00';
+  drawClipLabel(c, obj.displayName || '', cx2, cy2, w, h, sz * 0.16);
 
   // ページ数バッジ
   if (obj.pageCount && obj.pageCount > 1) {
@@ -1944,7 +1996,7 @@ function getObjBounds(obj) {
   }
   if (obj.type==='clip') {
     const sz = (obj.size||60)*sc;
-    const w  = sz * 0.85;
+    const w  = sz * 1.3;
     const h  = sz * 1.3;
     return {x: obj.x*sc - w/2, y: obj.y*sc - h/2, w, h};
   }
@@ -2611,6 +2663,7 @@ function removeTextInput(){
     };
     pushUndo({type:'create', obj: clone(obj)});
     Draw.objects.push(obj);
+    Draw.selId = obj.id;
     Draw.pendingClipId = null;
     flushCell(); redraw();
   }
@@ -2657,7 +2710,7 @@ function removeTextInput(){
     } else {
       // 新規配置モード → 表示名入力モーダル
       showClipNameModal(name => {
-        Draw.pendingClipId = {clipId, pageCount, fileType, displayName: name};
+        placeClip({ x: CANVAS_SRC/2, y: CANVAS_SRC/2 }, clipId, pageCount, fileType, name);
         applyCanvasCursor('clip');
       });
     }
@@ -2683,14 +2736,21 @@ function removeTextInput(){
   const viewer = document.getElementById('clip-viewer');
   const viewerPages = document.getElementById('clip-viewer-pages');
   const viewerPageInfo = document.getElementById('clip-viewer-page-info');
+  const viewerTitle = document.getElementById('clip-viewer-title');
 
-  window.openClipViewer = async function(clipId) {
+  // ビューワー表示中のピンチが背景に伝わらないよう防止
+  viewer.addEventListener('touchstart', e => {
+    if (e.touches.length >= 2) e.preventDefault();
+  }, { passive: false });
+
+  window.openClipViewer = async function(clipId, displayName) {
     const data = getClipData(clipId);
     if (!data) return;
 
     viewer.classList.add('open');
     viewerPages.innerHTML = '';
     viewerPageInfo.textContent = '';
+    viewerTitle.textContent = displayName || '';
 
     if (data.fileType === 'application/pdf') {
       try {
@@ -2775,6 +2835,8 @@ function removeTextInput(){
         x.classList.toggle('stk-selected', x.dataset.sid === s.id));
       dropdown.classList.remove('open');
       renderOpts();
+      // キャンバス中央に即配置
+      placeSticker({ x: CANVAS_SRC/2, y: CANVAS_SRC/2 });
     });
     // pointerupもキャプチャして伝播を止める（カレンダー遷移リスナーへの到達を防ぐ）
     el.addEventListener('pointerup', e => {
@@ -2844,6 +2906,7 @@ function placeSticker(lp) {
     const obj = {id:uid(), type:'sticker', stickerId:sid, x:lp.x, y:lp.y, size:132};
     pushUndo({type:'create', obj:clone(obj)});
     Draw.objects.push(obj);
+    Draw.selId = obj.id;
     flushCell();
     redraw();
   };
@@ -3663,7 +3726,7 @@ function showClipNameModal(onOk) {
   };
   const doOk = () => { close(); onOk(input.value.trim()); };
   const doCancel = () => { close(); onOk(''); };
-  const onKey = e => { if (e.key === 'Enter') doOk(); if (e.key === 'Escape') doCancel(); };
+  const onKey = e => { if (e.key === 'Enter' && !e.isComposing) doOk(); if (e.key === 'Escape') doCancel(); };
 
   okBtn.addEventListener('click', doOk);
   cancelBtn.addEventListener('click', doCancel);
@@ -3936,7 +3999,7 @@ function onCellPointerDown(e, el, desc) {
     const hitClip = objs.slice().reverse().find(o => o.type==='clip' && miniHitObj(o, lx, ly));
     if (hitClip) {
       onCellPointerDown._lastTap = 0;
-      openClipViewer(hitClip.clipId);
+      openClipViewer(hitClip.clipId, hitClip.displayName);
       return;
     }
   }
@@ -4281,7 +4344,7 @@ function getMiniObjBounds(obj) {
   }
   if (obj.type === 'clip') {
     const sz = obj.size || 60;
-    const w  = sz * 0.85;
+    const w  = sz * 1.3;
     const h  = sz * 1.3;
     return { x: obj.x-w/2-MINI_PAD, y: obj.y-h/2-MINI_PAD, w: w+MINI_PAD*2, h: h+MINI_PAD*2 };
   }
@@ -4674,7 +4737,7 @@ function drawObjMini(c,obj){
     c.drawImage(img, obj.x - w/2, obj.y - h/2, w, h);
   } else if (obj.type==='clip'){
     const sz   = obj.size || 60;
-    const w    = sz * 0.85;
+    const w    = sz * 1.3;
     const h    = sz * 1.3;
     const fold = sz * 0.18;
     const rx   = sz * 0.08;
@@ -4691,18 +4754,18 @@ function drawObjMini(c,obj){
     c.lineTo(x0,y0+rx); c.quadraticCurveTo(x0,y0,x0+rx,y0);
     c.closePath(); c.fill();
     c.shadowColor='transparent';
+    c.strokeStyle='rgba(200,120,0,.9)'; c.lineWidth=Math.max(3, sz*0.06);
+    c.beginPath();
+    c.moveTo(x0+rx,y0); c.lineTo(x0+w-fold,y0);
+    c.lineTo(x0+w,y0+fold); c.lineTo(x0+w,y0+h-rx);
+    c.quadraticCurveTo(x0+w,y0+h,x0+w-rx,y0+h);
+    c.lineTo(x0+rx,y0+h); c.quadraticCurveTo(x0,y0+h,x0,y0+h-rx);
+    c.lineTo(x0,y0+rx); c.quadraticCurveTo(x0,y0,x0+rx,y0);
+    c.closePath(); c.stroke();
     c.fillStyle = '#f9e44a';
     c.beginPath(); c.moveTo(x0+w-fold,y0); c.lineTo(x0+w,y0+fold); c.lineTo(x0+w-fold,y0+fold); c.closePath(); c.fill();
-    if (obj.displayName) {
-      c.fillStyle = '#5d4e00';
-      c.font = `600 ${sz*0.16}px 'Noto Sans JP',sans-serif`;
-      c.textAlign='center'; c.textBaseline='top';
-      const maxW = w*0.85;
-      let text = obj.displayName;
-      while (text.length > 1 && c.measureText(text).width > maxW) text = text.slice(0,-1);
-      if (text !== obj.displayName) text += '…';
-      c.fillText(text, obj.x, y0+h*0.08);
-    }
+    c.fillStyle = '#5d4e00';
+    drawClipLabel(c, obj.displayName || '', obj.x, obj.y, w, h, sz * 0.16);
     c.restore();
   }
 }
@@ -4957,7 +5020,7 @@ function execDayObjAction(action) {
     return;
   } else if (action === 'preview' && obj?.type === 'clip') {
     closeContextMenus();
-    openClipViewer(obj.clipId);
+    openClipViewer(obj.clipId, obj.displayName);
     return;
   } else if (action === 'cut' && obj) {
     S.clipboard = {type:'obj', data: clone(obj)};
