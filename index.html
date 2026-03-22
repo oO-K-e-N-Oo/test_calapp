@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v508</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v510</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1904,13 +1904,12 @@ function drawClipLabel(c, displayName, cx, cy, w, h, fontSize) {
   // 5行で打ち切られた、またはまだ文字が残っている場合は最終行に…
   const hasMore = truncated || current.length > 0;
   if (hasMore && shown.length > 0) {
-    const last = shown[shown.length - 1];
-    const ellipsis = '…';
-    let trimmed = last;
-    while (trimmed.length > 0 && c.measureText(trimmed + ellipsis).width > w * 0.82) {
+    // 最終行が幅を超える場合は収まるところまで表示（…なし）
+    let trimmed = shown[shown.length - 1];
+    while (trimmed.length > 1 && c.measureText(trimmed).width > w * 0.82) {
       trimmed = trimmed.slice(0, -1);
     }
-    shown[shown.length - 1] = trimmed + ellipsis;
+    shown[shown.length - 1] = trimmed;
   }
 
   const totalH = shown.length * lineH;
@@ -5150,7 +5149,7 @@ function openObjCtx(clientX, clientY, key, objId, longPress = false) {
 
   // クリップオブジェクトの場合は吹き出し表示
   if (obj?.type === 'clip' && obj.displayName) {
-    window._showClipTooltipForMenu && _showClipTooltipForMenu(obj.displayName, clientX, clientY - 60);
+    window._showClipTooltipForMenu && _showClipTooltipForMenu(obj.displayName, clientX, clientY - 48);
   }
 }
 
