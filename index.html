@@ -1034,7 +1034,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v473</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v476</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1915,7 +1915,10 @@ function getObjBounds(obj) {
     const lines = (obj.text||'').split('\n');
     const w = Math.max(...lines.map(l=>cx.measureText(l).width));
     cx.restore();
-    const h = lines.length*(obj.size||16)*1.35*sc;
+    const lineH = (obj.size||16)*1.35*sc;
+    const h = lines.length > 1
+      ? (lines.length - 1) * lineH + (obj.size||16)*sc
+      : (obj.size||16)*sc;
     return {x:obj.x*sc, y:obj.y*sc, w, h};
   }
   if (obj.type==='sticker') {
@@ -4024,14 +4027,15 @@ function handleEmptyCellTap(e, desc) {
   const longPressTimer = setTimeout(() => {
     longPressed = true; cleanup();
     if (!S.clipboard?.type) return; // クリップボードなし → 何もしない
-    if (upBeforeTimer) {
-      openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
-      return;
+    const showMenu = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
+    if (upBeforeTimer) { showMenu(); return; }
+    // オブジェクトがあればD&D→離してメニュー、なければ直接メニュー
+    const hasObjs = getCellObjs(desc.key).length > 0;
+    if (hasObjs) {
+      startCellDrag(e, desc.key, showMenu, () => {});
+    } else {
+      showMenu();
     }
-    startCellDrag(e, desc.key,
-      () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false),
-      () => {}
-    );
   }, LONG_PRESS_MS);
 
   document.addEventListener('pointermove', onMoveCancel);
@@ -4194,7 +4198,9 @@ function measureTextObj(obj) {
   const fs    = obj.size || 16;
   _measureCtx.font = `${fs}px 'Noto Sans JP', sans-serif`;
   const w = Math.max(...lines.map(l => _measureCtx.measureText(l).width));
-  const h = lines.length * fs * 1.35;
+  const h = lines.length > 1
+    ? (lines.length - 1) * fs * 1.35 + fs
+    : fs;
   return {w, h};
 }
 
