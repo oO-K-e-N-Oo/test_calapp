@@ -347,7 +347,7 @@ button:focus-visible { outline: none; background: transparent; }
   flex-shrink: 0;
   height: var(--cell-date-h, 20px);
   overflow: hidden;
-  background: rgba(44,42,38,.06);
+  background: linear-gradient(to bottom, rgba(44,42,38,.10), transparent);
 }
 .cell-num {
   font-size: 14px;
@@ -380,7 +380,7 @@ button:focus-visible { outline: none; background: transparent; }
 
 /* 横長グリッド */
 .cal-cell.landscape-cell               { flex-direction: row; }
-.cal-cell.landscape-cell .cell-top     { flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 4px 6px; overflow: hidden; height: auto; }
+.cal-cell.landscape-cell .cell-top     { flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 4px 6px; overflow: hidden; height: auto; background: linear-gradient(to right, rgba(44,42,38,.10), transparent); }
 .cal-cell.landscape-cell .cell-num     { font-size: 14px; overflow: visible; }
 .cal-cell.landscape-cell .cell-hol-name{ font-size: 11px; white-space: nowrap; }
 
@@ -1034,7 +1034,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v464</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v467</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -3792,6 +3792,9 @@ function renderCalendarDOM(descs, headers, isLand) {
     // blank: 前月・翌月のセル（書き込み可能、inactive-bg色）
     if (desc.type === 'blank') {
       el.classList.add('is-blank');
+      const top = document.createElement('div');
+      top.className = 'cell-top';
+      el.appendChild(top);
       const prev = document.createElement('div');
       prev.className = 'cell-preview';
       const mc = document.createElement('canvas');
@@ -3903,10 +3906,14 @@ function onCellPointerDown(e, el, desc) {
   const hitObj = findMiniHitObj(objs, lx, ly, desc.key);
   if (hitObj) { handleObjHit(e, desc.key, hitObj); return; }
 
-  // ③ 空白タップ → 選択解除しつつセル遷移/ドラッグ/メニュー
+  // ③ 空白タップ → ヘッダーか描画領域かで処理を分岐
   Cal.selObjId = null; Cal.selCellKey = null;
   renderMiniCanvases();
-  handleEmptyCellTap(e, desc);
+  if (e.target.closest('.cell-top')) {
+    handleCellHeaderTap(e, desc);
+  } else {
+    handleEmptyCellTap(e, desc);
+  }
 }
 
 // 選択済みオブジェクトの×ボタンヒットテスト・削除
@@ -3984,25 +3991,25 @@ function handleObjHit(e, key, obj) {
   document.addEventListener('touchend',    onTouchUp, { capture: true, passive: true });
 }
 
-// 空白タップ：短タップ→遷移、長押しドラッグ→セル移動、長押しリリース→メニュー
+// 描画領域（オブジェクトなし）タップ：短タップ→遷移、長押し→クリップボードありのみメニュー
 function handleEmptyCellTap(e, desc) {
-  let longPressed    = false;
-  let upBeforeTimer  = false;
+  let longPressed   = false;
+  let upBeforeTimer = false;
+
+  const cleanup = () => {
+    document.removeEventListener('pointermove', onMoveCancel);
+    document.removeEventListener('pointerup',   onUp);
+    document.removeEventListener('touchend',    onTouchUp, true);
+  };
 
   const onMoveCancel = mv => {
     if (Math.hypot(mv.clientX - e.clientX, mv.clientY - e.clientY) > 8) {
-      clearTimeout(longPressTimer);
-      document.removeEventListener('pointermove', onMoveCancel);
-      document.removeEventListener('pointerup',   onUp);
-      document.removeEventListener('touchend',    onTouchUp, true);
+      clearTimeout(longPressTimer); cleanup();
     }
   };
 
   const onUp = up => {
-    clearTimeout(longPressTimer);
-    document.removeEventListener('pointermove', onMoveCancel);
-    document.removeEventListener('pointerup',   onUp);
-    document.removeEventListener('touchend',    onTouchUp, true);
+    clearTimeout(longPressTimer); cleanup();
     if (longPressed) { upBeforeTimer = true; return; }
     if (Math.hypot(up.clientX - e.clientX, up.clientY - e.clientY) < 5) {
       openDayCell(desc.key, desc.type === 'date' ? desc.d : desc.label);
@@ -4011,33 +4018,76 @@ function handleEmptyCellTap(e, desc) {
 
   const onTouchUp = () => {
     if (longPressed) { upBeforeTimer = true; return; }
+    clearTimeout(longPressTimer); cleanup();
+  };
+
+  const longPressTimer = setTimeout(() => {
+    longPressed = true; cleanup();
+    if (!S.clipboard?.type) return; // クリップボードなし → 何もしない
+    if (upBeforeTimer) {
+      openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
+      return;
+    }
+    startCellDrag(e, desc.key,
+      () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false),
+      () => {}
+    );
+  }, LONG_PRESS_MS);
+
+  document.addEventListener('pointermove', onMoveCancel);
+  document.addEventListener('pointerup',   onUp);
+  document.addEventListener('touchend',    onTouchUp, { capture: true, passive: true });
+}
+
+// 日付セルヘッダータップ：6px移動で即D&D、長押し500ms→ゴースト→指離しでメニュー、短タップ→何もしない
+function handleCellHeaderTap(e, desc) {
+  let longPressed   = false;
+  let upBeforeTimer = false;
+
+  const onTryDrag = mv => {
+    if (Math.hypot(mv.clientX - e.clientX, mv.clientY - e.clientY) > 6) {
+      clearTimeout(longPressTimer);
+      document.removeEventListener('pointermove', onTryDrag);
+      document.removeEventListener('pointerup',   onUp);
+      document.removeEventListener('touchend',    onTouchUp, true);
+      startCellDrag(e, desc.key, () => {}, () => {});
+    }
+  };
+
+  const onUp = () => {
     clearTimeout(longPressTimer);
-    document.removeEventListener('pointermove', onMoveCancel);
+    document.removeEventListener('pointermove', onTryDrag);
+    document.removeEventListener('pointerup',   onUp);
+    document.removeEventListener('touchend',    onTouchUp, true);
+    if (longPressed) { upBeforeTimer = true; }
+    // 短タップ → 何もしない
+  };
+
+  const onTouchUp = () => {
+    if (longPressed) { upBeforeTimer = true; return; }
+    clearTimeout(longPressTimer);
+    document.removeEventListener('pointermove', onTryDrag);
     document.removeEventListener('pointerup',   onUp);
     document.removeEventListener('touchend',    onTouchUp, true);
   };
 
   const longPressTimer = setTimeout(() => {
     longPressed = true;
-    document.removeEventListener('pointermove', onMoveCancel);
+    document.removeEventListener('pointermove', onTryDrag);
     document.removeEventListener('pointerup',   onUp);
     document.removeEventListener('touchend',    onTouchUp, true);
 
     if (upBeforeTimer) {
-      // 既に指が離れていた → 即メニュー
-      if (S.clipboard) openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
+      openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
       return;
     }
-
     startCellDrag(e, desc.key,
-      () => {
-        if (S.clipboard) openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
-      },
+      () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false),
       () => {}
     );
   }, LONG_PRESS_MS);
 
-  document.addEventListener('pointermove', onMoveCancel);
+  document.addEventListener('pointermove', onTryDrag);
   document.addEventListener('pointerup',   onUp);
   document.addEventListener('touchend',    onTouchUp, { capture: true, passive: true });
 }
