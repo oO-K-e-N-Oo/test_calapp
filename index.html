@@ -146,7 +146,6 @@ button:focus-visible { outline: none; background: transparent; }
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -155,7 +154,8 @@ button:focus-visible { outline: none; background: transparent; }
   display: flex;
   align-items: flex-end;
   padding: 0 12px 0 8px;
-  border-bottom: 1px solid var(--border-bold);
+  border-bottom: 2px solid rgba(44,42,38,.35);
+  position: relative;
 }
 .cal-tabs {
   display: flex;
@@ -174,7 +174,7 @@ button:focus-visible { outline: none; background: transparent; }
   gap: 6px;
   padding: 7px 14px 6px;
   background: none;
-  border: 1px solid transparent;
+  border: 2px solid transparent;
   border-bottom: none;
   border-radius: var(--r) var(--r) 0 0;
   cursor: pointer;
@@ -184,11 +184,26 @@ button:focus-visible { outline: none; background: transparent; }
   color: var(--ink-faint);
   white-space: nowrap;
   position: relative;
-  margin-bottom: -1px;
+  z-index: 0;
   transition: background .12s, color .12s, border-color .12s;
 }
 .cal-tab:hover  { background: var(--tool-hover); color: var(--ink); }
-.cal-tab.active { background: var(--bg); color: var(--ink); border-color: var(--border-soft); font-weight: 600; }
+.cal-tab.active {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: rgba(44,42,38,.35);
+  font-weight: 600;
+  z-index: 2;
+  box-shadow: -2px -2px 6px rgba(0,0,0,.08), 2px -2px 6px rgba(0,0,0,.08);
+}
+/* アクティブタブ直下の罫線消し（JS制御） */
+#cal-tab-border-eraser {
+  position: absolute;
+  height: 2px;
+  background: var(--surface);
+  z-index: 10;
+  pointer-events: none;
+}
 .cal-tab-input {
   font-size: 13px;
   font-weight: 600;
@@ -215,6 +230,30 @@ button:focus-visible { outline: none; background: transparent; }
   flex: 1;
 }
 .cal-nav-right    { justify-content: flex-end; }
+.today-pill-btn {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid rgba(44,42,38,.25);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .2s, background .12s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.today-pill-btn:hover { background: var(--tool-hover); }
+/* カレンダー画面：▶の右にフロー配置（中央グループの外） */
+.cal-today-btn { margin-left: 4px; }
+/* 横長：戻るボタンと Today を同一行に */
+.land-back-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
 .cal-title {
   font-family: var(--font-disp);
   font-size: 22px;
@@ -252,20 +291,15 @@ button:focus-visible { outline: none; background: transparent; }
 
 .cal-grid-area {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   position: relative;
   background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 .cal-wd-grid-wrap {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  flex: 1;
-  overflow: hidden;
-  width: 100%;
   position: relative;
 }
 #cal-screen { overflow: hidden; position: relative; }
@@ -275,7 +309,6 @@ button:focus-visible { outline: none; background: transparent; }
   grid-template-columns: repeat(7, 1fr);
   overflow: visible;
   border-left: 1px solid var(--border-soft);
-  box-shadow: var(--shadow-sm);
   align-content: start;
 }
 
@@ -303,7 +336,7 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-cell.last-row.is-sun,
 .cal-cell.last-row.is-sat,
 .cal-cell.last-row.is-hol,
-.cal-cell.last-row.is-blank  { border-bottom: 1px solid var(--border-bold); }
+.cal-cell.last-row.is-blank  { border-bottom: 2px solid rgba(44,42,38,.35); }
 
 /* セル内レイアウト */
 .cell-top {
@@ -506,11 +539,10 @@ button:focus-visible { outline: none; background: transparent; }
   background: var(--surface);
 }
 
-/* 戻るボタン: フロー配置（land-date-inner 先頭） */
+/* 戻るボタン: land-back-row 内 */
 #btn-back-land {
   width: 66px;
   height: 54px;
-  align-self: flex-start;
 }
 #btn-back-land:hover, #btn-back-land:focus, #btn-back-land:active { background: transparent !important; outline: none; }
 #btn-back-land svg { width: 46px; height: 33px; }
@@ -850,6 +882,7 @@ button:focus-visible { outline: none; background: transparent; }
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 72px 0;
+  touch-action: pan-y;
 }
 .ym-drum-col::-webkit-scrollbar { display: none; }
 .ym-drum-item {
@@ -958,16 +991,20 @@ button:focus-visible { outline: none; background: transparent; }
 <!-- ══ CALENDAR SCREEN ══ -->
 <div id="cal-screen" class="screen active">
   <div class="cal-header">
-    <!-- 上段：タブ ＋ カレンダー追加 -->
+    <!-- 上段：タブ ＋ 設定ボタン -->
     <div class="cal-header-top">
       <div class="cal-tabs" id="cal-tabs">
         <!-- JSで描画 -->
       </div>
+      <button class="icon-btn" id="btn-settings" style="margin-left:auto;flex-shrink:0;">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
     </div>
     <!-- 下段：月ナビゲーション -->
     <div class="cal-header-nav">
-      <div class="cal-nav-left"></div>
-      <div style="display:flex;align-items:flex-end;gap:8px;">
+      <div class="cal-nav-left">
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;position:relative;">
         <button class="icon-btn" id="btn-prev">
           <svg class="filled" viewBox="0 0 24 24"><path d="M18 5 Q19 5.5 19 6.5 L19 17.5 Q19 18.5 18 19 Q17 19 16 18 L8 13 Q7 12 8 11 L16 6 Q17 5 18 5 Z"/></svg>
         </button>
@@ -978,6 +1015,7 @@ button:focus-visible { outline: none; background: transparent; }
         <button class="icon-btn" id="btn-next">
           <svg class="filled" viewBox="0 0 24 24"><path d="M6 5 Q5 5.5 5 6.5 L5 17.5 Q5 18.5 6 19 Q7 19 8 18 L16 13 Q17 12 16 11 L8 6 Q7 5 6 5 Z"/></svg>
         </button>
+        <button class="today-pill-btn" id="btn-today-cal" onclick="goToThisMonth()" style="display:none;position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);white-space:nowrap;">Today</button>
       </div>
       <div class="cal-nav-right">
         <button class="ur-btn" id="cal-btn-undo" disabled>
@@ -985,9 +1023,6 @@ button:focus-visible { outline: none; background: transparent; }
         </button>
         <button class="ur-btn" id="cal-btn-redo" disabled>
           <svg viewBox="0 0 24 24"><path d="M16 7H7a5 5 0 0 0 0 10h10"/><polyline points="13 4 16 7 13 10"/></svg>
-        </button>
-        <button class="icon-btn" id="btn-settings">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </div>
     </div>
@@ -998,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v391</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v435</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1018,7 +1053,7 @@ button:focus-visible { outline: none; background: transparent; }
           <line x1="28" y1="29" x2="42" y2="29" stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round"/>
         </svg>
       </button>
-      <!-- 中央：◀ 日付 ▶（absolute中央揃え） -->
+      <!-- 中央：◀ 日付 ▶（absolute中央揃え） + Today（▶の右外） -->
       <div class="day-num-center" id="day-num-p">
         <button class="icon-btn day-nav-btn" id="btn-day-prev-p" onclick="navigateDayCell(-1)">
           <svg class="filled" viewBox="0 0 24 24"><path d="M18 5 Q19 5.5 19 6.5 L19 17.5 Q19 18.5 18 19 Q17 19 16 18 L8 13 Q7 12 8 11 L16 6 Q17 5 18 5 Z"/></svg>
@@ -1031,6 +1066,7 @@ button:focus-visible { outline: none; background: transparent; }
         <button class="icon-btn day-nav-btn" id="btn-day-next-p" onclick="navigateDayCell(1)">
           <svg class="filled" viewBox="0 0 24 24"><path d="M6 5 Q5 5.5 5 6.5 L5 17.5 Q5 18.5 6 19 Q7 19 8 18 L16 13 Q17 12 16 11 L8 6 Q7 5 6 5 Z"/></svg>
         </button>
+        <button class="today-pill-btn" id="btn-today-day" style="display:none;position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);pointer-events:auto;white-space:nowrap;">Today</button>
       </div>
       <!-- 右端：Undo/Redo（固定幅） -->
       <div class="ur-row">
@@ -1075,17 +1111,20 @@ button:focus-visible { outline: none; background: transparent; }
     <div class="land-date-area">
       <!-- スライド対象: 戻るボタン + 年月 + 日付行 -->
       <div class="land-date-inner">
-        <button class="icon-btn" id="btn-back-land">
-          <svg viewBox="0 0 44 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <polyline points="8 11 3 15 8 19" stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect x="13" y="4" width="27" height="22" rx="3.5" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>
-            <line x1="13" y1="11" x2="40" y2="11" stroke="var(--today-ring)" stroke-width="2"/>
-            <rect x="19" y="2" width="2" height="5" rx="1" fill="var(--ink)"/>
-            <rect x="29" y="2" width="2" height="5" rx="1" fill="var(--ink)"/>
-            <line x1="18" y1="17" x2="35" y2="17" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round"/>
-            <line x1="18" y1="21" x2="29" y2="21" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round"/>
-          </svg>
-        </button>
+        <div class="land-back-row">
+          <button class="icon-btn" id="btn-back-land">
+            <svg viewBox="0 0 44 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <polyline points="8 11 3 15 8 19" stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="13" y="4" width="27" height="22" rx="3.5" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>
+              <line x1="13" y1="11" x2="40" y2="11" stroke="var(--today-ring)" stroke-width="2"/>
+              <rect x="19" y="2" width="2" height="5" rx="1" fill="var(--ink)"/>
+              <rect x="29" y="2" width="2" height="5" rx="1" fill="var(--ink)"/>
+              <line x1="18" y1="17" x2="35" y2="17" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="18" y1="21" x2="29" y2="21" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="today-pill-btn" id="btn-today-day-l" style="display:none;">Today</button>
+        </div>
         <div class="land-day-sub" id="day-sub-l">2026年 3月</div>
         <div class="land-date-row">
           <button class="icon-btn land-day-nav-btn" id="btn-day-prev-l" onclick="navigateDayCell(-1)">
@@ -1434,8 +1473,8 @@ const IS_PHONE = /iPhone/.test(navigator.userAgent) || (/Android/.test(navigator
 
 // ── カレンダー一覧（タブごとのデータを管理） ──
 const calendars = [
-  { id: 'cal-a', name: 'アーティストAのカレンダー', cellData: {} },
-  { id: 'cal-b', name: 'アーティストBのカレンダー', cellData: {} },
+  { id: 'cal-a', name: 'カレンダーA', cellData: {} },
+  { id: 'cal-b', name: 'カレンダーB', cellData: {} },
 ];
 let activeCalendarId = calendars[0].id;
 
@@ -2959,6 +2998,7 @@ function openDayCell(key, label, keepTool = false) {
   Draw.activePenObjRef=null; Draw.activeStroke=null;
   clearCalUR();
   syncUR();
+  updateTodayBtns();
 
   const l = L();
   const isEn = S.lang === 'en';
@@ -3138,8 +3178,30 @@ function goBack() {
 
   setTimeout(doAnim, 80);
 }
+// カレンダー画面：当月に戻る（フェードイン）
+function goToThisMonth() {
+  if (S.year === today.getFullYear() && S.month === today.getMonth()) return;
+  S.year  = today.getFullYear();
+  S.month = today.getMonth();
+  clearCalUR();
+  const area = document.getElementById('cal-grid-area');
+  area.style.transition = 'none';
+  area.style.opacity = '0';
+  renderCalendar();
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    area.style.transition = 'opacity 0.6s ease';
+    area.style.opacity = '1';
+    area.addEventListener('transitionend', () => {
+      area.style.transition = '';
+      area.style.opacity = '';
+    }, { once: true });
+  }));
+}
+
 document.getElementById('btn-back').addEventListener('click', goBack);
 document.getElementById('btn-back-land').addEventListener('click', goBack);
+document.getElementById('btn-today-day').addEventListener('click', goToToday);
+document.getElementById('btn-today-day-l').addEventListener('click', goToToday);
 
 /* ════ 日付エリア ダブルタップ → 当日の詳細画面へ ════ */
 function goToToday() {
@@ -3620,6 +3682,21 @@ function renderCalendar() {
 
   renderCalendarDOM(descs, headers, isLand);
   requestAnimationFrame(() => applyCellSizes(numRows, isLand));
+  updateTodayBtns();
+}
+
+// Today ボタンの表示/非表示を更新
+function updateTodayBtns() {
+  const isThisMonth = (S.year === today.getFullYear() && S.month === today.getMonth());
+  const calBtn = document.getElementById('btn-today-cal');
+  if (calBtn) calBtn.style.display = isThisMonth ? 'none' : '';
+
+  const todayKey = cellKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const isToday  = (S.currentKey === todayKey);
+  const dayBtn  = document.getElementById('btn-today-day');
+  if (dayBtn)  dayBtn.style.display  = isToday ? 'none' : '';
+  const dayBtnL = document.getElementById('btn-today-day-l');
+  if (dayBtnL) dayBtnL.style.display = isToday ? 'none' : '';
 }
 
 // ── 曜日ヘッダーを描画 ──
@@ -3999,21 +4076,14 @@ function applyCellSizes(numRows, isLand) {
 
   } else {
     /* ── 横長モード ──
-       セル高さ = areaH / numRows、セル幅 = DATE_W + セル高さ
-       ただし cellW*7 > areaW の場合は幅から逆算して収める
+       案C: 縦長と同様に cellW = areaW / 7 で固定
+       セル幅 = DATE_W + squareSz、squareSz = cellW - DATE_W
+       高さは行数に従属（行数が変わっても横幅は変わらない）
     */
-    const cellHfromH = Math.floor(areaH / numRows);
-    const cellWfromH = DATE_W + cellHfromH;
-
-    // 幅が収まらない場合は幅から逆算
-    const cellWfromW = Math.floor(areaW / 7);
-    const cellHfromW = cellWfromW - DATE_W;
-
-    // 両方収まる小さい方を採用
-    const cellH = (cellWfromH * 7 <= areaW) ? cellHfromH : Math.max(cellHfromW, 1);
-    const squareSz = cellH;
-    const cellW = DATE_W + squareSz;
-    const totalW = cellW * 7;
+    const cellW    = Math.floor(areaW / 7);
+    const squareSz = Math.max(cellW - DATE_W, 1);
+    const cellH    = squareSz;
+    const totalW   = cellW * 7;
 
     grid.style.gridTemplateColumns = `repeat(7, ${cellW}px)`;
     grid.style.gridTemplateRows    = `repeat(${numRows}, ${cellH}px)`;
@@ -4942,6 +5012,12 @@ document.getElementById('lang-sel').addEventListener('change', e => {
 
     backdrop.classList.add('open');
     picker.classList.add('open');
+
+    // display:none→block後にscrollTopがリセットされるため再設定
+    requestAnimationFrame(() => {
+      yearDrum.scrollTop  = yearIdx * ITEM_H;
+      monthDrum.scrollTop = S.month * ITEM_H;
+    });
   };
 
   window.closeYMPicker = function() {
@@ -5045,6 +5121,27 @@ function renderTabs() {
     btn.textContent = cal.name;
     container.appendChild(btn);
   });
+  // アクティブタブ直下の罫線を消す
+  requestAnimationFrame(() => {
+    const headerTop = document.querySelector('.cal-header-top');
+    let eraser = document.getElementById('cal-tab-border-eraser');
+    if (!eraser) {
+      eraser = document.createElement('div');
+      eraser.id = 'cal-tab-border-eraser';
+      headerTop.appendChild(eraser);
+    }
+    const activeTab = container.querySelector('.cal-tab.active');
+    if (activeTab && headerTop) {
+      const tabRect    = activeTab.getBoundingClientRect();
+      const headerRect = headerTop.getBoundingClientRect();
+      eraser.style.display = 'block';
+      eraser.style.left    = (tabRect.left - headerRect.left) + 'px';
+      eraser.style.width   = tabRect.width + 'px';
+      eraser.style.bottom  = '-2px';
+    } else {
+      eraser.style.display = 'none';
+    }
+  });
 }
 
 // タブ切り替え（委譲）
@@ -5122,6 +5219,7 @@ function navigateMonth(dir) {
   }
   clearCalUR();
 
+  const area    = document.getElementById('cal-grid-area');
   const wrap    = document.getElementById('cal-wd-grid-wrap');
   const oldGrid = document.getElementById('cal-grid');
 
@@ -5131,10 +5229,12 @@ function navigateMonth(dir) {
   oldClone.style.cssText = `position:absolute;top:0;left:0;width:${oldGrid.offsetWidth}px;pointer-events:none;`;
   wrap.appendChild(oldClone);
 
+  // アニメーション中は横はみ出しを防ぐ
+  area.style.overflowX = 'hidden';
+
   // 新グリッドをレンダリング
   renderCalendar();
 
-  // アニメーションクラスを付与
   const inClass  = dir === 'next' ? 'slide-in-right' : 'slide-in-left';
   const outClass = dir === 'next' ? 'slide-out-left' : 'slide-out-right';
 
@@ -5146,6 +5246,7 @@ function navigateMonth(dir) {
     const cleanup = () => {
       oldClone.remove();
       newGrid.classList.remove(inClass);
+      area.style.overflowX = '';
     };
     newGrid.addEventListener('animationend', cleanup, { once: true });
     setTimeout(cleanup, 500);
