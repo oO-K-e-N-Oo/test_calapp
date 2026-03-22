@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v523</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v524</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1202,7 +1202,7 @@ button:focus-visible { outline: none; background: transparent; }
 </div>
 
 <!-- ══ CLIP FILE INPUT ══ -->
-<input type="file" id="clip-file-input" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style="position:fixed;opacity:0;pointer-events:none;width:0;height:0;left:-9999px;top:-9999px;z-index:9999;">
+
 
 <!-- ══ CLIP VIEWER ══ -->
 <!-- ══ CLIP NAME MODAL ══ -->
@@ -1330,9 +1330,10 @@ button:focus-visible { outline: none; background: transparent; }
   <div class="ctx-item" id="dctx-preview" style="display:none">
     <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>プレビュー
   </div>
-  <div class="ctx-item" id="dctx-edit" style="display:none">
+  <label class="ctx-item" id="dctx-edit" style="display:none;cursor:pointer;">
+    <input type="file" id="clip-file-input" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style="display:none;">
     <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>編集
-  </div>
+  </label>
   <div class="ctx-item" id="dctx-cut">
     <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>カット
   </div>
@@ -2376,21 +2377,10 @@ function openDayObjCtx(clientX, clientY, objId) {
   const fileInput = document.getElementById('clip-file-input');
   if (isClip) {
     fileInput._changeTargetObjId = objId;
-    // dctx-editの上にinputを重ねて直接タップさせる（iOS対応）
-    requestAnimationFrame(() => {
-      const r = editEl.getBoundingClientRect();
-      fileInput.style.left          = r.left + 'px';
-      fileInput.style.top           = r.top  + 'px';
-      fileInput.style.width         = r.width  + 'px';
-      fileInput.style.height        = r.height + 'px';
-      fileInput.style.pointerEvents = 'all';
-    });
-    editEl._longPressHandler = null;
+    fileInput.value = '';
+    fileInput.disabled = false;
   } else {
-    fileInput.style.pointerEvents = 'none';
-    fileInput.style.left = '-9999px';
-    fileInput.style.top  = '-9999px';
-    editEl._longPressHandler = null;
+    fileInput.disabled = true; // テキスト編集時はファイル選択を無効化
   }
   // 貼り付け：クリップボードにオブジェクトがある場合のみ
   document.getElementById('dctx-paste').style.display   = hasPaste ? '' : 'none';
@@ -5114,10 +5104,6 @@ function closeContextMenus(){
   document.getElementById('ctx-day-obj').classList.remove('open');
   document.getElementById('ctx-day-paste').classList.remove('open');
   window._hideClipTooltip && _hideClipTooltip();
-  const fi = document.getElementById('clip-file-input');
-  fi.style.pointerEvents = 'none';
-  fi.style.left = '-9999px';
-  fi.style.top  = '-9999px';
 }
 // メニュー外の pointerdown で閉じる
 document.addEventListener('pointerdown', e => {
@@ -5308,7 +5294,11 @@ function execDayObjAction(action) {
 
 // クリップ編集：clickイベント内でinput.clickを呼ぶ（blinkAndExecより先に登録）
 blinkAndExec('dctx-preview', () => execDayObjAction('preview'));
-blinkAndExec('dctx-edit',    () => execDayObjAction('edit'));
+blinkAndExec('dctx-edit', () => {
+  const objId = document.getElementById('ctx-day-obj')._targetObjId;
+  const obj   = objId ? Draw.objects.find(o => o.id === objId) : null;
+  if (obj?.type !== 'clip') execDayObjAction('edit');
+});
 blinkAndExec('dctx-cut',     () => execDayObjAction('cut'));
 blinkAndExec('dctx-paste',   () => execDayObjAction('paste'));
 blinkAndExec('dctx-delete',  () => execDayObjAction('delete'));
