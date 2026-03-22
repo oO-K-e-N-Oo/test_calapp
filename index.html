@@ -506,12 +506,21 @@ button:focus-visible { outline: none; background: transparent; }
 .tb-row3 {
   display: flex;
   align-items: center;
-  padding: 20px 16px;
+  padding: 0 16px;
   gap: 20px;
   flex-shrink: 0;
   min-height: 0;
   flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
 }
+.tb-row3::-webkit-scrollbar { display: none; }
+.tb-row3 .swatches { flex-wrap: nowrap; }
+.tb-row3 .opt-block { flex-shrink: 0; }
 
 /* ════════════════════════════════════════════
    DAY CELL SCREEN — 横長（landscape）
@@ -1038,7 +1047,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v533</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v538</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1555,7 +1564,7 @@ const S = {
   penColor:   '#1c1a18',
   penSize:    3,
   eraserSize: 12,
-  markerColor:'#f0a030',
+  markerColor:'#1c1a18',
   markerSize: 12,
   textColor:  '#1c1a18',
   textBold:   false,
@@ -3642,6 +3651,25 @@ function navigateDayCell(dir) {
   attachFlick(document.getElementById('day-topbar'));
   attachFlick(document.getElementById('day-sidebar-land'));
   attachFlick(document.getElementById('draw-wrap'), true); // キャンバス上はスキップ
+
+  // スウォッチ横スクロール中の誤フリック防止
+  const row3 = document.getElementById('tb-opts-portrait');
+  if (row3) {
+    row3.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    row3.addEventListener('touchend',   e => e.stopPropagation(), { passive: true });
+    // スクロール末尾でフェードを消す
+    const updateFade = () => {
+      const atEnd = row3.scrollLeft + row3.clientWidth >= row3.scrollWidth - 4;
+      const fade = atEnd
+        ? 'none'
+        : 'linear-gradient(to right, black calc(100% - 32px), transparent 100%)';
+      row3.style.webkitMaskImage = fade;
+      row3.style.maskImage = fade;
+    };
+    row3.addEventListener('scroll', updateFade, { passive: true });
+    // renderOpts後に再評価
+    window._updateRow3Fade = updateFade;
+  }
 })();
 
 /* ════ TOOL SWITCHING ════ */
@@ -3771,20 +3799,25 @@ function bindOpts(container) {
 function renderOpts() {
   const html = buildOptsHTML(S.tool);
 
-  // 縦長: Row3 — 子要素を全削除してから書き込む
-  const p = document.getElementById('tb-opts-portrait');
-  p.dataset.tool = S.tool;
-  p.querySelectorAll('.swatch').forEach(el => el.style.transition = 'none');
-  while (p.firstChild) p.removeChild(p.firstChild);
-  p.innerHTML = html;
-  bindOpts(p);
+  function applyTo(container) {
+    // 既存要素のアニメーションを即座に停止
+    container.querySelectorAll('*').forEach(el => {
+      el.style.transition = 'none';
+      el.style.animation  = 'none';
+    });
+    container.innerHTML = '';
+    requestAnimationFrame(() => {
+      container.innerHTML = html;
+      bindOpts(container);
+      if (container.id === 'tb-opts-portrait') {
+        container.scrollLeft = 0;
+        window._updateRow3Fade && window._updateRow3Fade();
+      }
+    });
+  }
 
-  // 横長: サイドパネル — 子要素を全削除してから書き込む
-  const l = document.getElementById('land-opts');
-  l.querySelectorAll('.swatch').forEach(el => el.style.transition = 'none');
-  while (l.firstChild) l.removeChild(l.firstChild);
-  l.innerHTML = html;
-  bindOpts(l);
+  applyTo(document.getElementById('tb-opts-portrait'));
+  applyTo(document.getElementById('land-opts'));
 }
 
 function switchTool(tool) {
