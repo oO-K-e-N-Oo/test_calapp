@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v450</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v456</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1938,28 +1938,123 @@ function getObjBounds(obj) {
 }
 
 const PAD = 8;
+const BBOX_BTN_R = 28; // ボタン半径（削除ボタンと同じ）
+
 function drawBBox(c, obj) {
   const b  = getObjBounds(obj);
-  const bx = b.x+b.w+PAD+28;
-  const by = b.y-PAD-28;
+  const R  = BBOX_BTN_R;
+
+  // バウンディングボックス
   c.save();
   c.strokeStyle='#3a6fa8';c.lineWidth=1.5;c.setLineDash([5,3]);
   c.strokeRect(b.x-PAD, b.y-PAD, b.w+PAD*2, b.h+PAD*2);
   c.setLineDash([]);
-  c.fillStyle='#e03030';
-  c.beginPath();c.arc(bx,by,28,0,Math.PI*2);c.fill();
-  c.strokeStyle='#fff';c.lineWidth=4;c.lineCap='round';c.setLineDash([]);
+
+  // 削除ボタン（右上）
+  const delX = b.x+b.w+PAD+R;
+  const delY = b.y-PAD-R;
+  c.fillStyle='rgba(224,48,48,0.75)';
+  c.beginPath();c.arc(delX,delY,R,0,Math.PI*2);c.fill();
+  c.strokeStyle='#fff';c.lineWidth=4;c.lineCap='round';
   const cr=10;
-  c.beginPath();c.moveTo(bx-cr,by-cr);c.lineTo(bx+cr,by+cr);c.stroke();
-  c.beginPath();c.moveTo(bx+cr,by-cr);c.lineTo(bx-cr,by+cr);c.stroke();
+  c.beginPath();c.moveTo(delX-cr,delY-cr);c.lineTo(delX+cr,delY+cr);c.stroke();
+  c.beginPath();c.moveTo(delX+cr,delY-cr);c.lineTo(delX-cr,delY+cr);c.stroke();
+
+  // サイズボタン（下辺中央）
+  const gap  = 8;
+  const midX = b.x-PAD + (b.w+PAD*2)/2;
+  const botY = b.y+b.h+PAD+R;
+  // − ボタン
+  const minX = midX - R - gap/2;
+  c.fillStyle='rgba(58,111,168,0.75)';
+  c.beginPath();c.arc(minX,botY,R,0,Math.PI*2);c.fill();
+  c.strokeStyle='#fff';c.lineWidth=4;c.lineCap='round';
+  c.beginPath();c.moveTo(minX-10,botY);c.lineTo(minX+10,botY);c.stroke();
+  // + ボタン
+  const plusX = midX + R + gap/2;
+  c.fillStyle='rgba(58,111,168,0.75)';
+  c.beginPath();c.arc(plusX,botY,R,0,Math.PI*2);c.fill();
+  c.strokeStyle='#fff';c.lineWidth=4;c.lineCap='round';
+  c.beginPath();c.moveTo(plusX-10,botY);c.lineTo(plusX+10,botY);c.stroke();
+  c.beginPath();c.moveTo(plusX,botY-10);c.lineTo(plusX,botY+10);c.stroke();
+
   c.restore();
 }
 
 function hitDeleteBtn(obj, px, py) {
   const b=getObjBounds(obj);
-  const bx=b.x+b.w+PAD+28, by=b.y-PAD-28;
-  return Math.hypot(px-bx,py-by)<32;
+  const R=BBOX_BTN_R;
+  const bx=b.x+b.w+PAD+R, by=b.y-PAD-R;
+  return Math.hypot(px-bx,py-by)<R+4;
 }
+function hitMinusBtn(obj, px, py) {
+  const b=getObjBounds(obj);
+  const R=BBOX_BTN_R, gap=8;
+  const midX=b.x-PAD+(b.w+PAD*2)/2;
+  const minX=midX-R-gap/2, botY=b.y+b.h+PAD+R;
+  return Math.hypot(px-minX,py-botY)<R+4;
+}
+function hitPlusBtn(obj, px, py) {
+  const b=getObjBounds(obj);
+  const R=BBOX_BTN_R, gap=8;
+  const midX=b.x-PAD+(b.w+PAD*2)/2;
+  const plusX=midX+R+gap/2, botY=b.y+b.h+PAD+R;
+  return Math.hypot(px-plusX,py-botY)<R+4;
+}
+// バウンディングボックスの +/- ボタンによるスケール（中心点：下辺中央）
+function scaleBBoxBtn(obj, scale) {
+  const b   = getObjBounds(obj);
+  const sc  = CANVAS_PX / CANVAS_SRC;
+  const cx  = (b.x - PAD + (b.w + PAD*2)/2) / sc;
+  const cy  = (b.y + b.h + PAD) / sc;
+  const snap = clone(obj);
+
+  if (obj.type === 'pen') {
+    const allPts = snap.paths.flatMap(p => p.points);
+    if (allPts.length > 0) {
+      const xs = allPts.map(pt => pt.x), ys = allPts.map(pt => pt.y);
+      const bw = Math.max(...xs) - Math.min(...xs);
+      const bh = Math.max(...ys) - Math.min(...ys);
+      const maxS = Math.min(
+        bw > 0 ? CANVAS_SRC / bw : Infinity,
+        bh > 0 ? CANVAS_SRC / bh : Infinity
+      );
+      const minS = Math.max(
+        bw > 0 ? 20 / bw : 0,
+        bh > 0 ? 20 / bh : 0
+      );
+      if (scale > 1 && maxS <= 1.0) return false; // 最大値
+      if (scale < 1 && minS >= 1.0) return false; // 最小値
+      scale = Math.min(scale, maxS);
+      scale = Math.max(scale, minS);
+    }
+    obj.paths = snap.paths.map(p => ({
+      ...p,
+      points: p.points.map(pt => ({
+        x: cx + (pt.x - cx) * scale,
+        y: cy + (pt.y - cy) * scale,
+      }))
+    }));
+  } else {
+    obj.x = cx + (snap.x - cx) * scale;
+    obj.y = cy + (snap.y - cy) * scale;
+    const newSize = (snap.size || 1) * scale;
+    let clamped;
+    if (obj.type === 'text') {
+      clamped = Math.max(10, Math.min(200, newSize));
+    } else if (obj.type === 'clip') {
+      clamped = Math.max(60, Math.min(CANVAS_SRC, newSize));
+    } else {
+      clamped = Math.max(20, Math.min(CANVAS_SRC, newSize));
+    }
+    if (scale > 1 && clamped === snap.size) return false; // 最大値に達している
+    if (scale < 1 && clamped === snap.size) return false; // 最小値に達している
+    obj.size = clamped;
+  }
+  flushCell(); redraw();
+  return true;
+}
+
 function hitObj(obj, px, py) {
   const b=getObjBounds(obj);
   return px>=b.x-PAD&&px<=b.x+b.w+PAD&&py>=b.y-PAD&&py<=b.y+b.h+PAD;
@@ -2121,98 +2216,7 @@ cvs.addEventListener('dblclick', e=>{
 // prevent browser gestures
 cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 
-/* ════ PINCH SCALE（selectツール＋選択オブジェクト単体） ════ */
-(function() {
-  Draw._pinching = false;
-  let startDist = 0;
-  let startSnapshot = null; // ピンチ開始時のオブジェクトのクローン
-
-  function touchDist(t1, t2) {
-    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-  }
-  function touchMidLogical(t1, t2) {
-    return toLogical(
-      (t1.clientX + t2.clientX) / 2,
-      (t1.clientY + t2.clientY) / 2
-    );
-  }
-
-  // snapshotを基準に、中心点(cx,cy)からscale倍にオブジェクトを変形
-  function applyScale(obj, snap, scale, cx, cy) {
-    if (obj.type === 'pen') {
-      // スケール後のバウンディングボックスが CANVAS_SRC を超えないようクランプ
-      const allPts = snap.paths.flatMap(p => p.points);
-      if (allPts.length > 0) {
-        const xs = allPts.map(pt => pt.x), ys = allPts.map(pt => pt.y);
-        const bw = Math.max(...xs) - Math.min(...xs);
-        const bh = Math.max(...ys) - Math.min(...ys);
-        const maxScale = Math.min(
-          bw > 0 ? CANVAS_SRC / bw : Infinity,
-          bh > 0 ? CANVAS_SRC / bh : Infinity
-        );
-        scale = Math.min(scale, maxScale);
-      }
-      obj.paths = snap.paths.map(p => ({
-        ...p,
-        points: p.points.map(pt => ({
-          x: cx + (pt.x - cx) * scale,
-          y: cy + (pt.y - cy) * scale,
-        }))
-      }));
-      obj.size = snap.size; // 線幅はそのまま
-    } else if (obj.type === 'text' || obj.type === 'sticker' || obj.type === 'clip') {
-      obj.x = cx + (snap.x - cx) * scale;
-      obj.y = cy + (snap.y - cy) * scale;
-      const newSize = (snap.size || 1) * scale;
-      if (obj.type === 'text') {
-        obj.size = Math.max(10, Math.min(CANVAS_SRC, newSize));
-      } else if (obj.type === 'clip') {
-        obj.size = Math.max(60, Math.min(CANVAS_SRC, newSize));
-      } else {
-        obj.size = Math.max(20, Math.min(CANVAS_SRC, newSize));
-      }
-    }
-  }
-
-  cvs.addEventListener('touchstart', e => {
-    if (e.touches.length !== 2) return;
-    if (S.tool !== 'select' || !Draw.selId) return;
-    const obj = Draw.objects.find(o => o.id === Draw.selId);
-    if (!obj) return;
-    e.preventDefault();
-    Draw._pinching = true;
-    Draw._globalLastTap = 0; // ピンチ開始時にダブルタップ判定をリセット
-    Draw.isPointerDown = false;
-    Draw.activeStroke = null;
-    startDist     = touchDist(e.touches[0], e.touches[1]);
-    startSnapshot = clone(obj);
-  }, { passive: false });
-
-  cvs.addEventListener('touchmove', e => {
-    if (!Draw._pinching || e.touches.length !== 2) return;
-    e.preventDefault();
-    const obj = Draw.objects.find(o => o.id === Draw.selId);
-    if (!obj || !startSnapshot) { Draw._pinching = false; return; }
-    const d     = touchDist(e.touches[0], e.touches[1]);
-    const scale = Math.max(0.1, d / startDist);
-    const mid   = touchMidLogical(e.touches[0], e.touches[1]);
-    applyScale(obj, startSnapshot, scale, mid.x, mid.y);
-    redraw();
-  }, { passive: false });
-
-  cvs.addEventListener('touchend', e => {
-    if (!Draw._pinching) return;
-    if (e.touches.length < 2) {
-      Draw._pinching = false;
-      const obj = Draw.objects.find(o => o.id === Draw.selId);
-      if (obj && startSnapshot) {
-        pushUndo({ type: 'scale', objId: obj.id, from: startSnapshot, to: clone(obj) });
-        flushCell();
-      }
-      startSnapshot = null;
-    }
-  }, { passive: false });
-})();
+Draw._pinching = false;
 
 // オブジェクト選択＋ドラッグ待機（select/text/stickerツールで共用）
 function startObjSelect(found, lp, clientX, clientY) {
@@ -2287,6 +2291,33 @@ function onDown(e) {
     const obj = Draw.objects.find(o => o.id === Draw.selId);
     if (obj && hitDeleteBtn(obj, pp.x, pp.y)) {
       deleteObj(Draw.selId); Draw.selId = null; redraw(); return;
+    }
+    // +/- ボタンのヒットテスト（全ツール共通）
+    if (obj && (hitMinusBtn(obj, pp.x, pp.y) || hitPlusBtn(obj, pp.x, pp.y))) {
+      const isPlus = hitPlusBtn(obj, pp.x, pp.y);
+      const delta  = isPlus ? 1.15 : 1/1.15;
+      const snapBefore = clone(obj); // Undo用：変更前スナップショット
+
+      scaleBBoxBtn(obj, delta); // 1回目
+
+      let held = true;
+      const stop = () => {
+        held = false;
+        document.removeEventListener('pointerup',    stop);
+        document.removeEventListener('pointercancel',stop);
+        // 長押し終了時にまとめてUndoスタック
+        pushUndo({ type: 'scale', objId: obj.id, from: snapBefore, to: clone(obj) });
+      };
+      document.addEventListener('pointerup',    stop, { once: true });
+      document.addEventListener('pointercancel',stop, { once: true });
+
+      const repeat = () => {
+        if (!held) return;
+        scaleBBoxBtn(obj, delta);
+        setTimeout(repeat, 80);
+      };
+      setTimeout(() => { if (held) repeat(); }, 400);
+      return;
     }
   }
 
