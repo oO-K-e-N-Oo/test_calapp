@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v436</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v438</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -3858,6 +3858,8 @@ function buildCellTop(desc) {
 // ── セルのポインターイベントハンドラ ──
 function onCellPointerDown(e, el, desc) {
   if (e.button > 0) return;
+  // ピンチ拡大中はオブジェクト操作を無効化
+  if (window.visualViewport && window.visualViewport.scale > 1.01) return;
   if (document.getElementById('ctx-obj').classList.contains('open') ||
       document.getElementById('ctx-cell').classList.contains('open')) return;
 
@@ -5270,18 +5272,26 @@ function navigateMonth(dir) {
 // カレンダーグリッドのフリックで月切り替え（touch events使用）
 (function() {
   let startX = 0, startY = 0, startT = 0;
+  let hadMultiTouch = false; // タッチ中に2本指以上になったか
   const area = document.getElementById('cal-grid-area');
 
   area.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) return;
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    startT = Date.now();
+    if (e.touches.length === 1) {
+      // 1本指で開始 → フラグリセットして記録
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      startT = Date.now();
+      hadMultiTouch = false;
+    } else {
+      // 2本指以上になった → フラグを立てる
+      hadMultiTouch = true;
+    }
   }, { passive: true });
 
   area.addEventListener('touchend', e => {
     if (e.changedTouches.length !== 1) return;
     try { if (calDragInfo) return; } catch(err) {}
+    if (hadMultiTouch) return; // ピンチ操作があったらフリックキャンセル
 
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
