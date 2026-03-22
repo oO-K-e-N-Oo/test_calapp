@@ -1038,7 +1038,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v496</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v498</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2718,15 +2718,19 @@ function removeTextInput(){
     if (!clipId) return;
 
     if (changeTargetId) {
-      // 画像変更モード：既存オブジェクトのclipIdを差し替え
+      // 画像変更モード：画像を差し替え後、表示名も編集できるモーダルを表示
       const obj = Draw.objects.find(o => o.id === changeTargetId);
       if (obj) {
         const prev = clone(obj);
         obj.clipId    = clipId;
         obj.pageCount = pageCount;
         obj.fileType  = fileType;
-        pushUndo({type:'edit', objId: obj.id, from: prev, to: clone(obj)});
-        flushCell(); redraw();
+        // 既存の表示名を初期値としてモーダル表示
+        showClipNameModal(name => {
+          obj.displayName = name;
+          pushUndo({type:'edit', objId: obj.id, from: prev, to: clone(obj)});
+          flushCell(); redraw();
+        }, obj.displayName || '');
       }
     } else {
       // 新規配置モード → 表示名入力モーダル
@@ -3800,13 +3804,13 @@ function setEraserCursor() {
 // portrait tool btn clicks
 /* ════ TOAST ════ */
 let _toastTimer = null;
-function showClipNameModal(onOk) {
+function showClipNameModal(onOk, initialValue = '') {
   const modal = document.getElementById('clip-name-modal');
   const input = document.getElementById('clip-name-input');
   const okBtn = document.getElementById('clip-name-ok');
   const cancelBtn = document.getElementById('clip-name-cancel');
 
-  input.value = '';
+  input.value = initialValue;
   modal.style.display = 'flex';
   setTimeout(() => input.focus(), 50);
 
@@ -5110,7 +5114,7 @@ function execCalObjAction(action) {
 /* ════ DAY OBJECT CONTEXT MENU ════ */
 
 // 空白領域長押し時の貼り付け専用メニュー
-document.getElementById('dpctx-paste').addEventListener('click', () => {
+blinkAndExec('dpctx-paste', () => {
   const lp = document.getElementById('ctx-day-paste')._pasteLp || {x: CANVAS_SRC/2, y: CANVAS_SRC/2};
   if (S.clipboard?.type === 'obj') {
     const newObj = clone(S.clipboard.data);
@@ -5162,11 +5166,11 @@ function execDayObjAction(action) {
   closeContextMenus();
 }
 
-document.getElementById('dctx-preview').addEventListener('click', () => execDayObjAction('preview'));
-document.getElementById('dctx-edit').addEventListener('click',    () => execDayObjAction('edit'));
-document.getElementById('dctx-cut').addEventListener('click',     () => execDayObjAction('cut'));
-document.getElementById('dctx-paste').addEventListener('click',   () => execDayObjAction('paste'));
-document.getElementById('dctx-delete').addEventListener('click',  () => execDayObjAction('delete'));
+blinkAndExec('dctx-preview', () => execDayObjAction('preview'));
+blinkAndExec('dctx-edit',    () => execDayObjAction('edit'));
+blinkAndExec('dctx-cut',     () => execDayObjAction('cut'));
+blinkAndExec('dctx-paste',   () => execDayObjAction('paste'));
+blinkAndExec('dctx-delete',  () => execDayObjAction('delete'));
 
 /* ════ SETTINGS ════ */
 document.getElementById('cal-btn-undo').addEventListener('click', doCalUndo);
