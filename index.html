@@ -1044,7 +1044,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v540</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v541</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1380,6 +1380,9 @@ button:focus-visible { outline: none; background: transparent; }
 "></canvas>
 
 <script>
+/** document.getElementById の短縮ヘルパー */
+const $id = id => document.getElementById(id);
+
 
 /* ══════════════════════════════════════════════
    STICKER DEFS
@@ -1536,7 +1539,7 @@ function switchCalendar(id) {
   renderCalendar();
 
   // グリッドエリアをフェードイン
-  const area = document.getElementById('cal-grid-area');
+  const area = $id('cal-grid-area');
   area.classList.remove('tab-switching');
   requestAnimationFrame(() => requestAnimationFrame(() => {
     area.classList.add('tab-switching');
@@ -1614,10 +1617,12 @@ const LONG_PRESS_MS   = 500; // 長押し判定時間 (ms)
 const BTN_REPEAT_WAIT = 400; // ボタン長押し連続変化開始までの待機時間 (ms)
 const BTN_REPEAT_MS   =  80; // ボタン長押し連続変化間隔 (ms)
 
+/** ランダムなユニークIDを生成 */
 function uid()     { return Math.random().toString(36).slice(2,9); }
+/** ディープコピーを返す */
 function clone(v)  { return JSON.parse(JSON.stringify(v)); }
 
-/* ════ I18N ════ */
+/* ════ I18N｜国際化・翻訳 ════ */
 const I18N = {
   en: {
     months:  ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
@@ -1698,9 +1703,11 @@ const I18N = {
     pdfError:    'PDFの読み込みに失敗しました',
   },
 };
+/** 現在の言語の翻訳オブジェクトを返す */
 function L() { return I18N[S.lang] || I18N.ja; }
 const STORAGE_KEY = 'calapp_v1';
 
+/** アプリ状態をlocalStorageに保存 */
 function saveToStorage() {
   try {
     const data = calendars.map(c => ({ id: c.id, name: c.name, cellData: c.cellData }));
@@ -1708,6 +1715,7 @@ function saveToStorage() {
   } catch(e) { /* quota超過等は無視 */ }
 }
 
+/** localStorageからアプリ状態を復元 */
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1729,12 +1737,19 @@ function getCellObjs(key)      { return getActiveCalendar().cellData[key] || [];
 function setCellObjs(key, arr) { getActiveCalendar().cellData[key] = arr; }
 function cellKey(y,m1,d)       { return `${y}-${String(m1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
 
-/* ════ CANVAS ════ */
-const cvs = document.getElementById('draw-canvas');
+/** setCellObjs + saveToStorage + renderMiniCanvases をまとめて実行 */
+function commitCellObjs(key, arr, redrawMini = true) {
+  commitCellObjs(key, arr, false);
+  if (redrawMini) renderMiniCanvases();
+}
+
+/* ════ CANVAS｜キャンバス初期化 ════ */
+const cvs = $id('draw-canvas');
 const cx  = cvs.getContext('2d');
 
+/** キャンバスサイズを画面に合わせてリサイズ */
 function sizeCanvas() {
-  const wrap   = document.getElementById('draw-wrap');
+  const wrap   = $id('draw-wrap');
   const aw     = wrap.clientWidth;
   const ah     = wrap.clientHeight;
   const isPort = ah >= aw;
@@ -1769,7 +1784,8 @@ function calcTextSizes() {
   S._textSmall = small;
 }
 
-/* ════ RENDER ════ */
+/* ════ RENDER｜描画処理 ════ */
+/** 日付詳細画面のキャンバスを再描画 */
 function redraw() {
   cx.clearRect(0,0,CANVAS_PX,CANVAS_PX);
   cx.fillStyle = '#fff';
@@ -1811,6 +1827,7 @@ function redraw() {
   }
 }
 
+/** オブジェクト種別に応じて描画を振り分け */
 function drawObj(c, obj, sc) {
   if (obj._hidden) return;
   if (obj.type==='pen')     drawPenObj(c, obj, sc);
@@ -2166,16 +2183,18 @@ function scaleBBoxBtn(obj, scale) {
     if (scale < 1 && clamped === snap.size) return false; // 最小値に達している
     obj.size = clamped;
   }
-  flushCell(); redraw();
+  flushAndRedraw();
   return true;
 }
 
+/** 論理座標(px,py)がオブジェクトに当たるか判定 */
 function hitObj(obj, px, py) {
   const b=getObjBounds(obj);
   return px>=b.x-PAD&&px<=b.x+b.w+PAD&&py>=b.y-PAD&&py<=b.y+b.h+PAD;
 }
 
 /* screen coords → logical canvas coords */
+/** スクリーン座標 → キャンバス論理座標に変換 */
 function toLogical(clientX, clientY) {
   const r = cvs.getBoundingClientRect();
   return {
@@ -2184,6 +2203,7 @@ function toLogical(clientX, clientY) {
   };
 }
 /* screen coords → physical pixel coords (for hit tests) */
+/** スクリーン座標 → 物理ピクセル座標に変換 */
 function toPhysical(clientX, clientY) {
   const r = cvs.getBoundingClientRect();
   return {
@@ -2197,7 +2217,7 @@ function evtCoords(e) {
   return {clientX:src.clientX, clientY:src.clientY};
 }
 
-/* ════ PEN OBJECT MANAGEMENT ════
+/* ════ PEN OBJECT MANAGEMENT｜ペンオブジェクト管理 ════
    仕様：同じ色・同じ太さで描かれたものはひとつのペンオブジェクトとする。
    ツール切り替えをはさんでも、色と太さが同じなら同一オブジェクトに統合する。
 
@@ -2293,7 +2313,7 @@ cvs.addEventListener('pointerdown', e => {
   placeSticker(lp);
 }, {capture: false, passive: false});
 
-/* ════ POINTER INPUT ════ */
+/* ════ POINTER INPUT｜ポインター入力処理 ════ */
 cvs.addEventListener('pointerdown', e=>{
   e.preventDefault();
   Draw.isPointerDown=true;
@@ -2335,6 +2355,7 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 Draw._pinching = false;
 
 // オブジェクト選択＋ドラッグ待機（select/text/stickerツールで共用）
+/** オブジェクトを選択し、長押し・ドラッグ待機を開始 */
 function startObjSelect(found, lp, clientX, clientY) {
   Draw.selId = found.id;
   redraw();
@@ -2363,8 +2384,9 @@ function startObjSelect(found, lp, clientX, clientY) {
   document.addEventListener('pointerup', onUpAfterHit, {once:true});
 }
 
+/** 日付詳細画面のオブジェクトコンテクストメニューを表示 */
 function openDayObjCtx(clientX, clientY, objId) {
-  const m  = document.getElementById('ctx-day-obj');
+  const m  = $id('ctx-day-obj');
   const mw = 180, mh = 240;
   m.style.left = Math.min(clientX, window.innerWidth  - mw - 8) + 'px';
   m.style.top  = Math.min(clientY, window.innerHeight - mh - 8) + 'px';
@@ -2377,12 +2399,12 @@ function openDayObjCtx(clientX, clientY, objId) {
   const hasPaste = S.clipboard?.type === 'obj';
 
   // プレビュー：クリップのみ
-  document.getElementById('dctx-preview').style.display = isClip ? '' : 'none';
+  $id('dctx-preview').style.display = isClip ? '' : 'none';
   // 編集：テキスト・クリップのみ
-  const editEl = document.getElementById('dctx-edit');
+  const editEl = $id('dctx-edit');
   editEl.style.display = (isText || isClip) ? '' : 'none';
   // 貼り付け：クリップボードにオブジェクトがある場合のみ
-  document.getElementById('dctx-paste').style.display   = hasPaste ? '' : 'none';
+  $id('dctx-paste').style.display   = hasPaste ? '' : 'none';
 
   m.classList.add('open');
   attachLongPressMenuTracking(m, clientX, clientY);
@@ -2449,7 +2471,7 @@ function onDownSelect(e, lp, pp, clientX, clientY) {
     document.removeEventListener('pointermove', onMoveCancel);
     document.removeEventListener('pointerup',   onUp);
     if (cancelled) return;
-    const m = document.getElementById('ctx-day-paste');
+    const m = $id('ctx-day-paste');
     m._pasteLp = lp;
     const mw = 180, mh = 60;
     m.style.left = Math.min(clientX, window.innerWidth  - mw - 8) + 'px';
@@ -2502,8 +2524,8 @@ function onDownText(e, lp, pp, clientX, clientY) {
 }
 
 function onDown(e) {
-  if (document.getElementById('ctx-day-obj').classList.contains('open') ||
-      document.getElementById('ctx-day-paste').classList.contains('open')) return;
+  if ($id('ctx-day-obj').classList.contains('open') ||
+      $id('ctx-day-paste').classList.contains('open')) return;
   if (Draw._pinching) { Draw._globalLastTap = 0; return; }
 
   closeContextMenus();
@@ -2530,7 +2552,7 @@ function onDown(e) {
       showClipNameModal(name => {
         hitClip.displayName = name;
         pushUndo({type:'edit', objId: hitClip.id, from: prev, to: clone(hitClip)});
-        flushCell(); redraw();
+        flushAndRedraw();
       }, hitClip.displayName || '', () => { /* キャンセル：何もしない */ });
       return;
     }
@@ -2597,7 +2619,7 @@ function shiftObj(obj,dx,dy,orig) {
   } else { obj.x=orig.x+dx; obj.y=orig.y+dy; }
 }
 
-/* ════ ERASER ════ */
+/* ════ ERASER｜消しゴム ════ */
 function eraseAt(lp) {
   const r=S.eraserSize/2; let dirty=false;
   Draw.objects=Draw.objects.filter(obj=>{
@@ -2615,10 +2637,10 @@ function eraseAt(lp) {
     });
     obj.paths=newPaths; return obj.paths.length>0;
   });
-  if (dirty){redraw();flushCell();}
+  if (dirty){flushAndRedraw();}
 }
 
-/* ════ TEXT ════ */
+/* ════ TEXT｜テキストツール ════ */
 function showTextInput(x,y,editObj) {
   removeTextInput();
   const r  = cvs.getBoundingClientRect();
@@ -2669,7 +2691,7 @@ function showTextInput(x,y,editObj) {
   document.body.appendChild(ta);
   autoResize();
 
-  const dummy = document.getElementById('_text-dummy-input');
+  const dummy = $id('_text-dummy-input');
   if (dummy && document.activeElement === dummy) {
     ta.focus();
     dummy.remove();
@@ -2704,7 +2726,7 @@ function finalizeText() {
       const obj={id:uid(),type:'text',x,y,text:txt,color:S.textColor,size:S.textSize,bold:S.textBold};
       pushUndo({type:'create',obj:clone(obj)}); Draw.objects.push(obj);
     }
-    flushCell(); redraw();
+    flushAndRedraw();
   }
   el.remove();
   Draw.activeTextEl=null;
@@ -2722,7 +2744,7 @@ function removeTextInput(){
   }
 }
 
-/* ════ CLIP ════ */
+/* ════ CLIP｜クリップツール ════ */
 ;(function(){
   // LocalStorageキープレフィックス
   const CLIP_PREFIX = 'calapp_clip_';
@@ -2761,11 +2783,11 @@ function removeTextInput(){
     Draw.selId = obj.id;
     Draw._fadeIn = { id: obj.id, start: performance.now() };
     Draw.pendingClipId = null;
-    flushCell(); redraw();
+    flushAndRedraw();
   }
 
   // ファイル選択ハンドラ
-  const fileInput = document.getElementById('clip-file-input');
+  const fileInput = $id('clip-file-input');
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
     if (!file) return;
@@ -2804,7 +2826,7 @@ function removeTextInput(){
         showClipNameModal(name => {
           obj.displayName = name;
           pushUndo({type:'edit', objId: obj.id, from: prev, to: clone(obj)});
-          flushCell(); redraw();
+          flushAndRedraw();
         }, obj.displayName || '');
       }
     } else {
@@ -2837,13 +2859,13 @@ function removeTextInput(){
   };
 
   // ビューワー
-  const viewer = document.getElementById('clip-viewer');
-  const viewerPages = document.getElementById('clip-viewer-pages');
-  const viewerPageInfo = document.getElementById('clip-viewer-page-info');
-  const viewerTitle = document.getElementById('clip-viewer-title');
+  const viewer = $id('clip-viewer');
+  const viewerPages = $id('clip-viewer-pages');
+  const viewerPageInfo = $id('clip-viewer-page-info');
+  const viewerTitle = $id('clip-viewer-title');
 
   // ビューワー表示中のピンチが背景に伝わらないよう防止 + コンテンツのピンチズーム
-  const viewerContent = document.getElementById('clip-viewer-content');
+  const viewerContent = $id('clip-viewer-content');
   let _scale = 1, _startScale = 1, _startDist = 0;
   let _offsetY = 0, _startOffsetY = 0, _startMidY = 0;
   let _isPinching = false;
@@ -2941,7 +2963,7 @@ function removeTextInput(){
     }
   };
 
-  document.getElementById('clip-viewer-download').addEventListener('click', () => {
+  $id('clip-viewer-download').addEventListener('click', () => {
     const data = viewer._currentData;
     if (!data) return;
     const a = document.createElement('a');
@@ -2959,14 +2981,14 @@ function removeTextInput(){
     viewerPages.style.marginLeft   = '';
     _scale = 1; _offsetY = 0; _isPinching = false;
   };
-  document.getElementById('clip-viewer-close').addEventListener('click', _resetViewer);
-  document.getElementById('clip-viewer-bd').addEventListener('click', _resetViewer);
+  $id('clip-viewer-close').addEventListener('click', _resetViewer);
+  $id('clip-viewer-bd').addEventListener('click', _resetViewer);
 })();
 
-/* ════ STICKER ════ */
+/* ════ STICKER｜スティッカーツール ════ */
 (function(){
-  const dropdown = document.getElementById('stk-dropdown');
-  const grid     = document.getElementById('stk-grid');
+  const dropdown = $id('stk-dropdown');
+  const grid     = $id('stk-grid');
 
   // 起動時に全スタンプをプリロード
   preloadStickerImages();
@@ -3026,7 +3048,7 @@ function removeTextInput(){
   window.openStickerDropdown = function() {
     preloadStickerImages();
     // offsetParentで実際に表示されているサイドバーを判定
-    const sidebarLand = document.getElementById('day-sidebar-land');
+    const sidebarLand = $id('day-sidebar-land');
     const isLandMode = sidebarLand && sidebarLand.offsetParent !== null;
     const btn = isLandMode
       ? document.querySelector('.land-tool-btn[data-tool="sticker"]')
@@ -3078,8 +3100,7 @@ function placeSticker(lp) {
     Draw.objects.push(obj);
     Draw.selId = obj.id;
     Draw._fadeIn = { id: obj.id, start: performance.now() };
-    flushCell();
-    redraw();
+    flushAndRedraw();
   };
 
   if (img instanceof Image) {
@@ -3098,7 +3119,8 @@ function placeSticker(lp) {
   }
 }
 
-/* ════ DELETE / FLUSH ════ */
+/* ════ DELETE / FLUSH｜削除・保存 ════ */
+/** 指定IDのオブジェクトをフェードアウト後に削除 */
 function deleteObj(id){
   const obj=Draw.objects.find(o=>o.id===id); if(!obj) return;
   pushUndo({type:'delete',obj:clone(obj)});
@@ -3111,7 +3133,7 @@ function deleteObj(id){
     if (elapsed >= DURATION) {
       Draw._fadeOut = null;
       Draw.objects = Draw.objects.filter(o=>o.id!==id);
-      flushCell(); redraw();
+      flushAndRedraw();
     } else {
       redraw();
       requestAnimationFrame(animate);
@@ -3127,15 +3149,19 @@ function flushCell(){
   renderMiniCanvases();
 }
 
-/* ════ CALENDAR SCREEN UNDO/REDO ════ */
+/** flushCell() + redraw() の組み合わせを一括実行するヘルパー */
+function flushAndRedraw() { flushAndRedraw(); }
+
+/* ════ CALENDAR SCREEN UNDO/REDO｜カレンダー画面 Undo/Redo ════ */
+/** カレンダー画面のUndoスタックにアクションを積む */
 function calPushUndo(act) {
   Cal.undoStk.push(act);
   Cal.redoStk = [];
   syncCalUR();
 }
 function syncCalUR() {
-  const uBtn = document.getElementById('cal-btn-undo');
-  const rBtn = document.getElementById('cal-btn-redo');
+  const uBtn = $id('cal-btn-undo');
+  const rBtn = $id('cal-btn-redo');
   if (uBtn) uBtn.disabled = Cal.undoStk.length === 0;
   if (rBtn) rBtn.disabled = Cal.redoStk.length === 0;
 }
@@ -3221,36 +3247,36 @@ function doCalRedo() {
   syncCalUR();
 }
 
-/* ════ UNDO/REDO ════ */
+/* ════ UNDO/REDO｜日付詳細画面 Undo/Redo ════ */
 function pushUndo(act){ Draw.undoStk.push(act); Draw.redoStk=[]; syncUR(); }
 
 function syncUR(){
-  ['btn-undo','btn-undo-l'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!Draw.undoStk.length;});
-  ['btn-redo','btn-redo-l'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!Draw.redoStk.length;});
+  ['btn-undo','btn-undo-l'].forEach(id=>{const el=$id(id);if(el)el.disabled=!Draw.undoStk.length;});
+  ['btn-redo','btn-redo-l'].forEach(id=>{const el=$id(id);if(el)el.disabled=!Draw.redoStk.length;});
 }
 
 
-document.getElementById('btn-undo').addEventListener('click',doUndo);
-document.getElementById('btn-redo').addEventListener('click',doRedo);
-document.getElementById('btn-undo-l').addEventListener('click',doUndo);
-document.getElementById('btn-redo-l').addEventListener('click',doRedo);
+$id('btn-undo').addEventListener('click',doUndo);
+$id('btn-redo').addEventListener('click',doRedo);
+$id('btn-undo-l').addEventListener('click',doUndo);
+$id('btn-redo-l').addEventListener('click',doRedo);
 
-function doUndo(){ if(!Draw.undoStk.length)return; const a=Draw.undoStk.pop(); applyUndo(a); Draw.redoStk.push(a); syncUR(); redraw(); flushCell(); }
-function doRedo(){ if(!Draw.redoStk.length)return; const a=Draw.redoStk.pop(); applyRedo(a); Draw.undoStk.push(a); syncUR(); redraw(); flushCell(); }
+function doUndo(){ if(!Draw.undoStk.length)return; const a=Draw.undoStk.pop(); applyUndo(a); Draw.redoStk.push(a); syncUR(); flushAndRedraw(); }
+function doRedo(){ if(!Draw.redoStk.length)return; const a=Draw.redoStk.pop(); applyRedo(a); Draw.undoStk.push(a); syncUR(); flushAndRedraw(); }
 
-/* ════ OPEN / CLOSE DAY CELL ════ */
+/* ════ OPEN / CLOSE DAY CELL｜日付詳細画面の開閉 ════ */
 
 // 現在開いているセルのキー（goBackで戻る先のミニキャンバスを特定するため）
 
 function positionDateLabels() {
-  const numEl = document.getElementById('day-num-p');
-  const subEl = document.getElementById('day-sub-p');
-  const dowEl = document.getElementById('day-dow-p');
+  const numEl = $id('day-num-p');
+  const subEl = $id('day-sub-p');
+  const dowEl = $id('day-dow-p');
   if (!numEl || !subEl || !dowEl) return;
   const GAP = 8; // 日付との間隔(px)
 
   // day-topbar の中央Y座標を取得
-  const topbar = document.getElementById('day-topbar');
+  const topbar = $id('day-topbar');
   const tbr = topbar ? topbar.getBoundingClientRect() : null;
   const row1 = document.querySelector('.tb-row1');
   const row1r = row1 ? row1.getBoundingClientRect() : null;
@@ -3275,10 +3301,10 @@ function positionDateLabels() {
 // セル→日付詳細画面へのズームアニメーション
 function animateCellOpen(fromRect, objects) {
   const toRect  = cvs.getBoundingClientRect();
-  const tc      = document.getElementById('transition-canvas');
+  const tc      = $id('transition-canvas');
   const ctx2    = tc.getContext('2d');
   const dpr     = window.devicePixelRatio || 1;
-  const dayScr  = document.getElementById('day-screen');
+  const dayScr  = $id('day-screen');
 
   tc.width  = toRect.width  * dpr;
   tc.height = toRect.height * dpr;
@@ -3312,6 +3338,7 @@ function animateCellOpen(fromRect, objects) {
   }));
 }
 
+/** 指定キーの日付詳細画面を開く */
 function openDayCell(key, label, keepTool = false) {
   Cal.selObjId=null; Cal.selCellKey=null;
   S.clipboard=null;
@@ -3332,22 +3359,22 @@ function openDayCell(key, label, keepTool = false) {
   const labelStr = isBlank ? memoLabel
     : (typeof label === 'number') ? (isEn ? String(label) : label + '日')
     : (label || memoLabel);
-  document.getElementById('day-num-inner-p').textContent = labelStr;
-  document.getElementById('day-num-l').textContent = labelStr;
+  $id('day-num-inner-p').textContent = labelStr;
+  $id('day-num-l').textContent = labelStr;
 
   const subStr = isEn
     ? `${l.months[S.month]} ${S.year}`
     : `${S.year}年 ${S.month+1}月`;
-  document.getElementById('day-sub-p').textContent = subStr;
-  document.getElementById('day-sub-l').textContent = subStr;
+  $id('day-sub-p').textContent = subStr;
+  $id('day-sub-l').textContent = subStr;
 
   const DOW_JA = ['日','月','火','水','木','金','土'];
   const DOW_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const dowArr = isEn ? DOW_EN : DOW_JA;
   const dowDate = (!isBlank && typeof label === 'number') ? new Date(S.year, S.month, label) : null;
   const dowStr  = dowDate ? dowArr[dowDate.getDay()] : '';
-  document.getElementById('day-dow-p').textContent = dowStr;
-  document.getElementById('day-dow-l').textContent = dowStr;
+  $id('day-dow-p').textContent = dowStr;
+  $id('day-dow-l').textContent = dowStr;
 
   // 曜日色（平日:黒 / 土:青 / 日・祝:赤）
   let dowColor = 'var(--ink)';
@@ -3359,8 +3386,8 @@ function openDayCell(key, label, keepTool = false) {
     if (dow === 0 || isHol) dowColor = 'var(--sun-txt)';
     else if (dow === 6)     dowColor = 'var(--sat-txt)';
   }
-  document.getElementById('day-dow-p').style.color = dowColor;
-  document.getElementById('day-dow-l').style.color = dowColor;
+  $id('day-dow-p').style.color = dowColor;
+  $id('day-dow-l').style.color = dowColor;
 
   // ── ミニキャンバスの rect を取得（アニメーション開始位置） ──
   const miniMc = document.querySelector(`.cell-preview canvas[data-key="${key}"]`);
@@ -3391,12 +3418,12 @@ function goBack() {
   const fromRect = cvs.getBoundingClientRect();
 
   // カレンダー画面に切り替え
-  document.getElementById('cal-screen').style.opacity = '1';
+  $id('cal-screen').style.opacity = '1';
   showScreen('calendar');
   renderCalendar();
 
   // transition-canvasが残っていたらリセット
-  const tc = document.getElementById('transition-canvas');
+  const tc = $id('transition-canvas');
   if (tc) { tc.style.display = 'none'; tc.style.transform = 'none'; }
 
   const doAnim = () => {
@@ -3430,7 +3457,7 @@ function goBack() {
       opacity:         '1',
     });
 
-    document.getElementById('cal-screen').style.opacity = '0';
+    $id('cal-screen').style.opacity = '0';
 
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const sx = toRect.width  / fromRect.width;
@@ -3445,7 +3472,7 @@ function goBack() {
       const finish = () => {
         tc.style.display   = 'none';
         tc.style.transform = 'none';
-        document.getElementById('cal-screen').style.opacity = '1';
+        $id('cal-screen').style.opacity = '1';
         renderMiniCanvases();
       };
       const fallback = setTimeout(finish, 600);
@@ -3463,7 +3490,7 @@ function goToThisMonth() {
   S.year  = today.getFullYear();
   S.month = today.getMonth();
   clearCalUR();
-  const area = document.getElementById('cal-grid-area');
+  const area = $id('cal-grid-area');
   area.style.transition = 'none';
   area.style.opacity = '0';
   renderCalendar();
@@ -3477,10 +3504,10 @@ function goToThisMonth() {
   }));
 }
 
-document.getElementById('btn-back').addEventListener('click', goBack);
-document.getElementById('btn-back-land').addEventListener('click', goBack);
-document.getElementById('btn-today-day').addEventListener('click', goToToday);
-document.getElementById('btn-today-day-l').addEventListener('click', goToToday);
+$id('btn-back').addEventListener('click', goBack);
+$id('btn-back-land').addEventListener('click', goBack);
+$id('btn-today-day').addEventListener('click', goToToday);
+$id('btn-today-day-l').addEventListener('click', goToToday);
 
 /* ════ 日付エリア ダブルタップ → 当日の詳細画面へ ════ */
 function goToToday() {
@@ -3491,7 +3518,7 @@ function goToToday() {
   S.year  = today.getFullYear();
   S.month = today.getMonth();
 
-  const dayScreen = document.getElementById('day-screen');
+  const dayScreen = $id('day-screen');
   dayScreen.style.cssText += ';opacity:0;transition:none;';
   openDayCell(todayKey, today.getDate(), true);
 
@@ -3565,6 +3592,7 @@ function getAdjacentCellKey(currentKey, dir) {
   }
 }
 
+/** 日付詳細画面で前後の日付に移動（dir: -1=前日, 1=翌日） */
 function navigateDayCell(dir) {
   saveCurrentCell();
 
@@ -3581,16 +3609,16 @@ function navigateDayCell(dir) {
   const label = desc && desc.type === 'date' ? desc.d : undefined;
   const inClass = dir > 0 ? 'draw-slide-in-right' : 'draw-slide-in-left';
 
-  const isLand = document.getElementById('day-sidebar-land').offsetParent !== null;
+  const isLand = $id('day-sidebar-land').offsetParent !== null;
   const slideTargets = isLand
     ? [
         document.querySelector('.land-date-area'),
         document.querySelector('.land-ur-area'),
-        document.getElementById('draw-wrap'),
+        $id('draw-wrap'),
       ]
     : [
         document.querySelector('.tb-row1'),
-        document.getElementById('draw-wrap'),
+        $id('draw-wrap'),
       ];
 
   // チラつき防止: 内容更新前に非表示
@@ -3632,7 +3660,7 @@ function navigateDayCell(dir) {
     el.addEventListener('touchstart', e => {
       if (e.touches.length !== 1) return;
       // キャンバス上のタッチはスキップ
-      skip = skipIfCanvas && e.target === document.getElementById('draw-canvas');
+      skip = skipIfCanvas && e.target === $id('draw-canvas');
       if (skip) return;
       sx = e.touches[0].clientX;
       sy = e.touches[0].clientY;
@@ -3648,12 +3676,12 @@ function navigateDayCell(dir) {
       navigateDayCell(dx < 0 ? 1 : -1);
     }, { passive: true });
   }
-  attachFlick(document.getElementById('day-topbar'));
-  attachFlick(document.getElementById('day-sidebar-land'));
-  attachFlick(document.getElementById('draw-wrap'), true); // キャンバス上はスキップ
+  attachFlick($id('day-topbar'));
+  attachFlick($id('day-sidebar-land'));
+  attachFlick($id('draw-wrap'), true); // キャンバス上はスキップ
 
   // スウォッチ横スクロール中の誤フリック防止
-  const row3 = document.getElementById('tb-opts-portrait');
+  const row3 = $id('tb-opts-portrait');
   if (row3) {
     row3.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
     row3.addEventListener('touchend',   e => e.stopPropagation(), { passive: true });
@@ -3672,7 +3700,7 @@ function navigateDayCell(dir) {
   }
 })();
 
-/* ════ TOOL SWITCHING ════ */
+/* ════ TOOL SWITCHING｜ツール切り替え ════ */
 
 // パレットのスウォッチHTMLを生成するヘルパー
 function buildSwatchesHTML(id, dataAttr, currentColor) {
@@ -3796,6 +3824,7 @@ function bindOpts(container) {
 
 }
 
+/** 現在のツールに応じてオプションバーを再描画 */
 function renderOpts() {
   const html = buildOptsHTML(S.tool);
 
@@ -3816,10 +3845,11 @@ function renderOpts() {
     });
   }
 
-  applyTo(document.getElementById('tb-opts-portrait'));
-  applyTo(document.getElementById('land-opts'));
+  applyTo($id('tb-opts-portrait'));
+  applyTo($id('land-opts'));
 }
 
+/** ツールを切り替え、UIとカーソルを更新 */
 function switchTool(tool) {
   if (S.tool==='text'&&tool!=='text') finalizeText();
   S.tool=tool; Draw.selId=null;
@@ -3840,7 +3870,7 @@ function switchTool(tool) {
   // クリップツール選択 → ファイル選択ダイアログを開く
   if (tool==='clip') {
     Draw.pendingClipId = null;
-    setTimeout(() => document.getElementById('clip-file-input').click(), 0);
+    setTimeout(() => $id('clip-file-input').click(), 0);
   } else {
     Draw.pendingClipId = null;
   }
@@ -3918,13 +3948,14 @@ function setEraserCursor() {
 }
 
 // portrait tool btn clicks
-/* ════ TOAST ════ */
+/* ════ TOAST｜トースト通知 ════ */
 let _toastTimer = null;
+/** クリップ表示名入力モーダルを表示 */
 function showClipNameModal(onOk, initialValue = '', onCancel = null) {
-  const modal = document.getElementById('clip-name-modal');
-  const input = document.getElementById('clip-name-input');
-  const okBtn = document.getElementById('clip-name-ok');
-  const cancelBtn = document.getElementById('clip-name-cancel');
+  const modal = $id('clip-name-modal');
+  const input = $id('clip-name-input');
+  const okBtn = $id('clip-name-ok');
+  const cancelBtn = $id('clip-name-cancel');
 
   input.value = initialValue;
   modal.style.display = 'flex';
@@ -3947,7 +3978,7 @@ function showClipNameModal(onOk, initialValue = '', onCancel = null) {
 
 function showToast(msg, duration) {
   duration = duration || 2500;
-  const el = document.getElementById('app-toast');
+  const el = $id('app-toast');
   if (!el) return;
   el.textContent = msg;
   el.classList.add('show');
@@ -3983,7 +4014,7 @@ document.querySelectorAll('.land-tool-btn').forEach(btn=>{
   });
 });
 
-/* ════ CALENDAR RENDERING ════ */
+/* ════ CALENDAR RENDERING｜カレンダー描画 ════ */
 
 // 日付エリアの固定サイズ
 const DATE_H  = 20;  // 縦長: 上部日付エリア高さ(px)
@@ -3997,10 +4028,11 @@ function isLandscapeCalendar() {
   return window.innerWidth > window.innerHeight;
 }
 
+/** カレンダーグリッドを再描画 */
 function renderCalendar() {
   const l = L();
-  document.getElementById('hdr-month').textContent = l.months[S.month];
-  document.getElementById('hdr-year').textContent  = l.yearFmt(S.year);
+  $id('hdr-month').textContent = l.months[S.month];
+  $id('hdr-year').textContent  = l.yearFmt(S.year);
 
   const headers = S.weekStart === 0 ? l.weekSun : l.weekMon;
   const isLand = isLandscapeCalendar();
@@ -4018,20 +4050,20 @@ function renderCalendar() {
 // Today ボタンの表示/非表示を更新
 function updateTodayBtns() {
   const isThisMonth = (S.year === today.getFullYear() && S.month === today.getMonth());
-  const calBtn = document.getElementById('btn-today-cal');
+  const calBtn = $id('btn-today-cal');
   if (calBtn) calBtn.style.display = isThisMonth ? 'none' : '';
 
   const todayKey = cellKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
   const isToday  = (S.currentKey === todayKey);
-  const dayBtn  = document.getElementById('btn-today-day');
+  const dayBtn  = $id('btn-today-day');
   if (dayBtn)  dayBtn.style.display  = isToday ? 'none' : '';
-  const dayBtnL = document.getElementById('btn-today-day-l');
+  const dayBtnL = $id('btn-today-day-l');
   if (dayBtnL) dayBtnL.style.display = isToday ? 'none' : '';
 }
 
 // ── 曜日ヘッダーを描画 ──
 function renderWeekdayHeader(headers) {
-  const wdEl = document.getElementById('cal-wd');
+  const wdEl = $id('cal-wd');
   wdEl.innerHTML = '';
   headers.forEach((d, i) => {
     const el = document.createElement('div');
@@ -4093,7 +4125,7 @@ function buildCellDescsFor(year, month) {
 
 // ── セルDOMを構築してイベントを登録 ──
 function renderCalendarDOM(descs, headers, isLand) {
-  const grid = document.getElementById('cal-grid');
+  const grid = $id('cal-grid');
   grid.innerHTML = '';
 
   descs.forEach((desc, idx) => {
@@ -4193,8 +4225,8 @@ function onCellPointerDown(e, el, desc) {
   if (e.button > 0) return;
   // ピンチ拡大中はオブジェクト操作を無効化
   if (window.visualViewport && window.visualViewport.scale > 1.01) return;
-  if (document.getElementById('ctx-obj').classList.contains('open') ||
-      document.getElementById('ctx-cell').classList.contains('open')) return;
+  if ($id('ctx-obj').classList.contains('open') ||
+      $id('ctx-cell').classList.contains('open')) return;
 
   const mc = el.querySelector('canvas');
   if (!mc) return;
@@ -4249,6 +4281,7 @@ function miniHandleDeleteBtn(e, r, sc, key, objs) {
 }
 
 // ミニキャンバス上のオブジェクトをフェードアウトして削除
+/** カレンダー画面のオブジェクトをフェードアウト後に削除 */
 function miniDeleteWithFade(key, objId) {
   const DURATION = 200;
   const start = performance.now();
@@ -4446,10 +4479,10 @@ function handleCellHeaderTap(e, desc) {
 
 
 function applyCellSizes(numRows, isLand) {
-  const area = document.getElementById('cal-grid-area');
-  const grid = document.getElementById('cal-grid');
-  const wd   = document.getElementById('cal-wd');
-  const wrap = document.getElementById('cal-wd-grid-wrap');
+  const area = $id('cal-grid-area');
+  const grid = $id('cal-grid');
+  const wd   = $id('cal-wd');
+  const wrap = $id('cal-wd-grid-wrap');
   const areaW = area.clientWidth;
   const areaH = area.clientHeight;
 
@@ -4535,7 +4568,7 @@ function colOf(dow){
   return (dow+6)%7;
 }
 
-/* ════ MINI CANVAS PREVIEW ════ */
+/* ════ MINI CANVAS PREVIEW｜ミニキャンバスプレビュー ════ */
 
 // カレンダー画面でのオブジェクト選択状態
 
@@ -4631,7 +4664,7 @@ function miniHitDeleteBtn(obj, sc, px, py) {
   return Math.hypot(px-btnX, py-btnY) < 10;
 }
 
-/* ════ CALENDAR OBJECT DRAG ════ */
+/* ════ CALENDAR OBJECT DRAG｜カレンダー画面オブジェクトD&D ════ */
 
 /**
  * ドラッグリスナーの共通登録ヘルパー
@@ -4961,6 +4994,7 @@ function moveObjInCell(key, obj, nx, ny) {
   setCellObjs(key, getCellObjs(key));
 }
 
+/** カレンダー画面の全セルのミニキャンバスを再描画 */
 function renderMiniCanvases(){
   let needsRetry = false;
   document.querySelectorAll('.cell-preview canvas').forEach(mc=>{
@@ -5060,12 +5094,13 @@ function drawObjMini(c,obj){
   }
 }
 
-/* ════ CELL CONTEXT MENU ════ */
+/* ════ CELL CONTEXT MENU｜カレンダーセルコンテクストメニュー ════ */
 
 /**
  * 長押し発火後にポインターを追跡して、離した位置のメニュー項目を実行する。
  * 指を離してから普通にクリックする従来操作も引き続き動作する。
  */
+/** 長押しメニューの指トラッキングを開始（離した位置の項目を実行） */
 function attachLongPressMenuTracking(menuEl, initialX, initialY) {
   let hoveredItem = null;
 
@@ -5120,32 +5155,34 @@ function attachLongPressMenuTracking(menuEl, initialX, initialY) {
   document.addEventListener('pointerup',   onUp,   true);
 }
 
+/** カレンダー画面のセルコンテクストメニューを表示 */
 function openCellCtx(e, key, longPress = false) {
   Cal.ctxCellKey = key;
-  const m       = document.getElementById('ctx-cell');
+  const m       = $id('ctx-cell');
   const isEmpty = getCellObjs(key).length === 0;
 
   m.style.left = e.clientX + 'px';
   m.style.top  = e.clientY + 'px';
 
   // 空セルはコピー・カット・削除を非表示
-  document.getElementById('cctx-copy').style.display        = isEmpty ? 'none' : '';
-  document.getElementById('cctx-cut').style.display         = isEmpty ? 'none' : '';
-  document.getElementById('cctx-delete').style.display      = isEmpty ? 'none' : '';
-  document.getElementById('ctx-cell').querySelector('.ctx-sep').style.display = isEmpty ? 'none' : '';
+  $id('cctx-copy').style.display        = isEmpty ? 'none' : '';
+  $id('cctx-cut').style.display         = isEmpty ? 'none' : '';
+  $id('cctx-delete').style.display      = isEmpty ? 'none' : '';
+  $id('ctx-cell').querySelector('.ctx-sep').style.display = isEmpty ? 'none' : '';
   // 貼り付け：クリップボードの種類に応じて表示
-  document.getElementById('cctx-paste-cell').style.display  = (S.clipboard?.type === 'cell') ? '' : 'none';
-  document.getElementById('cctx-paste-obj').style.display   = (S.clipboard?.type === 'obj')  ? '' : 'none';
+  $id('cctx-paste-cell').style.display  = (S.clipboard?.type === 'cell') ? '' : 'none';
+  $id('cctx-paste-obj').style.display   = (S.clipboard?.type === 'obj')  ? '' : 'none';
 
   m.classList.add('open');
   if (longPress) attachLongPressMenuTracking(m, e.clientX, e.clientY);
 }
 
+/** 全てのコンテクストメニューを閉じる */
 function closeContextMenus(){
-  document.getElementById('ctx-cell').classList.remove('open');
-  document.getElementById('ctx-obj').classList.remove('open');
-  document.getElementById('ctx-day-obj').classList.remove('open');
-  document.getElementById('ctx-day-paste').classList.remove('open');
+  $id('ctx-cell').classList.remove('open');
+  $id('ctx-obj').classList.remove('open');
+  $id('ctx-day-obj').classList.remove('open');
+  $id('ctx-day-paste').classList.remove('open');
   window._hideClipTooltip && _hideClipTooltip();
 }
 // メニュー外の pointerdown で閉じる
@@ -5165,11 +5202,11 @@ function execCalCellAction(action) {
     S.clipboard = {type:'cell', data: before};
     // Undo: カットした全オブジェクトを個別にcal-deleteとして登録
     before.forEach(obj => calPushUndo({type:'cal-delete', key, obj: clone(obj)}));
-    setCellObjs(key, []); saveToStorage(); renderMiniCanvases();
+    commitCellObjs(key, []);
   } else if (action === 'paste-cell' && S.clipboard?.type === 'cell') {
     const newObjs = clone(S.clipboard.data);
     newObjs.forEach(obj => calPushUndo({type:'cal-create', key, obj: clone(obj)}));
-    setCellObjs(key, newObjs); saveToStorage(); renderMiniCanvases();
+    commitCellObjs(key, newObjs);
   } else if (action === 'paste-obj' && S.clipboard?.type === 'obj') {
     const newObj = clone(S.clipboard.data);
     newObj.id = uid();
@@ -5177,20 +5214,21 @@ function execCalCellAction(action) {
     calPushUndo({type:'cal-create', key, obj: clone(newObj)});
     const objs = getCellObjs(key);
     objs.push(newObj);
-    setCellObjs(key, objs); saveToStorage();
+    commitCellObjs(key, objs, false);
     Cal.selCellKey = key; Cal.selObjId = newObj.id;
     renderMiniCanvases();
   } else if (action === 'delete') {
     const before = clone(getCellObjs(key));
     before.forEach(obj => calPushUndo({type:'cal-delete', key, obj: clone(obj)}));
-    setCellObjs(key, []); saveToStorage(); renderMiniCanvases();
+    commitCellObjs(key, []);
   }
   closeContextMenus();
 }
 
 // メニュー項目クリック時にブリンクしてから実行
+/** メニュー項目をブリンクさせてからコールバックを実行 */
 function blinkAndExec(itemId, fn) {
-  const el = document.getElementById(itemId);
+  const el = $id(itemId);
   el.addEventListener('click', () => {
     el.classList.add('ctx-blink');
     el.addEventListener('animationend', () => {
@@ -5211,8 +5249,9 @@ blinkAndExec('octx-cut',        () => execCalObjAction('cut'));
 blinkAndExec('octx-paste-obj',  () => execCalObjAction('paste-obj'));
 blinkAndExec('octx-paste-cell', () => execCalObjAction('paste-cell'));
 blinkAndExec('octx-delete',     () => execCalObjAction('delete'));
-/* ════ OBJECT CONTEXT MENU ════ */
+/* ════ OBJECT CONTEXT MENU｜カレンダーオブジェクトコンテクストメニュー ════ */
 
+/** カレンダー画面のオブジェクトコンテクストメニューを表示 */
 function openObjCtx(clientX, clientY, key, objId, longPress = false) {
   Cal.ctxObjKey  = key;
   Cal.ctxObjId   = objId;
@@ -5220,14 +5259,14 @@ function openObjCtx(clientX, clientY, key, objId, longPress = false) {
   Cal.selObjId   = objId;
   renderMiniCanvases();
 
-  const m  = document.getElementById('ctx-obj');
+  const m  = $id('ctx-obj');
   const mw = 220, mh = 200;
   m.style.left = Math.min(clientX, window.innerWidth  - mw - 8) + 'px';
   m.style.top  = Math.min(clientY, window.innerHeight - mh - 8) + 'px';
   const obj = getCellObjs(key).find(o => o.id === objId);
-  document.getElementById('octx-preview').style.display     = (obj?.type === 'clip') ? '' : 'none';
-  document.getElementById('octx-paste-obj').style.display  = (S.clipboard?.type==='obj')  ? '' : 'none';
-  document.getElementById('octx-paste-cell').style.display = (S.clipboard?.type==='cell') ? '' : 'none';
+  $id('octx-preview').style.display     = (obj?.type === 'clip') ? '' : 'none';
+  $id('octx-paste-obj').style.display  = (S.clipboard?.type==='obj')  ? '' : 'none';
+  $id('octx-paste-cell').style.display = (S.clipboard?.type==='cell') ? '' : 'none';
   m.classList.add('open');
   if (longPress) attachLongPressMenuTracking(m, clientX, clientY);
 
@@ -5267,13 +5306,13 @@ function execCalObjAction(action) {
     calPushUndo({type:'cal-create', key, obj: clone(newObj)});
     const objs = getCellObjs(key);
     objs.push(newObj);
-    setCellObjs(key, objs); saveToStorage();
+    commitCellObjs(key, objs, false);
     Cal.selCellKey = key; Cal.selObjId = newObj.id;
     renderMiniCanvases();
   } else if (action === 'paste-cell' && key && S.clipboard?.type === 'cell') {
     const newObjs = clone(S.clipboard.data);
     newObjs.forEach(obj => calPushUndo({type:'cal-create', key, obj: clone(obj)}));
-    setCellObjs(key, newObjs); saveToStorage();
+    commitCellObjs(key, newObjs, false);
     Cal.selObjId = null; Cal.selCellKey = null;
     renderMiniCanvases();
   } else if (action === 'delete' && key && objId) {
@@ -5286,11 +5325,11 @@ function execCalObjAction(action) {
   closeContextMenus();
 }
 
-/* ════ DAY OBJECT CONTEXT MENU ════ */
+/* ════ DAY OBJECT CONTEXT MENU｜日付詳細画面コンテクストメニュー ════ */
 
 // 空白領域長押し時の貼り付け専用メニュー
 blinkAndExec('dpctx-paste', () => {
-  const lp = document.getElementById('ctx-day-paste')._pasteLp || {x: CANVAS_SRC/2, y: CANVAS_SRC/2};
+  const lp = $id('ctx-day-paste')._pasteLp || {x: CANVAS_SRC/2, y: CANVAS_SRC/2};
   if (S.clipboard?.type === 'obj') {
     const newObj = clone(S.clipboard.data);
     newObj.id = uid();
@@ -5298,14 +5337,14 @@ blinkAndExec('dpctx-paste', () => {
     pushUndo({type:'create', obj: clone(newObj)});
     Draw.objects.push(newObj);
     Draw.selId = newObj.id;
-    flushCell(); redraw();
+    flushAndRedraw();
   }
   closeContextMenus();
 });
 
 // 日付セル画面のオブジェクトメニュー操作を実行する共通関数
 function execDayObjAction(action) {
-  const objId = document.getElementById('ctx-day-obj')._targetObjId;
+  const objId = $id('ctx-day-obj')._targetObjId;
   const obj   = objId ? Draw.objects.find(o => o.id === objId) : null;
 
   if (action === 'edit' && obj) {
@@ -5317,7 +5356,7 @@ function execDayObjAction(action) {
       showClipNameModal(name => {
         obj.displayName = name;
         pushUndo({type:'edit', objId: obj.id, from: prev, to: clone(obj)});
-        flushCell(); redraw();
+        flushAndRedraw();
       }, obj.displayName || '', () => { /* キャンセル：何もしない */ });
     }
     return;
@@ -5335,7 +5374,7 @@ function execDayObjAction(action) {
     pushUndo({type:'create', obj: clone(newObj)});
     Draw.objects.push(newObj);
     Draw.selId = newObj.id;
-    flushCell(); redraw();
+    flushAndRedraw();
   } else if (action === 'delete' && objId) {
     deleteObj(objId); Draw.selId = null;
   }
@@ -5349,17 +5388,17 @@ blinkAndExec('dctx-cut',     () => execDayObjAction('cut'));
 blinkAndExec('dctx-paste',   () => execDayObjAction('paste'));
 blinkAndExec('dctx-delete',  () => execDayObjAction('delete'));
 
-/* ════ SETTINGS ════ */
-document.getElementById('cal-btn-undo').addEventListener('click', doCalUndo);
-document.getElementById('cal-btn-redo').addEventListener('click', doCalRedo);
+/* ════ SETTINGS｜設定 ════ */
+$id('cal-btn-undo').addEventListener('click', doCalUndo);
+$id('cal-btn-redo').addEventListener('click', doCalRedo);
 
-document.getElementById('btn-settings').addEventListener('click',()=>{
-  document.getElementById('settings-overlay').classList.toggle('open');
+$id('btn-settings').addEventListener('click',()=>{
+  $id('settings-overlay').classList.toggle('open');
 });
-document.getElementById('settings-bd').addEventListener('click',()=>{
-  document.getElementById('settings-overlay').classList.remove('open');
+$id('settings-bd').addEventListener('click',()=>{
+  $id('settings-overlay').classList.remove('open');
 });
-document.getElementById('week-start-sel').addEventListener('change',e=>{
+$id('week-start-sel').addEventListener('change',e=>{
   S.weekStart=+e.target.value; renderCalendar();
 });
 
@@ -5373,24 +5412,24 @@ function updateI18nDOM() {
   if (sRows[0]) sRows[0].textContent = l.weekStart;
   if (sRows[1]) sRows[1].textContent = l.language;
   if (sRows[2]) sRows[2].textContent = l.userMgmt;
-  const userBtn = document.getElementById('btn-user-mgmt');
+  const userBtn = $id('btn-user-mgmt');
   if (userBtn) {
     const svg = userBtn.querySelector('svg');
     userBtn.textContent = l.userMgmtBtn;
     if (svg) userBtn.prepend(svg);
   }
-  const wSel = document.getElementById('week-start-sel');
+  const wSel = $id('week-start-sel');
   wSel.options[0].text = isEn ? 'Sunday'  : '日曜日';
   wSel.options[1].text = isEn ? 'Monday'  : '月曜日';
 
   // cell context menu
   const setText = (id, svgEl, txt) => {
-    const el = document.getElementById(id);
+    const el = $id(id);
     if (!el) return;
     el.textContent = txt;
     if (svgEl) el.prepend(svgEl);
   };
-  const svgOf = id => document.getElementById(id)?.querySelector('svg');
+  const svgOf = id => $id(id)?.querySelector('svg');
 
   setText('cctx-copy',       svgOf('cctx-copy'),       l.cellCopy);
   setText('cctx-cut',        svgOf('cctx-cut'),        l.cellCut);
@@ -5420,22 +5459,22 @@ function updateI18nDOM() {
   renderOpts();
 }
 
-document.getElementById('lang-sel').addEventListener('change', e => {
+$id('lang-sel').addEventListener('change', e => {
   S.lang = e.target.value;
   renderCalendar();
   updateI18nDOM();
 });
 
-/* ════ YEAR-MONTH DRUM PICKER ════ */
+/* ════ YEAR-MONTH DRUM PICKER｜年月ドラムピッカー ════ */
 ;(function() {
   const ITEM_H = 36;
   const YEAR_RANGE = 20; // 前後20年
   let isOpen = false;
 
-  const picker   = document.getElementById('ym-picker');
-  const backdrop = document.getElementById('ym-backdrop');
-  const yearDrum = document.getElementById('ym-year-drum');
-  const monthDrum= document.getElementById('ym-month-drum');
+  const picker   = $id('ym-picker');
+  const backdrop = $id('ym-backdrop');
+  const yearDrum = $id('ym-year-drum');
+  const monthDrum= $id('ym-month-drum');
 
   // ドラムを構築
   function buildDrum(el, items, selectedIdx) {
@@ -5483,7 +5522,7 @@ document.getElementById('lang-sel').addEventListener('change', e => {
     buildDrum(monthDrum, months, S.month);
 
     // cal-titleの位置を取得してピッカーを上に配置
-    const titleRect = document.getElementById('cal-title').getBoundingClientRect();
+    const titleRect = $id('cal-title').getBoundingClientRect();
     const pickerH = 180;
     const pickerW = 220;
     const margin = 8;
@@ -5517,7 +5556,7 @@ document.getElementById('lang-sel').addEventListener('change', e => {
       S.year = newYear;
       S.month = newMonth;
       renderCalendar();
-      const area = document.getElementById('cal-grid-area');
+      const area = $id('cal-grid-area');
       area.style.transition = 'none';
       area.style.opacity = '0';
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -5561,7 +5600,7 @@ document.getElementById('lang-sel').addEventListener('change', e => {
 ;(function() {
   let lastTap = 0;
   let tapTimer = null;
-  document.getElementById('cal-title').addEventListener('click', () => {
+  $id('cal-title').addEventListener('click', () => {
     const now = Date.now();
     if (now - lastTap < TAP_INTERVAL) {
       // ダブルタップ
@@ -5572,7 +5611,7 @@ document.getElementById('lang-sel').addEventListener('change', e => {
       S.year = t.getFullYear();
       S.month = t.getMonth();
       renderCalendar();
-      const area = document.getElementById('cal-grid-area');
+      const area = $id('cal-grid-area');
       area.style.transition = 'none';
       area.style.opacity = '0';
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -5590,15 +5629,15 @@ document.getElementById('lang-sel').addEventListener('change', e => {
     tapTimer = setTimeout(() => { openYMPicker(); }, TAP_INTERVAL);
   });
 })();
-document.getElementById('btn-user-mgmt').addEventListener('click', () => {
+$id('btn-user-mgmt').addEventListener('click', () => {
   // TODO: ユーザー管理ダイアログを実装
-  document.getElementById('settings-overlay').classList.remove('open');
+  $id('settings-overlay').classList.remove('open');
   alert('ユーザー管理機能は今後実装予定です');
 });
 
 // タブを描画する
 function renderTabs() {
-  const container = document.getElementById('cal-tabs');
+  const container = $id('cal-tabs');
   container.innerHTML = '';
   calendars.forEach(cal => {
     const btn = document.createElement('button');
@@ -5610,7 +5649,7 @@ function renderTabs() {
   // アクティブタブ直下の罫線を消す
   requestAnimationFrame(() => {
     const headerTop = document.querySelector('.cal-header-top');
-    let eraser = document.getElementById('cal-tab-border-eraser');
+    let eraser = $id('cal-tab-border-eraser');
     if (!eraser) {
       eraser = document.createElement('div');
       eraser.id = 'cal-tab-border-eraser';
@@ -5631,7 +5670,7 @@ function renderTabs() {
 }
 
 // タブ切り替え（委譲）
-document.getElementById('cal-tabs').addEventListener('click', e => {
+$id('cal-tabs').addEventListener('click', e => {
   const tab = e.target.closest('.cal-tab');
   if (!tab) return;
   if (tab.querySelector('.cal-tab-input')) return; // 編集中は無視
@@ -5676,7 +5715,7 @@ document.getElementById('cal-tabs').addEventListener('click', e => {
     });
   }
 
-  document.getElementById('cal-tabs').addEventListener('pointerdown', e => {
+  $id('cal-tabs').addEventListener('pointerdown', e => {
     const tab = e.target.closest('.cal-tab');
     if (!tab) return;
     longPressTimer = setTimeout(() => {
@@ -5685,16 +5724,16 @@ document.getElementById('cal-tabs').addEventListener('click', e => {
     }, LONG_PRESS_MS);
   });
 
-  document.getElementById('cal-tabs').addEventListener('pointerup', () => {
+  $id('cal-tabs').addEventListener('pointerup', () => {
     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   });
 
-  document.getElementById('cal-tabs').addEventListener('pointermove', () => {
+  $id('cal-tabs').addEventListener('pointermove', () => {
     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   });
 })();
 
-/* ════ CALENDAR NAV ════ */
+/* ════ CALENDAR NAV｜カレンダーナビゲーション ════ */
 // 月切り替えスライドアニメーション
 // dir: 'next'(翌月・右から入場) or 'prev'(前月・左から入場)
 function navigateMonth(dir) {
@@ -5705,9 +5744,9 @@ function navigateMonth(dir) {
   }
   clearCalUR();
 
-  const area    = document.getElementById('cal-grid-area');
-  const wrap    = document.getElementById('cal-wd-grid-wrap');
-  const oldGrid = document.getElementById('cal-grid');
+  const area    = $id('cal-grid-area');
+  const wrap    = $id('cal-wd-grid-wrap');
+  const oldGrid = $id('cal-grid');
 
   // 旧グリッドをクローンして絶対位置で重ねる
   const oldClone = oldGrid.cloneNode(true);
@@ -5726,7 +5765,7 @@ function navigateMonth(dir) {
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
     oldClone.classList.add(outClass);
-    const newGrid = document.getElementById('cal-grid');
+    const newGrid = $id('cal-grid');
     newGrid.classList.add(inClass);
 
     const cleanup = () => {
@@ -5743,7 +5782,7 @@ function navigateMonth(dir) {
 (function() {
   let startX = 0, startY = 0, startT = 0;
   let hadMultiTouch = false;
-  const area = document.getElementById('cal-screen');
+  const area = $id('cal-screen');
 
   area.addEventListener('touchstart', e => {
     if (e.touches.length === 1) {
@@ -5779,27 +5818,27 @@ function navigateMonth(dir) {
   }, { passive: true });
 })();
 
-document.getElementById('btn-prev').addEventListener('click', e => {
+$id('btn-prev').addEventListener('click', e => {
   navigateMonth('prev');
   e.currentTarget.blur();
 });
-document.getElementById('btn-next').addEventListener('click', e => {
+$id('btn-next').addEventListener('click', e => {
   navigateMonth('next');
   e.currentTarget.blur();
 });
 
-/* ════ SCREEN / ORIENTATION ════ */
+/* ════ SCREEN / ORIENTATION｜画面・向き検出 ════ */
 function showScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const map={calendar:'cal-screen',day:'day-screen'};
-  if(map[name]) document.getElementById(map[name]).classList.add('active');
+  if(map[name]) $id(map[name]).classList.add('active');
   S.screen=name;
-  const ver=document.getElementById('_ver');
+  const ver=$id('_ver');
   if(ver) ver.style.display = name==='calendar' ? '' : 'none';
 }
 
 function updateOrientation(){
-  const ds=document.getElementById('day-screen');
+  const ds=$id('day-screen');
   if (IS_PHONE) {
     ds.classList.remove('landscape');
     ds.classList.add('portrait');
@@ -5834,7 +5873,7 @@ if (screen.orientation) {
   window.addEventListener('orientationchange', onOrientationChange);
 }
 
-/* ════ INIT ════ */
+/* ════ INIT｜初期化 ════ */
 calcTextSizes();
 renderTabs();
 renderCalendar();
@@ -5842,7 +5881,7 @@ renderOpts();
 
 /* ════ CLIP TOOLTIP（PC：マウスオン500ms / タブレット：長押しコンテクストメニューと同時表示） ════ */
 (function() {
-  const tooltip = document.getElementById('clip-tooltip');
+  const tooltip = $id('clip-tooltip');
   let _hoverTimer = null;
   let _currentClipId = null;
 
@@ -5861,7 +5900,7 @@ renderOpts();
   }
 
   // PCホバー：cal-grid-area上のmousemoveでヒットテスト
-  const area = document.getElementById('cal-grid-area');
+  const area = $id('cal-grid-area');
 
   area.addEventListener('mousemove', e => {
     const mc = e.target.closest('canvas[data-key]');
@@ -5908,7 +5947,7 @@ renderOpts();
 updateI18nDOM();
 
 // 日付詳細画面でのピンチズームを無効化
-document.getElementById('day-screen').addEventListener('touchstart', e => {
+$id('day-screen').addEventListener('touchstart', e => {
   if (e.touches.length >= 2) e.preventDefault();
 }, { passive: false });
 
