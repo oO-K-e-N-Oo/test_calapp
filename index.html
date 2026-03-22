@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v506</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v508</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1351,6 +1351,18 @@ button:focus-visible { outline: none; background: transparent; }
     <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>貼り付け
   </div>
 </div>
+
+<!-- ══ CLIP TOOLTIP ══ -->
+<div id="clip-tooltip" style="
+  display:none;position:fixed;z-index:3000;
+  background:rgba(30,28,26,.88);color:#fff;
+  font-size:13px;font-weight:600;font-family:var(--font-body);
+  padding:6px 12px;border-radius:8px;
+  box-shadow:0 2px 10px rgba(0,0,0,.3);
+  pointer-events:none;white-space:pre-wrap;max-width:200px;
+  line-height:1.4;
+  transform:translateX(-50%);
+"></div>
 
 <!-- ══ TRANSITION LAYER ══ -->
 <canvas id="transition-canvas" style="
@@ -4226,9 +4238,9 @@ function handleObjHit(e, key, obj) {
       // 既に指が離れていた → 即メニュー
       openObjCtx(e.clientX, e.clientY, key, obj.id, false);
     } else {
-      // まだ指が触れている → ゴースト表示、移動なし＋400ms後にメニュー
+      // まだ指が触れている → ゴースト表示、移動なし＋500ms後にメニュー
       startCalDrag(e, key, obj,
-        () => openObjCtx(e.clientX, e.clientY, key, obj.id, false)
+        () => openObjCtx(e.clientX, e.clientY, key, obj.id, true)
       );
     }
   }, LONG_PRESS_MS);
@@ -4271,12 +4283,13 @@ function handleEmptyCellTap(e, desc) {
   const longPressTimer = setTimeout(() => {
     longPressed = true; cleanup();
     if (!S.clipboard?.type) return; // クリップボードなし → 何もしない
-    const showMenu = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
+    const showMenu      = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
+    const showMenuLong  = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, true);
     if (upBeforeTimer) { showMenu(); return; }
-    // オブジェクトがあればD&D→400ms後にメニュー、なければ直接メニュー
+    // オブジェクトがあればD&D→500ms後にメニュー、なければ直接メニュー
     const hasObjs = getCellObjs(desc.key).length > 0;
     if (hasObjs) {
-      startCellDrag(e, desc.key, showMenu, () => {});
+      startCellDrag(e, desc.key, showMenuLong, () => {});
     } else {
       showMenu();
     }
@@ -4325,7 +4338,8 @@ function handleCellHeaderTap(e, desc) {
     document.removeEventListener('pointerup',   onUp);
     document.removeEventListener('touchend',    onTouchUp, true);
 
-    const showMenu = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
+    const showMenu     = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
+    const showMenuLong = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, true);
     const hasObjs  = getCellObjs(desc.key).length > 0;
 
     if (upBeforeTimer) {
@@ -4334,8 +4348,8 @@ function handleCellHeaderTap(e, desc) {
       return;
     }
     if (hasObjs) {
-      // オブジェクトあり → D&D → 400ms後にメニュー
-      startCellDrag(e, desc.key, showMenu, () => {});
+      // オブジェクトあり → D&D → 500ms後にメニュー
+      startCellDrag(e, desc.key, showMenuLong, () => {});
     } else if (S.clipboard?.type) {
       // オブジェクトなし＋クリップボードあり → 直接メニュー
       showMenu();
@@ -5049,6 +5063,7 @@ function closeContextMenus(){
   document.getElementById('ctx-obj').classList.remove('open');
   document.getElementById('ctx-day-obj').classList.remove('open');
   document.getElementById('ctx-day-paste').classList.remove('open');
+  window._hideClipTooltip && _hideClipTooltip();
 }
 // メニュー外の pointerdown で閉じる
 document.addEventListener('pointerdown', e => {
@@ -5132,6 +5147,11 @@ function openObjCtx(clientX, clientY, key, objId, longPress = false) {
   document.getElementById('octx-paste-cell').style.display = (S.clipboard?.type==='cell') ? '' : 'none';
   m.classList.add('open');
   if (longPress) attachLongPressMenuTracking(m, clientX, clientY);
+
+  // クリップオブジェクトの場合は吹き出し表示
+  if (obj?.type === 'clip' && obj.displayName) {
+    window._showClipTooltipForMenu && _showClipTooltipForMenu(obj.displayName, clientX, clientY - 60);
+  }
 }
 
 // カレンダー画面オブジェクトメニュー操作
@@ -5734,6 +5754,72 @@ calcTextSizes();
 renderTabs();
 renderCalendar();
 renderOpts();
+
+/* ════ CLIP TOOLTIP（PC：マウスオン500ms / タブレット：長押しコンテクストメニューと同時表示） ════ */
+(function() {
+  const tooltip = document.getElementById('clip-tooltip');
+  let _hoverTimer = null;
+  let _currentClipId = null;
+
+  function showTooltip(name, x, y) {
+    if (!name) return;
+    tooltip.textContent = name;
+    tooltip.style.display = 'block';
+    // 吹き出しをカーソルの上に表示
+    tooltip.style.left = x + 'px';
+    tooltip.style.top  = (y - 48) + 'px';
+  }
+
+  function hideTooltip() {
+    tooltip.style.display = 'none';
+    _currentClipId = null;
+  }
+
+  // PCホバー：cal-grid-area上のmousemoveでヒットテスト
+  const area = document.getElementById('cal-grid-area');
+
+  area.addEventListener('mousemove', e => {
+    const mc = e.target.closest('canvas[data-key]');
+    if (!mc) { clearTimeout(_hoverTimer); hideTooltip(); return; }
+
+    const key  = mc.dataset.key;
+    const r    = mc.getBoundingClientRect();
+    const sc   = Math.min(mc.width / CANVAS_SRC, mc.height / CANVAS_SRC);
+    const lx   = (e.clientX - r.left) / r.width  * (mc.width  / sc);
+    const ly   = (e.clientY - r.top)  / r.height * (mc.height / sc);
+    const objs = getCellObjs(key);
+    const hit  = objs.slice().reverse().find(o => o.type === 'clip' && miniHitObj(o, lx, ly));
+
+    if (!hit) { clearTimeout(_hoverTimer); hideTooltip(); return; }
+    if (hit.id === _currentClipId) { // 同じアイコン上 → 位置更新のみ
+      if (tooltip.style.display === 'block') {
+        tooltip.style.left = e.clientX + 'px';
+        tooltip.style.top  = (e.clientY - 48) + 'px';
+      }
+      return;
+    }
+
+    // 別のアイコンに移動 → タイマーリセット
+    clearTimeout(_hoverTimer);
+    hideTooltip();
+    _currentClipId = hit.id;
+    _hoverTimer = setTimeout(() => {
+      showTooltip(hit.displayName, e.clientX, e.clientY);
+    }, 500);
+  });
+
+  area.addEventListener('mouseleave', () => {
+    clearTimeout(_hoverTimer);
+    hideTooltip();
+  });
+
+  // 長押しコンテクストメニュー表示と同時に吹き出し表示
+  window._showClipTooltipForMenu = function(name, x, y) {
+    if (!name) return;
+    showTooltip(name, x, y);
+  };
+  window._hideClipTooltip = hideTooltip;
+})();
 updateI18nDOM();
 
 // 日付詳細画面でのピンチズームを無効化
