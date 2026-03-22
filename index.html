@@ -261,7 +261,7 @@ button:focus-visible { outline: none; background: transparent; }
   letter-spacing: .02em;
   text-align: center;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   justify-content: center;
   white-space: nowrap;
@@ -451,7 +451,7 @@ button:focus-visible { outline: none; background: transparent; }
   pointer-events: none;
 }
 .day-nav-btn        { pointer-events: auto; margin: 0 12px; }
-.day-num-text-group { display: flex; align-items: baseline; gap: 8px; pointer-events: auto; cursor: pointer; }
+.day-num-text-group { display: flex; align-items: center; gap: 8px; pointer-events: auto; cursor: pointer; }
 .day-sub-left       { font-size: 14px; font-weight: 700; color: var(--ink); white-space: nowrap; }
 .day-num-inner      { font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; }
 .day-dow-right      { font-size: 14px; font-weight: 700; color: var(--ink); white-space: nowrap; }
@@ -563,7 +563,7 @@ button:focus-visible { outline: none; background: transparent; }
 
 /* 日付行: ナビボタン + 日数字(下揃え) + 曜日 */
 .land-date-row      { display: flex; align-items: center; gap: 0; white-space: nowrap; }
-.land-num-dow-group { display: flex; align-items: flex-end; gap: 0; }
+.land-num-dow-group { display: flex; align-items: center; gap: 0; }
 .land-day-nav-btn   { margin: 0 12px; }
 .land-day-nav-btn svg { width: 22px; height: 22px; }
 .land-day-num { font-size: 48px; color: var(--ink); font-weight: 700; line-height: 1; white-space: nowrap; }
@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v457</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v463</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2391,9 +2391,13 @@ function onDown(e) {
       if (Draw.pendingStickerId) { placeSticker(lp); break; }
       const hitSticker = [...Draw.objects].reverse().find(o => o.type==='sticker' && hitObj(o, pp.x, pp.y));
       if (hitSticker) startObjSelect(hitSticker, lp, clientX, clientY);
+      else if (Draw.selId) { Draw.selId = null; redraw(); }
       break;
     case 'clip':
-      if (Draw.pendingClipId) handleClipPointerDown(lp);
+      if (Draw.pendingClipId) { handleClipPointerDown(lp); break; }
+      if (Draw.selId && !hitObj(Draw.objects.find(o => o.id === Draw.selId), pp.x, pp.y)) {
+        Draw.selId = null; redraw();
+      }
       break;
   }
 }
@@ -3072,11 +3076,23 @@ function openDayCell(key, label, keepTool = false) {
   const DOW_JA = ['日','月','火','水','木','金','土'];
   const DOW_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const dowArr = isEn ? DOW_EN : DOW_JA;
-  const dowStr = (!isBlank && typeof label === 'number')
-    ? dowArr[new Date(S.year, S.month, label).getDay()]
-    : '';
+  const dowDate = (!isBlank && typeof label === 'number') ? new Date(S.year, S.month, label) : null;
+  const dowStr  = dowDate ? dowArr[dowDate.getDay()] : '';
   document.getElementById('day-dow-p').textContent = dowStr;
   document.getElementById('day-dow-l').textContent = dowStr;
+
+  // 曜日色（平日:黒 / 土:青 / 日・祝:赤）
+  let dowColor = 'var(--ink)';
+  if (dowDate) {
+    const dow = dowDate.getDay();
+    const holidays = getHolidays(S.year);
+    const holKey   = `${S.year}-${String(S.month+1).padStart(2,'0')}-${String(label).padStart(2,'0')}`;
+    const isHol    = holKey in holidays;
+    if (dow === 0 || isHol) dowColor = 'var(--sun-txt)';
+    else if (dow === 6)     dowColor = 'var(--sat-txt)';
+  }
+  document.getElementById('day-dow-p').style.color = dowColor;
+  document.getElementById('day-dow-l').style.color = dowColor;
 
   // ── ミニキャンバスの rect を取得（アニメーション開始位置） ──
   const miniMc = document.querySelector(`.cell-preview canvas[data-key="${key}"]`);
@@ -5230,11 +5246,11 @@ function navigateMonth(dir) {
   }));
 }
 
-// カレンダーグリッドのフリックで月切り替え（touch events使用）
+// カレンダー画面のフリックで月切り替え（touch events使用）
 (function() {
   let startX = 0, startY = 0, startT = 0;
-  let hadMultiTouch = false; // タッチ中に2本指以上になったか
-  const area = document.getElementById('cal-grid-area');
+  let hadMultiTouch = false;
+  const area = document.getElementById('cal-screen');
 
   area.addEventListener('touchstart', e => {
     if (e.touches.length === 1) {
