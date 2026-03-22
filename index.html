@@ -963,11 +963,10 @@ button:focus-visible { outline: none; background: transparent; }
 }
 #clip-viewer-content {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
   pointer-events: all;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
 }
 #clip-viewer-pages {
   display: flex;
@@ -1039,7 +1038,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v495</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v496</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2796,9 +2795,12 @@ function removeTextInput(){
   function _applyScale() {
     viewerPages.style.transform = `scale(${_scale})`;
     viewerPages.style.transformOrigin = 'top center';
-    // スケール後の実際の高さをマージンで補完してスクロールを有効に
+    // スケール後の実際の高さ・幅をマージンで補完してスクロールを有効に
     const naturalH = viewerPages.scrollHeight / _scale;
+    const naturalW = viewerPages.scrollWidth  / _scale;
     viewerPages.style.marginBottom = `${naturalH * (_scale - 1)}px`;
+    viewerPages.style.marginRight  = `${naturalW * (_scale - 1) / 2}px`;
+    viewerPages.style.marginLeft   = `${naturalW * (_scale - 1) / 2}px`;
   }
 
   viewerContent.addEventListener('touchend', e => {
@@ -2808,6 +2810,8 @@ function removeTextInput(){
         _scale = 1; _offsetY = 0;
         viewerPages.style.transform = '';
         viewerPages.style.marginBottom = '';
+        viewerPages.style.marginRight  = '';
+        viewerPages.style.marginLeft   = '';
       }
     }
   });
@@ -2857,6 +2861,8 @@ function removeTextInput(){
     viewerPages.innerHTML = '';
     viewerPages.style.transform = '';
     viewerPages.style.marginBottom = '';
+    viewerPages.style.marginRight  = '';
+    viewerPages.style.marginLeft   = '';
     _scale = 1; _offsetY = 0; _isPinching = false;
   };
   document.getElementById('clip-viewer-close').addEventListener('click', _resetViewer);
