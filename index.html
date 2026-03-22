@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v442</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v444</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1297,12 +1297,11 @@ button:focus-visible { outline: none; background: transparent; }
 
 <!-- ══ DAY OBJECT CONTEXT MENU（日付セル画面用）══ -->
 <div class="ctx-menu" id="ctx-day-obj">
-  <div class="ctx-item" id="dctx-change-image" style="display:none">
-    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>画像変更
+  <div class="ctx-item" id="dctx-preview" style="display:none">
+    <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>プレビュー
   </div>
-  <div class="ctx-sep" id="dctx-clip-sep" style="display:none"></div>
-  <div class="ctx-item" id="dctx-copy">
-    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>コピー
+  <div class="ctx-item" id="dctx-edit" style="display:none">
+    <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>編集
   </div>
   <div class="ctx-item" id="dctx-cut">
     <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>カット
@@ -1740,7 +1739,7 @@ function redraw() {
   }
 
   // selection bbox
-  if (Draw.selId) {
+  if (Draw.selId && !Draw._pinching) {
     const o = Draw.objects.find(x=>x.id===Draw.selId);
     if (o) drawBBox(cx, o, sc);
   }
@@ -2245,21 +2244,23 @@ function startObjSelect(found, lp, clientX, clientY) {
 
 function openDayObjCtx(clientX, clientY, objId) {
   const m  = document.getElementById('ctx-day-obj');
-  const mw = 180, mh = 220;
+  const mw = 180, mh = 240;
   m.style.left = Math.min(clientX, window.innerWidth  - mw - 8) + 'px';
   m.style.top  = Math.min(clientY, window.innerHeight - mh - 8) + 'px';
   m._targetObjId = objId;
 
-  const obj = Draw.objects.find(o => o.id === objId);
-  const isClip = obj && obj.type === 'clip';
+  const obj     = Draw.objects.find(o => o.id === objId);
+  const type    = obj?.type; // 'pen'|'text'|'sticker'|'clip'
+  const isClip  = type === 'clip';
+  const isText  = type === 'text';
+  const hasPaste = S.clipboard?.type === 'obj';
 
-  // クリップの場合は「画像変更」のみ表示
-  document.getElementById('dctx-change-image').style.display = isClip ? '' : 'none';
-  document.getElementById('dctx-clip-sep').style.display     = isClip ? '' : 'none';
-  document.getElementById('dctx-copy').style.display         = isClip ? 'none' : '';
-  document.getElementById('dctx-cut').style.display          = isClip ? 'none' : '';
-  document.getElementById('dctx-delete').style.display       = isClip ? 'none' : '';
-  document.getElementById('dctx-paste').style.display = (!isClip && S.clipboard?.type === 'obj') ? '' : 'none';
+  // プレビュー：クリップのみ
+  document.getElementById('dctx-preview').style.display = isClip ? '' : 'none';
+  // 編集：テキスト・クリップのみ
+  document.getElementById('dctx-edit').style.display    = (isText || isClip) ? '' : 'none';
+  // 貼り付け：クリップボードにオブジェクトがある場合のみ
+  document.getElementById('dctx-paste').style.display   = hasPaste ? '' : 'none';
 
   m.classList.add('open');
   attachLongPressMenuTracking(m, clientX, clientY);
@@ -4854,8 +4855,22 @@ function execDayObjAction(action) {
   const objId = document.getElementById('ctx-day-obj')._targetObjId;
   const obj   = objId ? Draw.objects.find(o => o.id === objId) : null;
 
-  if (action === 'copy' && obj) {
-    S.clipboard = {type:'obj', data: clone(obj)};
+  if (action === 'edit' && obj) {
+    closeContextMenus();
+    if (obj.type === 'text') {
+      // テキスト編集モードに入る
+      showTextInput(obj.x, obj.y, obj);
+    } else if (obj.type === 'clip') {
+      // クリップ：画像差し替え
+      const input = document.getElementById('clip-file-input');
+      input._changeTargetObjId = objId;
+      input.click();
+    }
+    return;
+  } else if (action === 'preview' && obj?.type === 'clip') {
+    closeContextMenus();
+    openClipViewer(obj.clipId);
+    return;
   } else if (action === 'cut' && obj) {
     S.clipboard = {type:'obj', data: clone(obj)};
     deleteObj(objId); Draw.selId = null;
@@ -4873,20 +4888,11 @@ function execDayObjAction(action) {
   closeContextMenus();
 }
 
-document.getElementById('dctx-copy').addEventListener('click',   () => execDayObjAction('copy'));
-document.getElementById('dctx-cut').addEventListener('click',    () => execDayObjAction('cut'));
-document.getElementById('dctx-paste').addEventListener('click',  () => execDayObjAction('paste'));
-document.getElementById('dctx-delete').addEventListener('click', () => execDayObjAction('delete'));
-document.getElementById('dctx-change-image').addEventListener('click', () => {
-  const objId = document.getElementById('ctx-day-obj')._targetObjId;
-  const obj   = Draw.objects.find(o => o.id === objId);
-  if (!obj || obj.type !== 'clip') return;
-  closeContextMenus();
-  // ファイル選択ダイアログを表示してclipIdを差し替え
-  const input = document.getElementById('clip-file-input');
-  input._changeTargetObjId = objId;
-  input.click();
-});
+document.getElementById('dctx-preview').addEventListener('click', () => execDayObjAction('preview'));
+document.getElementById('dctx-edit').addEventListener('click',    () => execDayObjAction('edit'));
+document.getElementById('dctx-cut').addEventListener('click',     () => execDayObjAction('cut'));
+document.getElementById('dctx-paste').addEventListener('click',   () => execDayObjAction('paste'));
+document.getElementById('dctx-delete').addEventListener('click',  () => execDayObjAction('delete'));
 
 /* ════ SETTINGS ════ */
 document.getElementById('cal-btn-undo').addEventListener('click', doCalUndo);
@@ -4945,11 +4951,11 @@ function updateI18nDOM() {
   setText('octx-delete',     svgOf('octx-delete'),     l.objDelete);
 
   // day screen context menu
-  setText('dctx-change-image', svgOf('dctx-change-image'), l.changeImage);
-  setText('dctx-copy',         svgOf('dctx-copy'),         l.copy);
-  setText('dctx-cut',          svgOf('dctx-cut'),          l.cut);
-  setText('dctx-paste',        svgOf('dctx-paste'),        l.paste);
-  setText('dctx-delete',       svgOf('dctx-delete'),       l.delete);
+  setText('dctx-preview',     svgOf('dctx-preview'),     l.preview   || 'プレビュー');
+  setText('dctx-edit',        svgOf('dctx-edit'),        l.edit      || '編集');
+  setText('dctx-cut',         svgOf('dctx-cut'),         l.cut);
+  setText('dctx-paste',       svgOf('dctx-paste'),       l.paste);
+  setText('dctx-delete',      svgOf('dctx-delete'),      l.delete);
   setText('dpctx-paste',       svgOf('dpctx-paste'),       l.paste);
 
   // html lang属性
