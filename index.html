@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v456</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v457</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1555,17 +1555,15 @@ const Cal = {
 };
 let calDragInfo = null; // セルオブジェクトのD&D状態
 
-// 現在指（タッチ）が画面に触れているか判定
-function isPointerStillDown() {
-  // タッチデバイス: activeTouchesで判定
-  if (typeof TouchEvent !== 'undefined') {
-    return (window._activeTouch === true);
-  }
-  return (window._activePointer === true);
-}
 
 const CANVAS_SRC  = 600;
 let   CANVAS_PX   = 600;
+
+// タイミング定数
+const TAP_INTERVAL    = 350; // ダブルタップ判定時間 (ms)
+const LONG_PRESS_MS   = 500; // 長押し判定時間 (ms)
+const BTN_REPEAT_WAIT = 400; // ボタン長押し連続変化開始までの待機時間 (ms)
+const BTN_REPEAT_MS   =  80; // ボタン長押し連続変化間隔 (ms)
 
 function uid()     { return Math.random().toString(36).slice(2,9); }
 function clone(v)  { return JSON.parse(JSON.stringify(v)); }
@@ -2228,7 +2226,7 @@ function startObjSelect(found, lp, clientX, clientY) {
     document.removeEventListener('pointermove', onTryDrag);
     document.removeEventListener('pointerup', onUpAfterHit);
     openDayObjCtx(clientX, clientY, found.id);
-  }, 500);
+  }, LONG_PRESS_MS);
 
   const onTryDrag = mv => {
     const {clientX:mx, clientY:my} = evtCoords(mv);
@@ -2271,195 +2269,132 @@ function openDayObjCtx(clientX, clientY, objId) {
   attachLongPressMenuTracking(m, clientX, clientY);
 }
 
+// ── BBoxボタン（全ツール共通）ヒットテストと処理 ──
+function handleBBoxBtns(obj, pp) {
+  if (hitDeleteBtn(obj, pp.x, pp.y)) {
+    deleteObj(Draw.selId); Draw.selId = null; redraw(); return true;
+  }
+  if (hitMinusBtn(obj, pp.x, pp.y) || hitPlusBtn(obj, pp.x, pp.y)) {
+    const delta      = hitPlusBtn(obj, pp.x, pp.y) ? 1.15 : 1/1.15;
+    const snapBefore = clone(obj);
+    scaleBBoxBtn(obj, delta);
+    let held = true;
+    const stop = () => {
+      held = false;
+      document.removeEventListener('pointerup',    stop);
+      document.removeEventListener('pointercancel',stop);
+      pushUndo({ type:'scale', objId:obj.id, from:snapBefore, to:clone(obj) });
+    };
+    document.addEventListener('pointerup',    stop, { once:true });
+    document.addEventListener('pointercancel',stop, { once:true });
+    const repeat = () => { if (!held) return; scaleBBoxBtn(obj, delta); setTimeout(repeat, BTN_REPEAT_MS); };
+    setTimeout(() => { if (held) repeat(); }, BTN_REPEAT_WAIT);
+    return true;
+  }
+  return false;
+}
+
+// ── selectツール ──
+function onDownSelect(lp, pp, clientX, clientY) {
+  let found = null;
+  if (Draw.selId) {
+    const sel = Draw.objects.find(o => o.id === Draw.selId);
+    if (sel && hitObj(sel, pp.x, pp.y)) found = sel;
+  }
+  if (!found) {
+    for (let i = Draw.objects.length-1; i >= 0; i--) {
+      if (hitObj(Draw.objects[i], pp.x, pp.y)) { found = Draw.objects[i]; break; }
+    }
+  }
+  if (found) { startObjSelect(found, lp, clientX, clientY); return; }
+  Draw.selId = null; redraw();
+}
+
+// ── textツール ──
+function onDownText(e, lp, pp, clientX, clientY) {
+  if (Draw.activeTextEl) { finalizeText(); return; }
+  if (Draw.textJustFinished) return;
+
+  const now     = Date.now();
+  const hitText = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp.x, pp.y));
+
+  if (now - (Draw._lastTextTap||0) < TAP_INTERVAL) {
+    clearTimeout(Draw._textTapTimer);
+    Draw._lastTextTap = 0;
+    showTextInput(hitText ? hitText.x : lp.x, hitText ? hitText.y : lp.y, hitText || null);
+    return;
+  }
+  Draw._lastTextTap = now;
+
+  if (hitText) {
+    let fingerUp = false;
+    const onUpEarly = () => { fingerUp = true; };
+    document.addEventListener('pointerup', onUpEarly, { once:true });
+    Draw._textTapTimer = setTimeout(() => {
+      document.removeEventListener('pointerup', onUpEarly);
+      if (fingerUp) { Draw.selId = hitText.id; redraw(); }
+      else          { startObjSelect(hitText, lp, clientX, clientY); }
+    }, TAP_INTERVAL);
+  } else {
+    if (Draw.selId) { Draw.selId = null; redraw(); Draw._lastTextTap = 0; return; }
+    const dummy = document.createElement('input');
+    dummy.id = '_text-dummy-input';
+    dummy.setAttribute('type','text');
+    dummy.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;font-size:16px;';
+    document.body.appendChild(dummy);
+    dummy.focus();
+    Draw._textTapTimer = setTimeout(() => {
+      if (Draw.activeTextEl || Draw.textJustFinished) { dummy.remove(); return; }
+      showTextInput(lp.x, lp.y, null);
+    }, TAP_INTERVAL);
+  }
+}
+
 function onDown(e) {
   if (document.getElementById('ctx-day-obj').classList.contains('open') ||
       document.getElementById('ctx-day-paste').classList.contains('open')) return;
-
-  // ピンチ中はダブルタップ判定をリセットして処理しない
-  if (Draw._pinching) {
-    Draw._globalLastTap = 0;
-    return;
-  }
+  if (Draw._pinching) { Draw._globalLastTap = 0; return; }
 
   closeContextMenus();
-  const {clientX,clientY} = evtCoords(e);
-  const lp = toLogical(clientX,clientY);
-  const pp = toPhysical(clientX,clientY);
+  const {clientX, clientY} = evtCoords(e);
+  const lp = toLogical(clientX, clientY);
+  const pp = toPhysical(clientX, clientY);
 
-  // ── 削除ボタンのヒットテスト（全ツール共通） ──
+  // BBoxボタン（全ツール共通）
   if (Draw.selId) {
     const obj = Draw.objects.find(o => o.id === Draw.selId);
-    if (obj && hitDeleteBtn(obj, pp.x, pp.y)) {
-      deleteObj(Draw.selId); Draw.selId = null; redraw(); return;
-    }
-    // +/- ボタンのヒットテスト（全ツール共通）
-    if (obj && (hitMinusBtn(obj, pp.x, pp.y) || hitPlusBtn(obj, pp.x, pp.y))) {
-      const isPlus = hitPlusBtn(obj, pp.x, pp.y);
-      const delta  = isPlus ? 1.15 : 1/1.15;
-      const snapBefore = clone(obj); // Undo用：変更前スナップショット
-
-      scaleBBoxBtn(obj, delta); // 1回目
-
-      let held = true;
-      const stop = () => {
-        held = false;
-        document.removeEventListener('pointerup',    stop);
-        document.removeEventListener('pointercancel',stop);
-        // 長押し終了時にまとめてUndoスタック
-        pushUndo({ type: 'scale', objId: obj.id, from: snapBefore, to: clone(obj) });
-      };
-      document.addEventListener('pointerup',    stop, { once: true });
-      document.addEventListener('pointercancel',stop, { once: true });
-
-      const repeat = () => {
-        if (!held) return;
-        scaleBBoxBtn(obj, delta);
-        setTimeout(repeat, 80);
-      };
-      setTimeout(() => { if (held) repeat(); }, 400);
-      return;
-    }
+    if (obj && handleBBoxBtns(obj, pp)) return;
   }
 
-  // ── グローバルダブルタップ：テキストオブジェクト上ならどのツールからでも編集 ──
+  // グローバルダブルタップ：テキスト編集（textツール以外）
   const nowDt = Date.now();
-  if (S.tool !== 'text' && nowDt - (Draw._globalLastTap||0) < 350) {
+  if (S.tool !== 'text' && nowDt - (Draw._globalLastTap||0) < TAP_INTERVAL) {
     const hit = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp.x, pp.y));
-    if (hit) {
-      showTextInput(hit.x, hit.y, hit);
-      Draw._globalLastTap = 0;
-      return;
-    }
+    if (hit) { showTextInput(hit.x, hit.y, hit); Draw._globalLastTap = 0; return; }
   }
-
   Draw._globalLastTap = nowDt;
 
-  // ── クリップアイコンへのヒット（スタンプ選択済み以外）→ startObjSelectで長押し検出 ──
-  const clipViewerBlocked2 = S.tool === 'sticker' && Draw.pendingStickerId;
-  if (!clipViewerBlocked2 && S.tool !== 'select' && S.tool !== 'text') {
-    const hitClipObj = [...Draw.objects].reverse().find(o => o.type==='clip' && hitObj(o, pp.x, pp.y));
-    if (hitClipObj) {
-      startObjSelect(hitClipObj, lp, clientX, clientY);
-      return;
-    }
+  // クリップオブジェクトへのヒット（select/text以外）
+  if (S.tool !== 'select' && S.tool !== 'text' && !(S.tool === 'sticker' && Draw.pendingStickerId)) {
+    const hitClip = [...Draw.objects].reverse().find(o => o.type==='clip' && hitObj(o, pp.x, pp.y));
+    if (hitClip) { startObjSelect(hitClip, lp, clientX, clientY); return; }
   }
 
-  if (S.tool==='select') {
-    // オブジェクトのヒットテスト（選択済み優先）
-    let found = null;
-    if (Draw.selId) {
-      const selObj = Draw.objects.find(o=>o.id===Draw.selId);
-      if (selObj && hitObj(selObj,pp.x,pp.y)) found = selObj;
-    }
-    if (!found) {
-      for (let i=Draw.objects.length-1;i>=0;i--) {
-        if (hitObj(Draw.objects[i],pp.x,pp.y)) { found=Draw.objects[i]; break; }
-      }
-    }
-
-    if (found) {
-      startObjSelect(found, lp, clientX, clientY);
-      return;
-    }
-
-    // オブジェクト外 → 選択解除
-    Draw.selId = null;
-    redraw();
-    return;
-  }
-
-  if (S.tool==='pen') {
-    startPenStroke(S.penColor, S.penSize, lp);
-    return;
-  }
-  if (S.tool==='marker') {
-    startPenStroke(S.markerColor, S.markerSize, lp, 0.35);
-    return;
-  }
-  if (S.tool==='eraser') {
-    eraseAt(lp); return;
-  }
-  if (S.tool==='text') {
-    if (Draw.activeTextEl) {
-      finalizeText();
-      return;
-    }
-    if (Draw.textJustFinished) return;
-
-    const now = Date.now();
-    const {clientX: ecx, clientY: ecy} = evtCoords(e);
-    const pp2 = toPhysical(ecx, ecy);
-    const hitText = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp2.x, pp2.y));
-
-    if (now - (Draw._lastTextTap||0) < 350) {
-      // ダブルタップ
-      clearTimeout(Draw._textTapTimer);
-      Draw._lastTextTap = 0;
-      if (hitText) {
-        showTextInput(hitText.x, hitText.y, hitText);
-      } else {
-        showTextInput(lp.x, lp.y, null);
-      }
-      return;
-    }
-    Draw._lastTextTap = now;
-
-    if (hitText) {
-      // シングルタップ：350ms待ってダブルタップでなければ選択
-      let fingerUp = false;
-      const onUpEarly = () => { fingerUp = true; };
-      document.addEventListener('pointerup', onUpEarly, { once: true });
-      Draw._textTapTimer = setTimeout(() => {
-        document.removeEventListener('pointerup', onUpEarly);
-        if (fingerUp) {
-          // 既に指が離れていた → 選択のみ（長押しメニューなし）
-          Draw.selId = hitText.id; redraw();
-        } else {
-          startObjSelect(hitText, lp, clientX, clientY);
-        }
-      }, 350);
-    } else {
-      // テキストオブジェクト外
-      if (Draw.selId) {
-        // 選択中なら解除のみ（新規入力しない）
-        Draw.selId = null; redraw();
-        Draw._lastTextTap = 0;
-        return;
-      }
-      // 選択なし：ダミーinputを即座にfocusしてiOSキーボードを起動、350ms後にtextareaへ引き継ぐ
-      const dummy = document.createElement('input');
-      dummy.id = '_text-dummy-input';
-      dummy.setAttribute('type', 'text');
-      dummy.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;font-size:16px;';
-      document.body.appendChild(dummy);
-      dummy.focus();
-      Draw._textTapTimer = setTimeout(() => {
-        if (Draw.activeTextEl || Draw.textJustFinished) {
-          dummy.remove();
-          return;
-        }
-        showTextInput(lp.x, lp.y, null);
-      }, 350);
-    }
-    return;
-  }
-  if (S.tool==='sticker') {
-    if (Draw.pendingStickerId) {
-      placeSticker(lp);
-      return;
-    }
-    // スタンプ未選択時：スタンプオブジェクトにヒットしたらドラッグ
-    const hitSticker = [...Draw.objects].reverse().find(o => o.type==='sticker' && hitObj(o, pp.x, pp.y));
-    if (hitSticker) {
-      startObjSelect(hitSticker, lp, clientX, clientY);
-    }
-    return;
-  }
-  if (S.tool==='clip') {
-    if (Draw.pendingClipId) {
-      handleClipPointerDown(lp);
-    }
-    return;
+  // ツール別処理
+  switch (S.tool) {
+    case 'select':  onDownSelect(lp, pp, clientX, clientY); break;
+    case 'pen':     startPenStroke(S.penColor,    S.penSize,    lp);       break;
+    case 'marker':  startPenStroke(S.markerColor, S.markerSize, lp, 0.35); break;
+    case 'eraser':  eraseAt(lp); break;
+    case 'text':    onDownText(e, lp, pp, clientX, clientY); break;
+    case 'sticker':
+      if (Draw.pendingStickerId) { placeSticker(lp); break; }
+      const hitSticker = [...Draw.objects].reverse().find(o => o.type==='sticker' && hitObj(o, pp.x, pp.y));
+      if (hitSticker) startObjSelect(hitSticker, lp, clientX, clientY);
+      break;
+    case 'clip':
+      if (Draw.pendingClipId) handleClipPointerDown(lp);
+      break;
   }
 }
 
@@ -3065,6 +3000,46 @@ function positionDateLabels() {
   dowEl.style.top  = (midY - dowEl.getBoundingClientRect().height / 2) + 'px';
 }
 
+// セル→日付詳細画面へのズームアニメーション
+function animateCellOpen(fromRect, objects) {
+  const toRect  = cvs.getBoundingClientRect();
+  const tc      = document.getElementById('transition-canvas');
+  const ctx2    = tc.getContext('2d');
+  const dpr     = window.devicePixelRatio || 1;
+  const dayScr  = document.getElementById('day-screen');
+
+  tc.width  = toRect.width  * dpr;
+  tc.height = toRect.height * dpr;
+  ctx2.scale(dpr, dpr);
+
+  const sc = toRect.width / CANVAS_SRC;
+  ctx2.fillStyle = '#fff';
+  ctx2.fillRect(0, 0, toRect.width, toRect.height);
+  objects.forEach(o => drawObj(ctx2, o, sc));
+
+  Object.assign(tc.style, {
+    display: 'block', opacity: '1', transform: 'none', transition: 'none',
+    left: fromRect.left + 'px', top: fromRect.top + 'px',
+    width: fromRect.width + 'px', height: fromRect.height + 'px',
+  });
+  dayScr.style.opacity = '0';
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const dx = toRect.left - fromRect.left;
+    const dy = toRect.top  - fromRect.top;
+    const sx = toRect.width  / fromRect.width;
+    const sy = toRect.height / fromRect.height;
+
+    tc.style.transition    = 'transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s';
+    tc.style.transformOrigin = '0 0';
+    tc.style.transform     = `translate(${dx}px,${dy}px) scale(${sx},${sy})`;
+
+    const done = () => { tc.style.display = 'none'; tc.style.transform = 'none'; dayScr.style.opacity = '1'; };
+    const fallback = setTimeout(done, 600);
+    tc.addEventListener('transitionend', () => { clearTimeout(fallback); done(); }, { once: true });
+  }));
+}
+
 function openDayCell(key, label, keepTool = false) {
   Cal.selObjId=null; Cal.selCellKey=null;
   S.clipboard=null;
@@ -3113,66 +3088,8 @@ function openDayCell(key, label, keepTool = false) {
   sizeCanvas();
   if (!keepTool) switchTool('pen');
 
-  if (!fromRect || fromRect.width < 2) return; // アニメーション不可なら即表示
-
-  // ── アニメーション開始位置・終了位置 ──
-  const toRect = cvs.getBoundingClientRect();
-
-  // トランジションキャンバスにミニキャンバスの内容を描画
-  const tc  = document.getElementById('transition-canvas');
-  const ctx2 = tc.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-
-  // 終了サイズで解像度を確保
-  tc.width  = toRect.width  * dpr;
-  tc.height = toRect.height * dpr;
-  ctx2.scale(dpr, dpr);
-
-  // セルのオブジェクトを描画（論理座標 CANVAS_SRC → toRect.width に変換）
-  const sc = toRect.width / CANVAS_SRC;
-  ctx2.fillStyle = '#fff';
-  ctx2.fillRect(0, 0, toRect.width, toRect.height);
-  Draw.objects.forEach(o => drawObj(ctx2, o, sc));
-
-  // 初期位置・サイズをfromRectに合わせて配置
-  Object.assign(tc.style, {
-    display:    'block',
-    left:       fromRect.left + 'px',
-    top:        fromRect.top  + 'px',
-    width:      fromRect.width  + 'px',
-    height:     fromRect.height + 'px',
-    transform:  'none',
-    transition: 'none',
-    opacity:    '1',
-  });
-
-  // 日付セル画面本体は一時的に透明に
-  document.getElementById('day-screen').style.opacity = '0';
-
-  // 1フレーム待ってからアニメーション開始
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const dx = toRect.left - fromRect.left;
-    const dy = toRect.top  - fromRect.top;
-    const sx = toRect.width  / fromRect.width;
-    const sy = toRect.height / fromRect.height;
-
-    tc.style.transition = 'transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s';
-    tc.style.transformOrigin = '0 0';
-    tc.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
-
-    // アニメーション完了後の後処理
-    const fallback = setTimeout(() => {
-      tc.style.display = 'none';
-      tc.style.transform = 'none';
-      document.getElementById('day-screen').style.opacity = '1';
-    }, 600);
-    tc.addEventListener('transitionend', () => {
-      clearTimeout(fallback);
-      tc.style.display = 'none';
-      tc.style.transform = 'none';
-      document.getElementById('day-screen').style.opacity = '1';
-    }, {once: true});
-  }));
+  if (!fromRect || fromRect.width < 2) return;
+  animateCellOpen(fromRect, Draw.objects);
 }
 
 function goBack() {
@@ -3308,7 +3225,7 @@ function addDoubleTap(el, fn) {
   let last = 0;
   el.addEventListener('touchend', e => {
     const now = Date.now();
-    if (now - last < 350) { e.preventDefault(); fn(); }
+    if (now - last < TAP_INTERVAL) { e.preventDefault(); fn(); }
     last = now;
   });
   // マウス環境（開発用）
@@ -3952,7 +3869,7 @@ function onCellPointerDown(e, el, desc) {
 
   // ダブルタップでクリップビューワー起動（最優先）
   const now = Date.now();
-  if (now - (onCellPointerDown._lastTap||0) < 350) {
+  if (now - (onCellPointerDown._lastTap||0) < TAP_INTERVAL) {
     const hitClip = objs.slice().reverse().find(o => o.type==='clip' && miniHitObj(o, lx, ly));
     if (hitClip) {
       onCellPointerDown._lastTap = 0;
@@ -4043,7 +3960,7 @@ function handleObjHit(e, key, obj) {
         () => openObjCtx(e.clientX, e.clientY, key, obj.id, false)
       );
     }
-  }, 500);
+  }, LONG_PRESS_MS);
 
   document.addEventListener('pointermove', onTryDrag);
   document.addEventListener('pointerup',   onUp);
@@ -4101,7 +4018,7 @@ function handleEmptyCellTap(e, desc) {
       },
       () => {}
     );
-  }, 500);
+  }, LONG_PRESS_MS);
 
   document.addEventListener('pointermove', onMoveCancel);
   document.addEventListener('pointerup',   onUp);
@@ -4295,7 +4212,45 @@ function miniHitDeleteBtn(obj, sc, px, py) {
 
 /* ════ CALENDAR OBJECT DRAG ════ */
 
-// ドラッグ中のゴースト要素（絶対位置でオブジェクト画像を追従させる）
+/**
+ * ドラッグリスナーの共通登録ヘルパー
+ * onMove/onTouchMove: 座標更新
+ * onDrop(cx, cy): 指を離した座標で呼ばれる
+ * onCancel: 2本指タッチでキャンセル時
+ */
+function makeDragListeners(ghost, { onMove, onTouchMove, onDrop, onCancel }) {
+  let done = false;
+
+  const cleanup = () => {
+    document.removeEventListener('pointermove',  _onMove,       true);
+    document.removeEventListener('pointerup',    _onUp,         true);
+    document.removeEventListener('touchmove',    _onTouchMove,  true);
+    document.removeEventListener('touchend',     _onTouchEnd,   true);
+    document.removeEventListener('touchstart',   _onTouchStart, true);
+    if (Cal.dragGhost === ghost) { ghost.remove(); Cal.dragGhost = null; }
+  };
+
+  const _onTouchStart = ev => {
+    if (ev.touches.length >= 2 && !done) { done = true; cleanup(); onCancel && onCancel(); }
+  };
+  const _onTouchEnd = ev => {
+    if (done) return; done = true;
+    const t = ev.changedTouches[0];
+    cleanup(); onDrop(t.clientX, t.clientY);
+  };
+  const _onUp = ev => {
+    if (done) return; done = true;
+    cleanup(); onDrop(ev.clientX, ev.clientY);
+  };
+  const _onMove      = onMove;
+  const _onTouchMove = onTouchMove;
+
+  document.addEventListener('pointermove',  _onMove,       true);
+  document.addEventListener('pointerup',    _onUp,         true);
+  document.addEventListener('touchmove',    _onTouchMove,  { capture:true, passive:true });
+  document.addEventListener('touchend',     _onTouchEnd,   { capture:true, passive:true });
+  document.addEventListener('touchstart',   _onTouchStart, { capture:true, passive:true });
+}
 
 function startCalDrag(e, srcKey, obj, onNoMove = null) {
   e.preventDefault();
@@ -4346,7 +4301,6 @@ function startCalDrag(e, srcKey, obj, onNoMove = null) {
   Cal.dragGhost = ghost;
 
   let dragging = false;
-  let done     = false;
 
   const onTouchMove = ev => {
     if (!ev.touches[0]) return;
@@ -4354,83 +4308,53 @@ function startCalDrag(e, srcKey, obj, onNoMove = null) {
     setPos(x, y);
     if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) dragging = true;
   };
-
   const onMove = ev => {
     const x = ev.clientX, y = ev.clientY;
     setPos(x, y);
     if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) dragging = true;
   };
 
-  const cleanup = () => {
-    document.removeEventListener('pointermove',  onMove,       true);
-    document.removeEventListener('pointerup',    onUp,         true);
-    document.removeEventListener('touchmove',    onTouchMove,  true);
-    document.removeEventListener('touchend',     onTouchEnd,   true);
-    document.removeEventListener('touchstart',   onTouchStart, true);
-    if (Cal.dragGhost === ghost) { ghost.remove(); Cal.dragGhost = null; }
-  };
+  makeDragListeners(ghost, {
+    onMove, onTouchMove,
+    onCancel: () => { calDragInfo = null; },
+    onDrop: (cx, cy) => {
+      if (!dragging && onNoMove) { calDragInfo = null; onNoMove(); return; }
+      if (!dragging)             { calDragInfo = null; return; }
 
-  // 2本指タッチ（ピンチ開始）→ D&Dキャンセル
-  const onTouchStart = ev => {
-    if (ev.touches.length >= 2) { if (done) return; done = true; cleanup(); calDragInfo = null; }
-  };
+      const dstCell = findCalCellAt(cx, cy);
+      if (!dstCell) { calDragInfo = null; return; }
 
-  const onTouchEnd = ev => {
-    if (done) return; done = true;
-    const t = ev.changedTouches[0];
-    cleanup();
-    handleDrop(t.clientX, t.clientY);
-  };
+      const { key: dstKey, mc: dstMc } = dstCell;
+      const srcObjs   = getCellObjs(calDragInfo.srcKey);
+      const movingObj = srcObjs.find(o => o.id === calDragInfo.objId);
+      if (!movingObj) { calDragInfo = null; return; }
 
-  const onUp = ev => {
-    if (done) return; done = true;
-    cleanup();
-    handleDrop(ev.clientX, ev.clientY);
-  };
+      const r   = dstMc.getBoundingClientRect();
+      const sc2 = Math.min(dstMc.width / CANVAS_SRC, dstMc.height / CANVAS_SRC);
+      const nx  = (cx - r.left) / r.width  * (dstMc.width  / sc2);
+      const ny  = (cy - r.top)  / r.height * (dstMc.height / sc2);
 
-  const handleDrop = (cx, cy) => {
-    if (!dragging && onNoMove) { calDragInfo = null; onNoMove(); return; }
-    if (!dragging)             { calDragInfo = null; return; }
-
-    const dstCell = findCalCellAt(cx, cy);
-    if (!dstCell) { calDragInfo = null; return; }
-
-    const { key: dstKey, mc: dstMc } = dstCell;
-    const srcObjs  = getCellObjs(calDragInfo.srcKey);
-    const movingObj = srcObjs.find(o => o.id === calDragInfo.objId);
-    if (!movingObj) { calDragInfo = null; return; }
-
-    const r   = dstMc.getBoundingClientRect();
-    const sc2 = Math.min(dstMc.width / CANVAS_SRC, dstMc.height / CANVAS_SRC);
-    const nx  = (cx - r.left) / r.width  * (dstMc.width  / sc2);
-    const ny  = (cy - r.top)  / r.height * (dstMc.height / sc2);
-
-    if (dstKey === calDragInfo.srcKey) {
-      const origObj = clone(movingObj);
-      moveObjInCell(calDragInfo.srcKey, movingObj, nx, ny);
-      calPushUndo({ type: 'cal-move', key: dstKey, objId: movingObj.id, from: origObj, to: clone(movingObj) });
-    } else {
-      const origObj = clone(movingObj);
-      const newSrc  = srcObjs.filter(o => o.id !== movingObj.id);
-      setCellObjs(calDragInfo.srcKey, newSrc);
-      const newObj  = clone(movingObj);
-      setObjPosition(newObj, nx, ny);
-      const dstObjs = getCellObjs(dstKey);
-      dstObjs.push(newObj);
-      setCellObjs(dstKey, dstObjs);
-      calPushUndo({ type: 'cal-cross-move', srcKey: calDragInfo.srcKey, dstKey, origObj, newObj: clone(newObj) });
-      Cal.selCellKey = dstKey;
-      Cal.selObjId   = newObj.id;
+      if (dstKey === calDragInfo.srcKey) {
+        const origObj = clone(movingObj);
+        moveObjInCell(calDragInfo.srcKey, movingObj, nx, ny);
+        calPushUndo({ type:'cal-move', key:dstKey, objId:movingObj.id, from:origObj, to:clone(movingObj) });
+      } else {
+        const origObj = clone(movingObj);
+        const newSrc  = srcObjs.filter(o => o.id !== movingObj.id);
+        setCellObjs(calDragInfo.srcKey, newSrc);
+        const newObj  = clone(movingObj);
+        setObjPosition(newObj, nx, ny);
+        const dstObjs = getCellObjs(dstKey);
+        dstObjs.push(newObj);
+        setCellObjs(dstKey, dstObjs);
+        calPushUndo({ type:'cal-cross-move', srcKey:calDragInfo.srcKey, dstKey, origObj, newObj:clone(newObj) });
+        Cal.selCellKey = dstKey;
+        Cal.selObjId   = newObj.id;
+      }
+      calDragInfo = null;
+      renderMiniCanvases();
     }
-    calDragInfo = null;
-    renderMiniCanvases();
-  };
-
-  document.addEventListener('pointermove', onMove,       true);
-  document.addEventListener('pointerup',   onUp,         true);
-  document.addEventListener('touchmove',   onTouchMove,  { capture: true, passive: true });
-  document.addEventListener('touchend',    onTouchEnd,   { capture: true, passive: true });
-  document.addEventListener('touchstart',  onTouchStart, { capture: true, passive: true });
+  });
 }
 
 // ドロップ先のセルとミニキャンバスを座標から探す
@@ -4481,86 +4405,48 @@ function startCellDrag(e, srcKey, onNoMove, onDragStart) {
   Cal.dragGhost = ghost;
 
   let dragging = false;
-  let done     = false;
+
+  const updateHighlight = (x, y) => {
+    document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
+    if (!dragging) return;
+    const dstCell = findCalCellAt(x, y);
+    if (dstCell && dstCell.key !== srcKey) dstCell.mc.closest('.cal-cell')?.classList.add('drag-over');
+  };
 
   const onTouchMove = ev => {
     if (!ev.touches[0]) return;
     const x = ev.touches[0].clientX, y = ev.touches[0].clientY;
-    ghost.style.left = x + 'px';
-    ghost.style.top  = y + 'px';
-    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) {
-      dragging = true; onDragStart();
-    }
-    document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
-    if (dragging) {
-      const dstCell = findCalCellAt(x, y);
-      if (dstCell && dstCell.key !== srcKey) dstCell.mc.closest('.cal-cell')?.classList.add('drag-over');
-    }
+    ghost.style.left = x + 'px'; ghost.style.top = y + 'px';
+    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) { dragging = true; onDragStart(); }
+    updateHighlight(x, y);
   };
-
   const onMove = ev => {
     const x = ev.clientX, y = ev.clientY;
-    ghost.style.left = x + 'px';
-    ghost.style.top  = y + 'px';
-    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) {
-      dragging = true; onDragStart();
+    ghost.style.left = x + 'px'; ghost.style.top = y + 'px';
+    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) { dragging = true; onDragStart(); }
+    updateHighlight(x, y);
+  };
+
+  makeDragListeners(ghost, {
+    onMove, onTouchMove,
+    onCancel: () => { document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over')); },
+    onDrop: (cx, cy) => {
+      document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
+      if (!dragging) { onNoMove(); return; }
+
+      const dstCell = findCalCellAt(cx, cy);
+      const dstKey  = dstCell?.key;
+      if (!dstKey || dstKey === srcKey) { renderMiniCanvases(); return; }
+
+      const dstObjsBefore = clone(getCellObjs(dstKey));
+      setCellObjs(dstKey, clone(srcObjs));
+      setCellObjs(srcKey, []);
+      calPushUndo({ type:'cal-cell-move', srcKey, dstKey, movedObjs:clone(srcObjs), dstObjsBefore });
+      saveToStorage();
+      Cal.selCellKey = null; Cal.selObjId = null;
+      renderMiniCanvases();
     }
-    document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
-    if (dragging) {
-      const dstCell = findCalCellAt(x, y);
-      if (dstCell && dstCell.key !== srcKey) dstCell.mc.closest('.cal-cell')?.classList.add('drag-over');
-    }
-  };
-
-  const cleanup = () => {
-    document.removeEventListener('pointermove',  onMove,       true);
-    document.removeEventListener('pointerup',    onUp,         true);
-    document.removeEventListener('touchmove',    onTouchMove,  true);
-    document.removeEventListener('touchend',     onTouchEnd,   true);
-    document.removeEventListener('touchstart',   onTouchStart, true);
-    document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
-    if (Cal.dragGhost === ghost) { ghost.remove(); Cal.dragGhost = null; }
-  };
-
-  // 2本指タッチ（ピンチ開始）→ D&Dキャンセル
-  const onTouchStart = ev => {
-    if (ev.touches.length >= 2) { if (done) return; done = true; cleanup(); }
-  };
-
-  const onTouchEnd = ev => {
-    if (done) return; done = true;
-    const t = ev.changedTouches[0];
-    cleanup();
-    handleDrop(t.clientX, t.clientY);
-  };
-
-  const onUp = ev => {
-    if (done) return; done = true;
-    cleanup();
-    handleDrop(ev.clientX, ev.clientY);
-  };
-
-  const handleDrop = (cx, cy) => {
-    if (!dragging) { onNoMove(); return; }
-
-    const dstCell = findCalCellAt(cx, cy);
-    const dstKey  = dstCell?.key;
-    if (!dstKey || dstKey === srcKey) { renderMiniCanvases(); return; }
-
-    const dstObjsBefore = clone(getCellObjs(dstKey));
-    setCellObjs(dstKey, clone(srcObjs));
-    setCellObjs(srcKey, []);
-    calPushUndo({ type: 'cal-cell-move', srcKey, dstKey, movedObjs: clone(srcObjs), dstObjsBefore });
-    saveToStorage();
-    Cal.selCellKey = null; Cal.selObjId = null;
-    renderMiniCanvases();
-  };
-
-  document.addEventListener('pointermove', onMove,       true);
-  document.addEventListener('pointerup',   onUp,         true);
-  document.addEventListener('touchmove',   onTouchMove,  { capture: true, passive: true });
-  document.addEventListener('touchend',    onTouchEnd,   { capture: true, passive: true });
-  document.addEventListener('touchstart',  onTouchStart, { capture: true, passive: true });
+  });
 }
 
 // オブジェクトの中心座標を更新
@@ -4767,14 +4653,6 @@ function closeContextMenus(){
   document.getElementById('ctx-day-paste').classList.remove('open');
 }
 // メニュー外の pointerdown で閉じる
-// グローバルなポインター状態追跡（isPointerStillDown用）
-document.addEventListener('pointerdown',  () => { window._activePointer = true;  window._activeTouch = true;  }, true);
-document.addEventListener('pointerup',    () => { window._activePointer = false; window._activeTouch = false; }, true);
-document.addEventListener('pointercancel',() => { window._activePointer = false; window._activeTouch = false; }, true);
-document.addEventListener('touchstart',   () => { window._activeTouch = true;  }, { capture: true, passive: true });
-document.addEventListener('touchend',     () => { window._activeTouch = false; }, { capture: true, passive: true });
-document.addEventListener('touchcancel',  () => { window._activeTouch = false; }, { capture: true, passive: true });
-
 document.addEventListener('pointerdown', e => {
   if (!e.target.closest('.ctx-menu')) closeContextMenus();
 });
@@ -5176,7 +5054,7 @@ document.getElementById('lang-sel').addEventListener('change', e => {
   let tapTimer = null;
   document.getElementById('cal-title').addEventListener('click', () => {
     const now = Date.now();
-    if (now - lastTap < 350) {
+    if (now - lastTap < TAP_INTERVAL) {
       // ダブルタップ
       clearTimeout(tapTimer);
       lastTap = 0;
@@ -5200,7 +5078,7 @@ document.getElementById('lang-sel').addEventListener('change', e => {
     }
     lastTap = now;
     // シングルタップ：350ms待ってダブルタップでなければピッカーを開く
-    tapTimer = setTimeout(() => { openYMPicker(); }, 350);
+    tapTimer = setTimeout(() => { openYMPicker(); }, TAP_INTERVAL);
   });
 })();
 document.getElementById('btn-user-mgmt').addEventListener('click', () => {
@@ -5295,7 +5173,7 @@ document.getElementById('cal-tabs').addEventListener('click', e => {
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
       startTabEdit(tab);
-    }, 500);
+    }, LONG_PRESS_MS);
   });
 
   document.getElementById('cal-tabs').addEventListener('pointerup', () => {
