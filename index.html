@@ -1034,7 +1034,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v467</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v471</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4449,9 +4449,17 @@ function startCellDrag(e, srcKey, onNoMove, onDragStart) {
   if (srcObjs.length === 0) return; // オブジェクトなし → 何もしない
 
   // ── ゴースト生成 ──
-  const srcMc = document.querySelector(`.cell-preview canvas[data-key="${srcKey}"]`);
-  const cssW  = srcMc ? srcMc.offsetWidth  || srcMc.clientWidth  || 60 : 60;
-  const cssH  = srcMc ? srcMc.offsetHeight || srcMc.clientHeight || 60 : 60;
+  const srcMc   = document.querySelector(`.cell-preview canvas[data-key="${srcKey}"]`);
+  const srcCell = srcMc?.closest('.cal-cell');
+  const cellTop = srcCell?.querySelector('.cell-top');
+  const isLand  = srcCell?.classList.contains('landscape-cell');
+  const hdrRect = cellTop ? cellTop.getBoundingClientRect() : null;
+  const hdrW    = isLand  ? Math.round(hdrRect?.width  || 0) : 0;
+  const hdrH    = !isLand ? Math.round(hdrRect?.height || 0) : 0;
+  const mcW     = srcMc ? srcMc.offsetWidth  || srcMc.clientWidth  || 60 : 60;
+  const mcH     = srcMc ? srcMc.offsetHeight || srcMc.clientHeight || 60 : 60;
+  const cssW    = mcW + hdrW;
+  const cssH    = mcH + hdrH;
 
   const ghost = document.createElement('canvas');
   ghost.width  = cssW;
@@ -4464,7 +4472,29 @@ function startCellDrag(e, srcKey, onNoMove, onDragStart) {
   const gc = ghost.getContext('2d');
   gc.fillStyle = '#fff';
   gc.fillRect(0, 0, cssW, cssH);
-  if (srcMc) gc.drawImage(srcMc, 0, 0, cssW, cssH);
+
+  // ヘッダー部分：グラデーション背景のみ（テキストなし）
+  if (!isLand && hdrH > 0) {
+    // 縦長：上部にヘッダー（上→下グラデーション）
+    const grad = gc.createLinearGradient(0, 0, 0, hdrH);
+    grad.addColorStop(0, 'rgba(44,42,38,.10)');
+    grad.addColorStop(1, 'rgba(44,42,38,0)');
+    gc.fillStyle = grad;
+    gc.fillRect(0, 0, cssW, hdrH);
+  } else if (isLand && hdrW > 0) {
+    // 横長：左側にヘッダー（左→右グラデーション）
+    const grad = gc.createLinearGradient(0, 0, hdrW, 0);
+    grad.addColorStop(0, 'rgba(44,42,38,.10)');
+    grad.addColorStop(1, 'rgba(44,42,38,0)');
+    gc.fillStyle = grad;
+    gc.fillRect(0, 0, hdrW, cssH);
+  }
+
+  // 描画エリア
+  if (srcMc) {
+    if (isLand) gc.drawImage(srcMc, hdrW, 0, mcW, mcH);
+    else        gc.drawImage(srcMc, 0, hdrH, mcW, mcH);
+  }
 
   ghost.style.left = e.clientX + 'px';
   ghost.style.top  = e.clientY + 'px';
