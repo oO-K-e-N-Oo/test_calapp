@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v525</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v526</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2548,6 +2548,9 @@ function onDown(e) {
       break;
     case 'clip':
       if (Draw.pendingClipId) { handleClipPointerDown(lp); break; }
+      // クリップオブジェクトへのタップ → 選択・長押しコンテクストメニュー
+      const hitClipObj = [...Draw.objects].reverse().find(o => o.type === 'clip' && hitObj(o, pp.x, pp.y));
+      if (hitClipObj) { startObjSelect(hitClipObj, lp, clientX, clientY); break; }
       if (Draw.selId && !hitObj(Draw.objects.find(o => o.id === Draw.selId), pp.x, pp.y)) {
         Draw.selId = null; redraw();
       }
