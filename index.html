@@ -1034,7 +1034,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v471</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v473</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1946,7 +1946,7 @@ function drawBBox(c, obj) {
   // バウンディングボックス
   c.save();
   c.strokeStyle='#3a6fa8';c.lineWidth=1.5;c.setLineDash([5,3]);
-  c.strokeRect(b.x-PAD, b.y-PAD, b.w+PAD*2, b.h+PAD*2);
+  c.beginPath();c.roundRect(b.x-PAD, b.y-PAD, b.w+PAD*2, b.h+PAD*2, 10);c.stroke();
   c.setLineDash([]);
 
   // 削除ボタン（右上）
@@ -4255,7 +4255,7 @@ function drawMiniBBox(c, obj, sc) {
 
   c.save();
   c.strokeStyle='#3a6fa8'; c.lineWidth=1.5; c.setLineDash([4,2]);
-  c.strokeRect(bx, by, bw, bh);
+  c.beginPath(); c.roundRect(bx, by, bw, bh, 5); c.stroke();
   c.setLineDash([]);
 
   // ×ボタン（バウンディングボックスの右上）
