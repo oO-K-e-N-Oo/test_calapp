@@ -674,7 +674,6 @@ button:focus-visible { outline: none; background: transparent; }
   border-radius: 50%;
   border: 2.5px solid transparent;
   cursor: pointer;
-  transition: transform .1s, outline .1s;
 }
 .swatch.on {
   outline: 2px solid var(--ink);
@@ -1039,7 +1038,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v532</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v533</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -3774,13 +3773,15 @@ function renderOpts() {
 
   // 縦長: Row3 — 子要素を全削除してから書き込む
   const p = document.getElementById('tb-opts-portrait');
-  p.dataset.tool = S.tool; // デバッグ用
+  p.dataset.tool = S.tool;
+  p.querySelectorAll('.swatch').forEach(el => el.style.transition = 'none');
   while (p.firstChild) p.removeChild(p.firstChild);
   p.innerHTML = html;
   bindOpts(p);
 
   // 横長: サイドパネル — 子要素を全削除してから書き込む
   const l = document.getElementById('land-opts');
+  l.querySelectorAll('.swatch').forEach(el => el.style.transition = 'none');
   while (l.firstChild) l.removeChild(l.firstChild);
   l.innerHTML = html;
   bindOpts(l);
