@@ -510,7 +510,6 @@ button:focus-visible { outline: none; background: transparent; }
   flex-shrink: 0;
   min-height: 0;
   flex: 1;
-  border-top: 1px solid var(--border-soft);
 }
 
 /* ════════════════════════════════════════════
@@ -1034,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v476</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v479</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1200,6 +1199,19 @@ button:focus-visible { outline: none; background: transparent; }
 <input type="file" id="clip-file-input" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style="display:none">
 
 <!-- ══ CLIP VIEWER ══ -->
+<!-- ══ CLIP NAME MODAL ══ -->
+<div id="clip-name-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border-radius:16px;padding:24px 20px;width:min(320px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:16px;">
+    <div style="font-size:15px;font-weight:700;color:var(--ink);">表示名を入力</div>
+    <input id="clip-name-input" type="text" placeholder="表示名（省略可）"
+      style="font-size:15px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;color:var(--ink);background:var(--bg);width:100%;box-sizing:border-box;">
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button id="clip-name-cancel" style="padding:8px 18px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:14px;color:var(--ink-mid);cursor:pointer;">キャンセル</button>
+      <button id="clip-name-ok"     style="padding:8px 18px;border-radius:8px;border:none;background:var(--tool-active);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">OK</button>
+    </div>
+  </div>
+</div>
+
 <div id="clip-viewer">
   <div id="clip-viewer-bd"></div>
   <div id="clip-viewer-panel">
@@ -1811,82 +1823,82 @@ function drawStickerObj(c, obj, sc) {
 }
 
 function drawClipObj(c, obj, sc) {
-  const dpr  = window.devicePixelRatio || 1;
   const sz   = (obj.size || 60) * sc;
+  const w    = sz * 0.85;
+  const h    = sz * 1.3;
+  const rx   = sz * 0.08;
+  const fold = sz * 0.18;
   const cx2  = obj.x * sc;
   const cy2  = obj.y * sc;
-  const w    = sz;
-  const h    = sz * 1.2;
-  const rx   = sz * 0.12;
   const x0   = cx2 - w/2;
   const y0   = cy2 - h/2;
 
   c.save();
 
-  // シャドウ（強め）
-  c.shadowColor   = 'rgba(0,0,0,0.55)';
-  c.shadowBlur    = sz * 0.5;
-  c.shadowOffsetX = sz * 0.08;
-  c.shadowOffsetY = sz * 0.12;
+  // シャドウ
+  c.shadowColor   = 'rgba(0,0,0,0.28)';
+  c.shadowBlur    = sz * 0.3;
+  c.shadowOffsetX = sz * 0.05;
+  c.shadowOffsetY = sz * 0.08;
 
-  // カード背景
-  c.fillStyle   = '#fff';
-  c.strokeStyle = '#3a6fa8';
-  c.lineWidth   = 6 * dpr;
+  // 本体（右上に切り欠き）
+  c.fillStyle = '#fff9c4';
   c.beginPath();
-  c.moveTo(x0+rx, y0);
-  c.lineTo(x0+w-rx, y0);
-  c.quadraticCurveTo(x0+w, y0, x0+w, y0+rx);
-  c.lineTo(x0+w, y0+h-rx);
+  c.moveTo(x0 + rx, y0);
+  c.lineTo(x0 + w - fold, y0);
+  c.lineTo(x0 + w, y0 + fold);
+  c.lineTo(x0 + w, y0 + h - rx);
   c.quadraticCurveTo(x0+w, y0+h, x0+w-rx, y0+h);
-  c.lineTo(x0+rx, y0+h);
+  c.lineTo(x0 + rx, y0 + h);
   c.quadraticCurveTo(x0, y0+h, x0, y0+h-rx);
-  c.lineTo(x0, y0+rx);
+  c.lineTo(x0, y0 + rx);
   c.quadraticCurveTo(x0, y0, x0+rx, y0);
   c.closePath();
   c.fill();
 
-  // シャドウをオフにしてからストローク・以降の描画
   c.shadowColor = 'transparent';
-  c.stroke();
 
-  // ヘッダー帯（ファイルタイプの色）
-  const isPdf = obj.fileType === 'application/pdf';
-  c.fillStyle = isPdf ? '#e03030' : '#3a6fa8';
+  // 折れ角
+  c.fillStyle = '#f9e44a';
   c.beginPath();
-  c.moveTo(x0+rx, y0);
-  c.lineTo(x0+w-rx, y0);
-  c.quadraticCurveTo(x0+w, y0, x0+w, y0+rx);
-  c.lineTo(x0+w, y0+h*0.32);
-  c.lineTo(x0, y0+h*0.32);
-  c.lineTo(x0, y0+rx);
-  c.quadraticCurveTo(x0, y0, x0+rx, y0);
+  c.moveTo(x0 + w - fold, y0);
+  c.lineTo(x0 + w, y0 + fold);
+  c.lineTo(x0 + w - fold, y0 + fold);
   c.closePath();
   c.fill();
 
-  // ファイルタイプラベル
-  c.fillStyle = '#fff';
-  c.font = `bold ${sz*0.22}px sans-serif`;
-  c.textAlign = 'center';
-  c.textBaseline = 'middle';
-  c.fillText(isPdf ? 'PDF' : 'IMG', cx2, y0 + h*0.16);
-
-  // 横線（コンテンツ表示のイメージ）
-  c.strokeStyle = 'rgba(58,107,168,.3)';
-  c.lineWidth   = 1 * dpr;
-  const lx1 = x0 + w*0.15;
-  const lx2 = x0 + w*0.85;
-  [0.48, 0.62, 0.76].forEach(yRatio => {
-    const ly = y0 + h * yRatio;
+  // 罫線
+  c.strokeStyle = 'rgba(180,160,0,.25)';
+  c.lineWidth   = Math.max(1, sz * 0.025);
+  const lx1 = x0 + w * 0.1;
+  const lx2 = x0 + w * 0.9;
+  const lineStart = y0 + h * 0.42;
+  const lineStep  = h * 0.14;
+  for (let i = 0; i < 3; i++) {
+    const ly = lineStart + i * lineStep;
     c.beginPath(); c.moveTo(lx1, ly); c.lineTo(lx2, ly); c.stroke();
-  });
+  }
+
+  // 表示名テキスト
+  const displayName = obj.displayName || '';
+  if (displayName) {
+    c.fillStyle = '#5d4e00';
+    c.font = `600 ${sz * 0.16}px 'Noto Sans JP', sans-serif`;
+    c.textAlign = 'center';
+    c.textBaseline = 'top';
+    const maxW = w * 0.85;
+    let text = displayName;
+    while (text.length > 1 && c.measureText(text).width > maxW) text = text.slice(0, -1);
+    if (text !== displayName) text += '…';
+    c.fillText(text, cx2, y0 + h * 0.08);
+  }
 
   // ページ数バッジ
   if (obj.pageCount && obj.pageCount > 1) {
-    const br = sz * 0.18;
-    const bx = x0 + w - br*0.8;
-    const by = y0 + h - br*0.8;
-    c.fillStyle = isPdf ? '#e03030' : '#3a6fa8';
+    const br = sz * 0.16;
+    const bx = x0 + w - br * 0.7;
+    const by = y0 + h - br * 0.7;
+    c.fillStyle = '#b8860b';
     c.beginPath(); c.arc(bx, by, br, 0, Math.PI*2); c.fill();
     c.fillStyle = '#fff';
     c.font = `bold ${br}px sans-serif`;
@@ -1932,8 +1944,8 @@ function getObjBounds(obj) {
   }
   if (obj.type==='clip') {
     const sz = (obj.size||60)*sc;
-    const w  = sz;
-    const h  = sz * 1.2;
+    const w  = sz * 0.85;
+    const h  = sz * 1.3;
     return {x: obj.x*sc - w/2, y: obj.y*sc - h/2, w, h};
   }
   return {x:0,y:0,w:20,h:20};
@@ -2589,12 +2601,13 @@ function removeTextInput(){
   };
 
   // クリップオブジェクトを配置
-  function placeClip(lp, clipId, pageCount, fileType) {
+  function placeClip(lp, clipId, pageCount, fileType, displayName) {
     const obj = {
       id: uid(), type:'clip',
       x: lp.x, y: lp.y,
       size: 60,
       clipId, pageCount, fileType,
+      displayName: displayName || '',
     };
     pushUndo({type:'create', obj: clone(obj)});
     Draw.objects.push(obj);
@@ -2642,9 +2655,11 @@ function removeTextInput(){
         flushCell(); redraw();
       }
     } else {
-      // 新規配置モード
-      Draw.pendingClipId = {clipId, pageCount, fileType};
-      applyCanvasCursor('clip');
+      // 新規配置モード → 表示名入力モーダル
+      showClipNameModal(name => {
+        Draw.pendingClipId = {clipId, pageCount, fileType, displayName: name};
+        applyCanvasCursor('clip');
+      });
     }
   });
 
@@ -2660,7 +2675,7 @@ function removeTextInput(){
   // クリップツール選択時のポインターダウン処理
   window.handleClipPointerDown = function(lp) {
     if (Draw.pendingClipId) {
-      placeClip(lp, Draw.pendingClipId.clipId, Draw.pendingClipId.pageCount, Draw.pendingClipId.fileType);
+      placeClip(lp, Draw.pendingClipId.clipId, Draw.pendingClipId.pageCount, Draw.pendingClipId.fileType, Draw.pendingClipId.displayName);
     }
   };
 
@@ -3630,6 +3645,31 @@ function setEraserCursor() {
 // portrait tool btn clicks
 /* ════ TOAST ════ */
 let _toastTimer = null;
+function showClipNameModal(onOk) {
+  const modal = document.getElementById('clip-name-modal');
+  const input = document.getElementById('clip-name-input');
+  const okBtn = document.getElementById('clip-name-ok');
+  const cancelBtn = document.getElementById('clip-name-cancel');
+
+  input.value = '';
+  modal.style.display = 'flex';
+  setTimeout(() => input.focus(), 50);
+
+  const close = () => {
+    modal.style.display = 'none';
+    okBtn.removeEventListener('click', doOk);
+    cancelBtn.removeEventListener('click', doCancel);
+    input.removeEventListener('keydown', onKey);
+  };
+  const doOk = () => { close(); onOk(input.value.trim()); };
+  const doCancel = () => { close(); onOk(''); };
+  const onKey = e => { if (e.key === 'Enter') doOk(); if (e.key === 'Escape') doCancel(); };
+
+  okBtn.addEventListener('click', doOk);
+  cancelBtn.addEventListener('click', doCancel);
+  input.addEventListener('keydown', onKey);
+}
+
 function showToast(msg, duration) {
   duration = duration || 2500;
   const el = document.getElementById('app-toast');
@@ -4081,14 +4121,21 @@ function handleCellHeaderTap(e, desc) {
     document.removeEventListener('pointerup',   onUp);
     document.removeEventListener('touchend',    onTouchUp, true);
 
+    const showMenu = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
+    const hasObjs  = getCellObjs(desc.key).length > 0;
+
     if (upBeforeTimer) {
-      openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
+      // オブジェクトあり、またはクリップボードありならメニュー表示
+      if (hasObjs || S.clipboard?.type) showMenu();
       return;
     }
-    startCellDrag(e, desc.key,
-      () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false),
-      () => {}
-    );
+    if (hasObjs) {
+      // オブジェクトあり → D&D → 離してメニュー
+      startCellDrag(e, desc.key, showMenu, () => {});
+    } else if (S.clipboard?.type) {
+      // オブジェクトなし＋クリップボードあり → 直接メニュー
+      showMenu();
+    }
   }, LONG_PRESS_MS);
 
   document.addEventListener('pointermove', onTryDrag);
@@ -4234,8 +4281,8 @@ function getMiniObjBounds(obj) {
   }
   if (obj.type === 'clip') {
     const sz = obj.size || 60;
-    const w  = sz;
-    const h  = sz * 1.2;
+    const w  = sz * 0.85;
+    const h  = sz * 1.3;
     return { x: obj.x-w/2-MINI_PAD, y: obj.y-h/2-MINI_PAD, w: w+MINI_PAD*2, h: h+MINI_PAD*2 };
   }
   return null;
@@ -4626,44 +4673,36 @@ function drawObjMini(c,obj){
     const {w, h} = stickerDrawSize(img, sz);
     c.drawImage(img, obj.x - w/2, obj.y - h/2, w, h);
   } else if (obj.type==='clip'){
-    const sz  = obj.size || 60;
-    const w   = sz;
-    const h   = sz * 1.2;
-    const rx  = sz * 0.12;
-    const x0  = obj.x - w/2;
-    const y0  = obj.y - h/2;
-    const isPdf = obj.fileType === 'application/pdf';
+    const sz   = obj.size || 60;
+    const w    = sz * 0.85;
+    const h    = sz * 1.3;
+    const fold = sz * 0.18;
+    const rx   = sz * 0.08;
+    const x0   = obj.x - w/2;
+    const y0   = obj.y - h/2;
     c.save();
-    // シャドウ
-    c.shadowColor   = 'rgba(0,0,0,0.45)';
-    c.shadowBlur    = sz * 0.4;
-    c.shadowOffsetX = sz * 0.06;
-    c.shadowOffsetY = sz * 0.10;
-    // カード背景
-    c.fillStyle = '#fff'; c.strokeStyle = '#3a6fa8'; c.lineWidth = 1.5;
+    c.shadowColor='rgba(0,0,0,0.25)'; c.shadowBlur=sz*0.25; c.shadowOffsetX=sz*0.04; c.shadowOffsetY=sz*0.07;
+    c.fillStyle = '#fff9c4';
     c.beginPath();
-    c.moveTo(x0+rx,y0); c.lineTo(x0+w-rx,y0); c.quadraticCurveTo(x0+w,y0,x0+w,y0+rx);
-    c.lineTo(x0+w,y0+h-rx); c.quadraticCurveTo(x0+w,y0+h,x0+w-rx,y0+h);
+    c.moveTo(x0+rx,y0); c.lineTo(x0+w-fold,y0);
+    c.lineTo(x0+w,y0+fold); c.lineTo(x0+w,y0+h-rx);
+    c.quadraticCurveTo(x0+w,y0+h,x0+w-rx,y0+h);
     c.lineTo(x0+rx,y0+h); c.quadraticCurveTo(x0,y0+h,x0,y0+h-rx);
     c.lineTo(x0,y0+rx); c.quadraticCurveTo(x0,y0,x0+rx,y0);
     c.closePath(); c.fill();
-    c.shadowColor = 'transparent';
-    c.stroke();
-    // ヘッダー帯
-    c.fillStyle = isPdf ? '#e03030' : '#3a6fa8';
-    c.beginPath();
-    c.moveTo(x0+rx,y0); c.lineTo(x0+w-rx,y0); c.quadraticCurveTo(x0+w,y0,x0+w,y0+rx);
-    c.lineTo(x0+w,y0+h*0.32); c.lineTo(x0,y0+h*0.32); c.lineTo(x0,y0+rx);
-    c.quadraticCurveTo(x0,y0,x0+rx,y0); c.closePath(); c.fill();
-    // ラベル
-    c.fillStyle='#fff'; c.font=`bold ${sz*0.22}px sans-serif`;
-    c.textAlign='center'; c.textBaseline='middle';
-    c.fillText(isPdf?'PDF':'IMG', obj.x, y0+h*0.16);
-    // 横線
-    c.strokeStyle='rgba(58,107,168,.3)'; c.lineWidth=1;
-    [0.48,0.62,0.76].forEach(yr=>{
-      c.beginPath(); c.moveTo(x0+w*0.15,y0+h*yr); c.lineTo(x0+w*0.85,y0+h*yr); c.stroke();
-    });
+    c.shadowColor='transparent';
+    c.fillStyle = '#f9e44a';
+    c.beginPath(); c.moveTo(x0+w-fold,y0); c.lineTo(x0+w,y0+fold); c.lineTo(x0+w-fold,y0+fold); c.closePath(); c.fill();
+    if (obj.displayName) {
+      c.fillStyle = '#5d4e00';
+      c.font = `600 ${sz*0.16}px 'Noto Sans JP',sans-serif`;
+      c.textAlign='center'; c.textBaseline='top';
+      const maxW = w*0.85;
+      let text = obj.displayName;
+      while (text.length > 1 && c.measureText(text).width > maxW) text = text.slice(0,-1);
+      if (text !== obj.displayName) text += '…';
+      c.fillText(text, obj.x, y0+h*0.08);
+    }
     c.restore();
   }
 }
