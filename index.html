@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v441</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v442</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -5379,6 +5379,11 @@ renderTabs();
 renderCalendar();
 renderOpts();
 updateI18nDOM();
+
+// 日付詳細画面でのピンチズームを無効化
+document.getElementById('day-screen').addEventListener('touchstart', e => {
+  if (e.touches.length >= 2) e.preventDefault();
+}, { passive: false });
 
 </script>
 <div id="app-toast"></div>
