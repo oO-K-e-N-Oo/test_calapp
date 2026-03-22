@@ -1044,7 +1044,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v546</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v547</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -3841,15 +3841,13 @@ function renderOpts() {
       el.style.transition = 'none';
       el.style.animation  = 'none';
     });
-    container.innerHTML = '';
-    requestAnimationFrame(() => {
-      container.innerHTML = html;
-      bindOpts(container);
-      if (container.id === 'tb-opts-portrait') {
-        container.scrollLeft = 0;
-        window._updateRow3Fade && window._updateRow3Fade();
-      }
-    });
+    // 同期的に書き換え（rAF待ちを廃止：前ツールのスウォッチ .on が残るバグを防止）
+    container.innerHTML = html;
+    bindOpts(container);
+    if (container.id === 'tb-opts-portrait') {
+      container.scrollLeft = 0;
+      window._updateRow3Fade && window._updateRow3Fade();
+    }
   }
 
   applyTo($id('tb-opts-portrait'));
