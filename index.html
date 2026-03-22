@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v514</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v518</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -5227,7 +5227,6 @@ function execDayObjAction(action) {
   if (action === 'edit' && obj) {
     closeContextMenus();
     if (obj.type === 'text') {
-      // テキスト編集モードに入る
       showTextInput(obj.x, obj.y, obj);
     }
     return;
@@ -5252,21 +5251,19 @@ function execDayObjAction(action) {
   closeContextMenus();
 }
 
-blinkAndExec('dctx-preview', () => execDayObjAction('preview'));
-document.getElementById('dctx-edit').addEventListener('pointerup', e => {
+// クリップ編集：clickイベント内でinput.clickを呼ぶ（blinkAndExecより先に登録）
+document.getElementById('dctx-edit').addEventListener('click', e => {
   const objId = document.getElementById('ctx-day-obj')._targetObjId;
   const obj   = objId ? Draw.objects.find(o => o.id === objId) : null;
-  if (!obj) return;
-  if (obj.type === 'clip') {
-    const input = document.getElementById('clip-file-input');
-    input._changeTargetObjId = objId;
-    closeContextMenus();
-    input.click();
-    e.stopPropagation(); // attachLongPressMenuTrackingのonUpに伝わらないよう
-  } else {
-    execDayObjAction('edit');
-  }
-}, { capture: true });
+  if (!obj || obj.type !== 'clip') return;
+  e.stopImmediatePropagation(); // blinkAndExecのリスナーを止める
+  const input = document.getElementById('clip-file-input');
+  input._changeTargetObjId = objId;
+  closeContextMenus();
+  input.click();
+});
+blinkAndExec('dctx-preview', () => execDayObjAction('preview'));
+blinkAndExec('dctx-edit', () => execDayObjAction('edit'));
 blinkAndExec('dctx-cut',     () => execDayObjAction('cut'));
 blinkAndExec('dctx-paste',   () => execDayObjAction('paste'));
 blinkAndExec('dctx-delete',  () => execDayObjAction('delete'));
