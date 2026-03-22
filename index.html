@@ -963,17 +963,19 @@ button:focus-visible { outline: none; background: transparent; }
 }
 #clip-viewer-content {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   pointer-events: all;
+  touch-action: none;
 }
 #clip-viewer-pages {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 8px 0 24px;
+  padding: 48px 0 24px;
+  transform-origin: top center;
+  transition: none;
+  will-change: transform;
 }
 #clip-viewer-pages img {
   max-width: 100%;
@@ -1037,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v489</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v490</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2738,9 +2740,41 @@ function removeTextInput(){
   const viewerPageInfo = document.getElementById('clip-viewer-page-info');
   const viewerTitle = document.getElementById('clip-viewer-title');
 
-  // ビューワー表示中のピンチが背景に伝わらないよう防止
+  // ビューワー表示中のピンチが背景に伝わらないよう防止 + コンテンツのピンチズーム
+  const viewerContent = document.getElementById('clip-viewer-content');
+  let _scale = 1, _startScale = 1, _startDist = 0;
+  let _offsetY = 0, _startOffsetY = 0, _startMidY = 0;
+
+  function _touchDist(t) { return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
+  function _touchMidY(t) { return (t[0].clientY + t[1].clientY) / 2; }
+
   viewer.addEventListener('touchstart', e => {
-    if (e.touches.length >= 2) e.preventDefault();
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      _startScale  = _scale;
+      _startDist   = _touchDist(e.touches);
+      _startOffsetY = _offsetY;
+      _startMidY   = _touchMidY(e.touches);
+    }
+  }, { passive: false });
+
+  viewer.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const dist  = _touchDist(e.touches);
+      const midY  = _touchMidY(e.touches);
+      _scale = Math.max(0.5, Math.min(8, _startScale * (dist / _startDist)));
+      _offsetY = _startOffsetY + (midY - _startMidY);
+      viewerPages.style.transform = `translateY(${_offsetY}px) scale(${_scale})`;
+    }
+  }, { passive: false });
+
+  viewer.addEventListener('touchend', e => {
+    e.preventDefault();
+    if (e.touches.length < 2) {
+      // 縮小しすぎたらリセット
+      if (_scale < 1) { _scale = 1; _offsetY = 0; viewerPages.style.transform = ''; }
+    }
   }, { passive: false });
 
   window.openClipViewer = async function(clipId, displayName) {
@@ -2786,10 +2820,14 @@ function removeTextInput(){
   document.getElementById('clip-viewer-close').addEventListener('click', () => {
     viewer.classList.remove('open');
     viewerPages.innerHTML = '';
+    _scale = 1; _offsetY = 0;
+    viewerPages.style.transform = '';
   });
   document.getElementById('clip-viewer-bd').addEventListener('click', () => {
     viewer.classList.remove('open');
     viewerPages.innerHTML = '';
+    _scale = 1; _offsetY = 0;
+    viewerPages.style.transform = '';
   });
 })();
 
