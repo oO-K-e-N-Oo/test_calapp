@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v444</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v448</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1940,24 +1940,25 @@ function getObjBounds(obj) {
 const PAD = 8;
 function drawBBox(c, obj) {
   const b  = getObjBounds(obj);
-  const bx = b.x+b.w+PAD+14;
-  const by = b.y-PAD-14;
+  const bx = b.x+b.w+PAD+28;
+  const by = b.y-PAD-28;
   c.save();
   c.strokeStyle='#3a6fa8';c.lineWidth=1.5;c.setLineDash([5,3]);
   c.strokeRect(b.x-PAD, b.y-PAD, b.w+PAD*2, b.h+PAD*2);
   c.setLineDash([]);
   c.fillStyle='#e03030';
-  c.beginPath();c.arc(bx,by,14,0,Math.PI*2);c.fill();
-  c.fillStyle='#fff';c.font='bold 16px sans-serif';
-  c.textAlign='center';c.textBaseline='middle';
-  c.fillText('×',bx,by);
+  c.beginPath();c.arc(bx,by,28,0,Math.PI*2);c.fill();
+  c.strokeStyle='#fff';c.lineWidth=4;c.lineCap='round';c.setLineDash([]);
+  const cr=10;
+  c.beginPath();c.moveTo(bx-cr,by-cr);c.lineTo(bx+cr,by+cr);c.stroke();
+  c.beginPath();c.moveTo(bx+cr,by-cr);c.lineTo(bx-cr,by+cr);c.stroke();
   c.restore();
 }
 
 function hitDeleteBtn(obj, px, py) {
   const b=getObjBounds(obj);
-  const bx=b.x+b.w+PAD+14, by=b.y-PAD-14;
-  return Math.hypot(px-bx,py-by)<18;
+  const bx=b.x+b.w+PAD+28, by=b.y-PAD-28;
+  return Math.hypot(px-bx,py-by)<32;
 }
 function hitObj(obj, px, py) {
   const b=getObjBounds(obj);
@@ -2483,23 +2484,49 @@ function showTextInput(x,y,editObj) {
   const ta = document.createElement('textarea');
   const fontSize = (editObj?.size||S.textSize)*sc;
   const weight   = (editObj?.bold ?? S.textBold) ? '700' : '400';
+  const lineH    = Math.ceil(fontSize * 1.35);
   ta.style.cssText=`position:fixed;left:${r.left+x*sc}px;top:${r.top+y*sc-14}px;
     font:${weight} ${fontSize}px 'Noto Sans JP',sans-serif;
-    color:${editObj?.color||S.textColor};min-width:80px;min-height:28px;
+    color:${editObj?.color||S.textColor};
     border:none;outline:1.5px dashed #3a6fa8;background:rgba(255,255,255,.93);
     resize:none;padding:0;margin:0;line-height:1.35;
     vertical-align:top;box-sizing:content-box;
-    border-radius:3px;z-index:600;`;
+    border-radius:3px;z-index:600;
+    overflow:hidden;white-space:pre;
+    field-sizing:content;
+    min-width:${Math.ceil(fontSize * 0.6)}px;
+    min-height:${lineH}px;
+    height:${lineH}px;width:${Math.ceil(fontSize * 0.6)}px;`;
+
+  // field-sizing非対応ブラウザ向けフォールバック
+  const autoResize = () => {
+    ta.style.height = '0';
+    ta.style.height = Math.max(lineH, ta.scrollHeight) + 'px';
+    // 幅は hidden span で計測
+    if (!ta._mirror) {
+      const m = document.createElement('span');
+      m.style.cssText = `position:fixed;visibility:hidden;white-space:pre;pointer-events:none;
+        font:${weight} ${fontSize}px 'Noto Sans JP',sans-serif;`;
+      document.body.appendChild(m);
+      ta._mirror = m;
+    }
+    const lines = ta.value.split('\n');
+    const maxLine = lines.reduce((a,b) => a.length >= b.length ? a : b, '');
+    ta._mirror.textContent = maxLine || ' ';
+    const w = Math.max(Math.ceil(fontSize * 0.6), ta._mirror.offsetWidth + 4);
+    ta.style.width = w + 'px';
+  };
+
+  ta.addEventListener('input', autoResize);
+
   if (editObj) {
     ta.value = editObj.text||'';
-    // 編集中は元オブジェクトをキャンバスから隠す
     editObj._hidden = true;
     redraw();
   }
   document.body.appendChild(ta);
+  autoResize();
 
-  // ダミーinputがあればフォーカスを引き継ぐ（iOSキーボード維持）
-  // なければ直接focus（ダブルタップ等、同期呼び出しの場合）
   const dummy = document.getElementById('_text-dummy-input');
   if (dummy && document.activeElement === dummy) {
     ta.focus();
@@ -2511,7 +2538,6 @@ function showTextInput(x,y,editObj) {
   Draw.activeTextEl={el:ta,x,y,editObj};
   Draw.textJustFinished=false;
 
-  // textarea外のpointerdownで確定
   const onOutsideDown = ev => {
     if (ev.target !== ta) {
       finalizeText();
@@ -2526,6 +2552,7 @@ function finalizeText() {
   const {el,x,y,editObj}=Draw.activeTextEl;
   if (editObj) editObj._hidden = false;
   const txt=el.value;
+  if(el._mirror) el._mirror.remove();
 
   if (txt.trim()) {
     if (editObj) {
@@ -2546,6 +2573,7 @@ function finalizeText() {
 function removeTextInput(){
   if(Draw.activeTextEl){
     if(Draw.activeTextEl.editObj) Draw.activeTextEl.editObj._hidden = false;
+    if(Draw.activeTextEl.el._mirror) Draw.activeTextEl.el._mirror.remove();
     Draw.activeTextEl.el.remove();
     Draw.activeTextEl=null;
     redraw();
@@ -3439,10 +3467,10 @@ function buildOptsHTML(tool) {
       <div class="opt-block">
         <div class="sz-row">
           <button class="sz-btn${!S.textBold?' on':''}" data-tbold="false">
-            <span class="sz-lbl" style="font-weight:400;">A</span>
+            <span class="sz-lbl" style="font-weight:300;letter-spacing:0.02em;">A</span>
           </button>
           <button class="sz-btn${S.textBold?' on':''}" data-tbold="true">
-            <span class="sz-lbl" style="font-weight:700;">A</span>
+            <span class="sz-lbl" style="font-weight:800;font-size:16px;">A</span>
           </button>
         </div>
       </div>`;
