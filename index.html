@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v510</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v511</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -5230,10 +5230,10 @@ function execDayObjAction(action) {
       // テキスト編集モードに入る
       showTextInput(obj.x, obj.y, obj);
     } else if (obj.type === 'clip') {
-      // クリップ：画像差し替え
+      // クリップ：画像差し替え＋表示名編集
       const input = document.getElementById('clip-file-input');
       input._changeTargetObjId = objId;
-      input.click();
+      setTimeout(() => input.click(), 0);
     }
     return;
   } else if (action === 'preview' && obj?.type === 'clip') {
