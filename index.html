@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v448</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v449</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2282,6 +2282,14 @@ function onDown(e) {
   const lp = toLogical(clientX,clientY);
   const pp = toPhysical(clientX,clientY);
 
+  // ── 削除ボタンのヒットテスト（全ツール共通） ──
+  if (Draw.selId) {
+    const obj = Draw.objects.find(o => o.id === Draw.selId);
+    if (obj && hitDeleteBtn(obj, pp.x, pp.y)) {
+      deleteObj(Draw.selId); Draw.selId = null; redraw(); return;
+    }
+  }
+
   // ── グローバルダブルタップ：テキストオブジェクト上ならどのツールからでも編集 ──
   const nowDt = Date.now();
   if (S.tool !== 'text' && nowDt - (Draw._globalLastTap||0) < 350) {
@@ -2306,14 +2314,6 @@ function onDown(e) {
   }
 
   if (S.tool==='select') {
-    // ×ボタンのヒットテスト
-    if (Draw.selId) {
-      const obj = Draw.objects.find(o=>o.id===Draw.selId);
-      if (obj && hitDeleteBtn(obj,pp.x,pp.y)) {
-        deleteObj(Draw.selId); Draw.selId=null; redraw(); return;
-      }
-    }
-
     // オブジェクトのヒットテスト（選択済み優先）
     let found = null;
     if (Draw.selId) {
