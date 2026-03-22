@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v528</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v529</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2510,11 +2510,22 @@ function onDown(e) {
     if (obj && handleBBoxBtns(obj, pp)) return;
   }
 
-  // グローバルダブルタップ：テキスト編集（textツール以外）
+  // グローバルダブルタップ：テキスト編集 / クリップ表示名編集（textツール以外）
   const nowDt = Date.now();
   if (S.tool !== 'text' && nowDt - (Draw._globalLastTap||0) < TAP_INTERVAL) {
-    const hit = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp.x, pp.y));
-    if (hit) { showTextInput(hit.x, hit.y, hit); Draw._globalLastTap = 0; return; }
+    const hitText = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp.x, pp.y));
+    if (hitText) { showTextInput(hitText.x, hitText.y, hitText); Draw._globalLastTap = 0; return; }
+    const hitClip = [...Draw.objects].reverse().find(o => o.type==='clip' && hitObj(o, pp.x, pp.y));
+    if (hitClip) {
+      Draw._globalLastTap = 0;
+      const prev = clone(hitClip);
+      showClipNameModal(name => {
+        hitClip.displayName = name;
+        pushUndo({type:'edit', objId: hitClip.id, from: prev, to: clone(hitClip)});
+        flushCell(); redraw();
+      }, hitClip.displayName || '');
+      return;
+    }
   }
   Draw._globalLastTap = nowDt;
 
@@ -5359,7 +5370,7 @@ function updateI18nDOM() {
 
   // day screen context menu
   setText('dctx-preview',     svgOf('dctx-preview'),     l.preview   || 'プレビュー');
-  setText('dctx-edit',        svgOf('dctx-edit'),        l.edit      || '編集');
+  setText('dctx-edit',        svgOf('dctx-edit'),        l.editDisplayName || '表示名を編集');
   setText('dctx-cut',         svgOf('dctx-cut'),         l.cut);
   setText('dctx-paste',       svgOf('dctx-paste'),       l.paste);
   setText('dctx-delete',      svgOf('dctx-delete'),      l.delete);
