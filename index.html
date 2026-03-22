@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v529</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v532</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2523,7 +2523,7 @@ function onDown(e) {
         hitClip.displayName = name;
         pushUndo({type:'edit', objId: hitClip.id, from: prev, to: clone(hitClip)});
         flushCell(); redraw();
-      }, hitClip.displayName || '');
+      }, hitClip.displayName || '', () => { /* キャンセル：何もしない */ });
       return;
     }
   }
@@ -2804,6 +2804,8 @@ function removeTextInput(){
       showClipNameModal(name => {
         placeClip({ x: CANVAS_SRC/2, y: CANVAS_SRC/2 }, clipId, pageCount, fileType, name);
         applyCanvasCursor('clip');
+      }, '', () => {
+        // キャンセル → クリップを配置しない（クリップツールのまま）
       });
     }
   });
@@ -3884,7 +3886,7 @@ function setEraserCursor() {
 // portrait tool btn clicks
 /* ════ TOAST ════ */
 let _toastTimer = null;
-function showClipNameModal(onOk, initialValue = '') {
+function showClipNameModal(onOk, initialValue = '', onCancel = null) {
   const modal = document.getElementById('clip-name-modal');
   const input = document.getElementById('clip-name-input');
   const okBtn = document.getElementById('clip-name-ok');
@@ -3900,8 +3902,8 @@ function showClipNameModal(onOk, initialValue = '') {
     cancelBtn.removeEventListener('click', doCancel);
     input.removeEventListener('keydown', onKey);
   };
-  const doOk = () => { close(); onOk(input.value.trim()); };
-  const doCancel = () => { close(); onOk(''); };
+  const doOk     = () => { close(); onOk(input.value.trim()); };
+  const doCancel = () => { close(); onCancel && onCancel(); };
   const onKey = e => { if (e.key === 'Enter' && !e.isComposing) doOk(); if (e.key === 'Escape') doCancel(); };
 
   okBtn.addEventListener('click', doOk);
@@ -5281,7 +5283,7 @@ function execDayObjAction(action) {
         obj.displayName = name;
         pushUndo({type:'edit', objId: obj.id, from: prev, to: clone(obj)});
         flushCell(); redraw();
-      }, obj.displayName || '');
+      }, obj.displayName || '', () => { /* キャンセル：何もしない */ });
     }
     return;
   } else if (action === 'preview' && obj?.type === 'clip') {
