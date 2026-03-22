@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v438</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v440</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2123,7 +2123,7 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 
 /* ════ PINCH SCALE（selectツール＋選択オブジェクト単体） ════ */
 (function() {
-  let pinching = false;
+  Draw._pinching = false;
   let startDist = 0;
   let startSnapshot = null; // ピンチ開始時のオブジェクトのクローン
 
@@ -2140,6 +2140,18 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
   // snapshotを基準に、中心点(cx,cy)からscale倍にオブジェクトを変形
   function applyScale(obj, snap, scale, cx, cy) {
     if (obj.type === 'pen') {
+      // スケール後のバウンディングボックスが CANVAS_SRC を超えないようクランプ
+      const allPts = snap.paths.flatMap(p => p.points);
+      if (allPts.length > 0) {
+        const xs = allPts.map(pt => pt.x), ys = allPts.map(pt => pt.y);
+        const bw = Math.max(...xs) - Math.min(...xs);
+        const bh = Math.max(...ys) - Math.min(...ys);
+        const maxScale = Math.min(
+          bw > 0 ? CANVAS_SRC / bw : Infinity,
+          bh > 0 ? CANVAS_SRC / bh : Infinity
+        );
+        scale = Math.min(scale, maxScale);
+      }
       obj.paths = snap.paths.map(p => ({
         ...p,
         points: p.points.map(pt => ({
@@ -2168,7 +2180,8 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
     const obj = Draw.objects.find(o => o.id === Draw.selId);
     if (!obj) return;
     e.preventDefault();
-    pinching = true;
+    Draw._pinching = true;
+    Draw._globalLastTap = 0; // ピンチ開始時にダブルタップ判定をリセット
     Draw.isPointerDown = false;
     Draw.activeStroke = null;
     startDist     = touchDist(e.touches[0], e.touches[1]);
@@ -2176,10 +2189,10 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
   }, { passive: false });
 
   cvs.addEventListener('touchmove', e => {
-    if (!pinching || e.touches.length !== 2) return;
+    if (!Draw._pinching || e.touches.length !== 2) return;
     e.preventDefault();
     const obj = Draw.objects.find(o => o.id === Draw.selId);
-    if (!obj || !startSnapshot) { pinching = false; return; }
+    if (!obj || !startSnapshot) { Draw._pinching = false; return; }
     const d     = touchDist(e.touches[0], e.touches[1]);
     const scale = Math.max(0.1, d / startDist);
     const mid   = touchMidLogical(e.touches[0], e.touches[1]);
@@ -2188,9 +2201,9 @@ cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
   }, { passive: false });
 
   cvs.addEventListener('touchend', e => {
-    if (!pinching) return;
+    if (!Draw._pinching) return;
     if (e.touches.length < 2) {
-      pinching = false;
+      Draw._pinching = false;
       const obj = Draw.objects.find(o => o.id === Draw.selId);
       if (obj && startSnapshot) {
         pushUndo({ type: 'scale', objId: obj.id, from: startSnapshot, to: clone(obj) });
@@ -2255,6 +2268,13 @@ function openDayObjCtx(clientX, clientY, objId) {
 function onDown(e) {
   if (document.getElementById('ctx-day-obj').classList.contains('open') ||
       document.getElementById('ctx-day-paste').classList.contains('open')) return;
+
+  // ピンチ中はダブルタップ判定をリセットして処理しない
+  if (Draw._pinching) {
+    Draw._globalLastTap = 0;
+    return;
+  }
+
   closeContextMenus();
   const {clientX,clientY} = evtCoords(e);
   const lp = toLogical(clientX,clientY);
