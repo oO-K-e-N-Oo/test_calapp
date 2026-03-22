@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v505</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v506</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4635,7 +4635,7 @@ function startCalDrag(e, srcKey, obj, onNoMove = null) {
         if (Cal.dragGhost === ghost) { ghost.remove(); Cal.dragGhost = null; }
         onNoMove();
       }
-    }, 400);
+    }, 500);
   }
 
   const onTouchMove = ev => {
@@ -4787,7 +4787,7 @@ function startCellDrag(e, srcKey, onNoMove, onDragStart) {
       if (Cal.dragGhost === ghost) { ghost.remove(); Cal.dragGhost = null; }
       onNoMove();
     }
-  }, 400);
+  }, 500);
 
   const updateHighlight = (x, y) => {
     document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
