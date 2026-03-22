@@ -1044,7 +1044,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v543</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v546</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1662,6 +1662,9 @@ const I18N = {
     textToolPen: 'Use finger to select Text tool',
     // pdf error
     pdfError:    'Failed to load PDF',
+    // day screen context menu (extra)
+    preview:         'Preview',
+    editDisplayName: 'Edit name',
   },
   ja: {
     months:  ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
@@ -1701,6 +1704,9 @@ const I18N = {
     textToolPen: 'テキストツールは指でタップしてください',
     // pdf error
     pdfError:    'PDFの読み込みに失敗しました',
+    // day screen context menu (extra)
+    preview:         'プレビュー',
+    editDisplayName: '表示名を編集',
   },
 };
 /** 現在の言語の翻訳オブジェクトを返す */
@@ -5271,11 +5277,7 @@ function execCalCellAction(action) {
 function blinkAndExec(itemId, fn) {
   const el = $id(itemId);
   el.addEventListener('click', () => {
-    el.classList.add('ctx-blink');
-    el.addEventListener('animationend', () => {
-      el.classList.remove('ctx-blink');
-      fn();
-    }, { once: true });
+    fn();
   });
 }
 
@@ -5324,6 +5326,7 @@ function execCalObjAction(action) {
 
   if (action === 'preview' && key && objId) {
     const obj = getCellObjs(key).find(o => o.id === objId);
+    closeContextMenus();
     if (obj?.type === 'clip') openClipViewer(obj.clipId, obj.displayName);
     return;
   } else if (action === 'copy' && key && objId) {
@@ -5486,8 +5489,8 @@ function updateI18nDOM() {
   setText('octx-delete',     svgOf('octx-delete'),     l.objDelete);
 
   // day screen context menu
-  setText('dctx-preview',     svgOf('dctx-preview'),     l.preview   || 'プレビュー');
-  setText('dctx-edit',        svgOf('dctx-edit'),        l.editDisplayName || '表示名を編集');
+  setText('dctx-preview',     svgOf('dctx-preview'),     l.preview);
+  setText('dctx-edit',        svgOf('dctx-edit'),        l.editDisplayName);
   setText('dctx-cut',         svgOf('dctx-cut'),         l.cut);
   setText('dctx-paste',       svgOf('dctx-paste'),       l.paste);
   setText('dctx-delete',      svgOf('dctx-delete'),      l.delete);
