@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v449</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v450</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2374,9 +2374,18 @@ function onDown(e) {
     Draw._lastTextTap = now;
 
     if (hitText) {
-      // シングルタップ：350ms待ってダブルタップでなければドラッグ開始
+      // シングルタップ：350ms待ってダブルタップでなければ選択
+      let fingerUp = false;
+      const onUpEarly = () => { fingerUp = true; };
+      document.addEventListener('pointerup', onUpEarly, { once: true });
       Draw._textTapTimer = setTimeout(() => {
-        startObjSelect(hitText, lp, clientX, clientY);
+        document.removeEventListener('pointerup', onUpEarly);
+        if (fingerUp) {
+          // 既に指が離れていた → 選択のみ（長押しメニューなし）
+          Draw.selId = hitText.id; redraw();
+        } else {
+          startObjSelect(hitText, lp, clientX, clientY);
+        }
       }, 350);
     } else {
       // テキストオブジェクト外
