@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v440</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v441</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2286,17 +2286,6 @@ function onDown(e) {
     const hit = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp.x, pp.y));
     if (hit) {
       showTextInput(hit.x, hit.y, hit);
-      Draw._globalLastTap = 0;
-      return;
-    }
-  }
-
-  // ── クリップアイコンのダブルタップ → ビューワー起動（スタンプ選択済のstickerツール以外） ──
-  const clipViewerBlocked = S.tool === 'sticker' && Draw.pendingStickerId;
-  if (!clipViewerBlocked && nowDt - (Draw._globalLastTap||0) < 350) {
-    const hitClip = [...Draw.objects].reverse().find(o => o.type==='clip' && hitObj(o, pp.x, pp.y));
-    if (hitClip) {
-      openClipViewer(hitClip.clipId);
       Draw._globalLastTap = 0;
       return;
     }
