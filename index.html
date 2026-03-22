@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v504</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v505</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4228,7 +4228,7 @@ function handleObjHit(e, key, obj) {
     } else {
       // まだ指が触れている → ゴースト表示、移動なし＋400ms後にメニュー
       startCalDrag(e, key, obj,
-        () => setTimeout(() => openObjCtx(e.clientX, e.clientY, key, obj.id, false), 400)
+        () => openObjCtx(e.clientX, e.clientY, key, obj.id, false)
       );
     }
   }, LONG_PRESS_MS);
@@ -4276,7 +4276,7 @@ function handleEmptyCellTap(e, desc) {
     // オブジェクトがあればD&D→400ms後にメニュー、なければ直接メニュー
     const hasObjs = getCellObjs(desc.key).length > 0;
     if (hasObjs) {
-      startCellDrag(e, desc.key, () => setTimeout(showMenu, 400), () => {});
+      startCellDrag(e, desc.key, showMenu, () => {});
     } else {
       showMenu();
     }
@@ -4335,7 +4335,7 @@ function handleCellHeaderTap(e, desc) {
     }
     if (hasObjs) {
       // オブジェクトあり → D&D → 400ms後にメニュー
-      startCellDrag(e, desc.key, () => setTimeout(showMenu, 400), () => {});
+      startCellDrag(e, desc.key, showMenu, () => {});
     } else if (S.clipboard?.type) {
       // オブジェクトなし＋クリップボードあり → 直接メニュー
       showMenu();
@@ -4625,23 +4625,42 @@ function startCalDrag(e, srcKey, obj, onNoMove = null) {
   Cal.dragGhost = ghost;
 
   let dragging = false;
+  let noMoveTimer = null;
+
+  // ゴースト表示から400ms後、移動していなければonNoMove実行
+  if (onNoMove) {
+    noMoveTimer = setTimeout(() => {
+      if (!dragging) {
+        calDragInfo = null;
+        if (Cal.dragGhost === ghost) { ghost.remove(); Cal.dragGhost = null; }
+        onNoMove();
+      }
+    }, 400);
+  }
 
   const onTouchMove = ev => {
     if (!ev.touches[0]) return;
     const x = ev.touches[0].clientX, y = ev.touches[0].clientY;
     setPos(x, y);
-    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) dragging = true;
+    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) {
+      dragging = true;
+      if (noMoveTimer) { clearTimeout(noMoveTimer); noMoveTimer = null; }
+    }
   };
   const onMove = ev => {
     const x = ev.clientX, y = ev.clientY;
     setPos(x, y);
-    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) dragging = true;
+    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) {
+      dragging = true;
+      if (noMoveTimer) { clearTimeout(noMoveTimer); noMoveTimer = null; }
+    }
   };
 
   makeDragListeners(ghost, {
     onMove, onTouchMove,
-    onCancel: () => { calDragInfo = null; },
+    onCancel: () => { if (noMoveTimer) clearTimeout(noMoveTimer); calDragInfo = null; },
     onDrop: (cx, cy) => {
+      if (noMoveTimer) { clearTimeout(noMoveTimer); noMoveTimer = null; }
       if (!dragging && onNoMove) { calDragInfo = null; onNoMove(); return; }
       if (!dragging)             { calDragInfo = null; return; }
 
@@ -4759,6 +4778,16 @@ function startCellDrag(e, srcKey, onNoMove, onDragStart) {
   Cal.dragGhost = ghost;
 
   let dragging = false;
+  let noMoveTimer = null;
+
+  // ゴースト表示から400ms後、移動していなければonNoMove実行
+  noMoveTimer = setTimeout(() => {
+    if (!dragging) {
+      document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
+      if (Cal.dragGhost === ghost) { ghost.remove(); Cal.dragGhost = null; }
+      onNoMove();
+    }
+  }, 400);
 
   const updateHighlight = (x, y) => {
     document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
@@ -4771,20 +4800,32 @@ function startCellDrag(e, srcKey, onNoMove, onDragStart) {
     if (!ev.touches[0]) return;
     const x = ev.touches[0].clientX, y = ev.touches[0].clientY;
     ghost.style.left = x + 'px'; ghost.style.top = y + 'px';
-    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) { dragging = true; onDragStart(); }
+    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) {
+      dragging = true;
+      if (noMoveTimer) { clearTimeout(noMoveTimer); noMoveTimer = null; }
+      onDragStart();
+    }
     updateHighlight(x, y);
   };
   const onMove = ev => {
     const x = ev.clientX, y = ev.clientY;
     ghost.style.left = x + 'px'; ghost.style.top = y + 'px';
-    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) { dragging = true; onDragStart(); }
+    if (!dragging && Math.hypot(x - e.clientX, y - e.clientY) > 6) {
+      dragging = true;
+      if (noMoveTimer) { clearTimeout(noMoveTimer); noMoveTimer = null; }
+      onDragStart();
+    }
     updateHighlight(x, y);
   };
 
   makeDragListeners(ghost, {
     onMove, onTouchMove,
-    onCancel: () => { document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over')); },
+    onCancel: () => {
+      if (noMoveTimer) clearTimeout(noMoveTimer);
+      document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
+    },
     onDrop: (cx, cy) => {
+      if (noMoveTimer) { clearTimeout(noMoveTimer); noMoveTimer = null; }
       document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
       if (!dragging) { onNoMove(); return; }
 
