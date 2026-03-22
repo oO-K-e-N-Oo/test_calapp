@@ -1739,7 +1739,8 @@ function cellKey(y,m1,d)       { return `${y}-${String(m1).padStart(2,'0')}-${St
 
 /** setCellObjs + saveToStorage + renderMiniCanvases をまとめて実行 */
 function commitCellObjs(key, arr, redrawMini = true) {
-  commitCellObjs(key, arr, false);
+  setCellObjs(key, arr);
+  saveToStorage();
   if (redrawMini) renderMiniCanvases();
 }
 
@@ -3150,7 +3151,7 @@ function flushCell(){
 }
 
 /** flushCell() + redraw() の組み合わせを一括実行するヘルパー */
-function flushAndRedraw() { flushAndRedraw(); }
+function flushAndRedraw() { flushCell(); redraw(); }
 
 /* ════ CALENDAR SCREEN UNDO/REDO｜カレンダー画面 Undo/Redo ════ */
 /** カレンダー画面のUndoスタックにアクションを積む */
