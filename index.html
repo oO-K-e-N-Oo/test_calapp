@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v526</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v527</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1330,12 +1330,11 @@ button:focus-visible { outline: none; background: transparent; }
   <div class="ctx-item" id="dctx-preview" style="display:none">
     <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>プレビュー
   </div>
-  <label class="ctx-item" id="dctx-edit" style="display:none;cursor:pointer;">
-    <input type="file" id="clip-file-input" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style="display:none;">
+  <div class="ctx-item" id="dctx-edit" style="display:none">
     <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>編集
-  </label>
-  <!-- クリップツール選択時のファイル選択用（label外） -->
-  <input type="file" id="clip-tool-input" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style="display:none;">
+  </div>
+  <!-- クリップ編集・クリップツール選択時のファイル選択用 -->
+  <input type="file" id="clip-file-input" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style="display:none;">
   <div class="ctx-item" id="dctx-cut">
     <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>カット
   </div>
@@ -2379,10 +2378,6 @@ function openDayObjCtx(clientX, clientY, objId) {
   const fileInput = document.getElementById('clip-file-input');
   if (isClip) {
     fileInput._changeTargetObjId = objId;
-    fileInput.value = '';
-    fileInput.disabled = false;
-  } else {
-    fileInput.disabled = true; // テキスト編集時はファイル選択を無効化
   }
   // 貼り付け：クリップボードにオブジェクトがある場合のみ
   document.getElementById('dctx-paste').style.display   = hasPaste ? '' : 'none';
@@ -2548,9 +2543,6 @@ function onDown(e) {
       break;
     case 'clip':
       if (Draw.pendingClipId) { handleClipPointerDown(lp); break; }
-      // クリップオブジェクトへのタップ → 選択・長押しコンテクストメニュー
-      const hitClipObj = [...Draw.objects].reverse().find(o => o.type === 'clip' && hitObj(o, pp.x, pp.y));
-      if (hitClipObj) { startObjSelect(hitClipObj, lp, clientX, clientY); break; }
       if (Draw.selId && !hitObj(Draw.objects.find(o => o.id === Draw.selId), pp.x, pp.y)) {
         Draw.selId = null; redraw();
       }
@@ -2810,32 +2802,6 @@ function removeTextInput(){
   });
 
   // クリップツール用ファイル選択ハンドラ（新規配置専用）
-  const clipToolInput = document.getElementById('clip-tool-input');
-  clipToolInput.addEventListener('change', async () => {
-    const file = clipToolInput.files[0];
-    if (!file) return;
-    clipToolInput.value = '';
-    const fileType = file.type;
-    let dataUrl, pageCount = 1;
-    if (fileType === 'application/pdf') {
-      dataUrl = await readFileAsDataUrl(file);
-      try {
-        const pdfjsLib = window['pdfjs-dist/build/pdf'];
-        if (pdfjsLib) {
-          const pdf = await pdfjsLib.getDocument({url: dataUrl}).promise;
-          pageCount = pdf.numPages;
-        }
-      } catch(e) {}
-    } else {
-      dataUrl = await readFileAsDataUrl(file);
-    }
-    const clipId = saveClipData(dataUrl, file.name, fileType, pageCount);
-    if (!clipId) return;
-    showClipNameModal(name => {
-      placeClip({ x: CANVAS_SRC/2, y: CANVAS_SRC/2 }, clipId, pageCount, fileType, name);
-      applyCanvasCursor('clip');
-    });
-  });
 
   function readFileAsDataUrl(file) {
     return new Promise((resolve, reject) => {
@@ -3831,7 +3797,7 @@ function switchTool(tool) {
   // クリップツール選択 → ファイル選択ダイアログを開く
   if (tool==='clip') {
     Draw.pendingClipId = null;
-    setTimeout(() => document.getElementById('clip-tool-input').click(), 0);
+    setTimeout(() => document.getElementById('clip-file-input').click(), 0);
   } else {
     Draw.pendingClipId = null;
   }
@@ -5327,11 +5293,7 @@ function execDayObjAction(action) {
 
 // クリップ編集：clickイベント内でinput.clickを呼ぶ（blinkAndExecより先に登録）
 blinkAndExec('dctx-preview', () => execDayObjAction('preview'));
-blinkAndExec('dctx-edit', () => {
-  const objId = document.getElementById('ctx-day-obj')._targetObjId;
-  const obj   = objId ? Draw.objects.find(o => o.id === objId) : null;
-  if (obj?.type !== 'clip') execDayObjAction('edit');
-});
+blinkAndExec('dctx-edit',    () => execDayObjAction('edit'));
 blinkAndExec('dctx-cut',     () => execDayObjAction('cut'));
 blinkAndExec('dctx-paste',   () => execDayObjAction('paste'));
 blinkAndExec('dctx-delete',  () => execDayObjAction('delete'));
