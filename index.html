@@ -1039,7 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v502</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v504</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4147,6 +4147,7 @@ function miniHandleDeleteBtn(e, r, sc, key, objs) {
   if (!selObj) return false;
   if (!miniHitDeleteBtn(selObj, sc, e.clientX - r.left, e.clientY - r.top)) return false;
   const objId = Cal.selObjId;
+  calPushUndo({type:'cal-delete', key, obj: clone(selObj)});
   Cal.selObjId = null; Cal.selCellKey = null;
   miniDeleteWithFade(key, objId);
   return true;
@@ -4164,6 +4165,7 @@ function miniDeleteWithFade(key, objId) {
       Cal._fadeOut = null;
       const objs = getCellObjs(key);
       setCellObjs(key, objs.filter(o => o.id !== objId));
+      saveToStorage();
       renderMiniCanvases();
     } else {
       renderMiniCanvases();
@@ -4224,9 +4226,9 @@ function handleObjHit(e, key, obj) {
       // 既に指が離れていた → 即メニュー
       openObjCtx(e.clientX, e.clientY, key, obj.id, false);
     } else {
-      // まだ指が触れている → ゴースト表示、指離しでメニュー
+      // まだ指が触れている → ゴースト表示、移動なし＋400ms後にメニュー
       startCalDrag(e, key, obj,
-        () => openObjCtx(e.clientX, e.clientY, key, obj.id, false)
+        () => setTimeout(() => openObjCtx(e.clientX, e.clientY, key, obj.id, false), 400)
       );
     }
   }, LONG_PRESS_MS);
@@ -4271,10 +4273,10 @@ function handleEmptyCellTap(e, desc) {
     if (!S.clipboard?.type) return; // クリップボードなし → 何もしない
     const showMenu = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key, false);
     if (upBeforeTimer) { showMenu(); return; }
-    // オブジェクトがあればD&D→離してメニュー、なければ直接メニュー
+    // オブジェクトがあればD&D→400ms後にメニュー、なければ直接メニュー
     const hasObjs = getCellObjs(desc.key).length > 0;
     if (hasObjs) {
-      startCellDrag(e, desc.key, showMenu, () => {});
+      startCellDrag(e, desc.key, () => setTimeout(showMenu, 400), () => {});
     } else {
       showMenu();
     }
@@ -4332,8 +4334,8 @@ function handleCellHeaderTap(e, desc) {
       return;
     }
     if (hasObjs) {
-      // オブジェクトあり → D&D → 離してメニュー
-      startCellDrag(e, desc.key, showMenu, () => {});
+      // オブジェクトあり → D&D → 400ms後にメニュー
+      startCellDrag(e, desc.key, () => setTimeout(showMenu, 400), () => {});
     } else if (S.clipboard?.type) {
       // オブジェクトなし＋クリップボードあり → 直接メニュー
       showMenu();
