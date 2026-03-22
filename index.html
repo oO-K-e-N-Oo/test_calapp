@@ -1033,7 +1033,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v435</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v436</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4282,11 +4282,17 @@ function startCalDrag(e, srcKey, obj, onNoMove = null) {
   };
 
   const cleanup = () => {
-    document.removeEventListener('pointermove', onMove,      true);
-    document.removeEventListener('pointerup',   onUp,        true);
-    document.removeEventListener('touchmove',   onTouchMove, true);
-    document.removeEventListener('touchend',    onTouchEnd,  true);
+    document.removeEventListener('pointermove',  onMove,       true);
+    document.removeEventListener('pointerup',    onUp,         true);
+    document.removeEventListener('touchmove',    onTouchMove,  true);
+    document.removeEventListener('touchend',     onTouchEnd,   true);
+    document.removeEventListener('touchstart',   onTouchStart, true);
     if (Cal.dragGhost === ghost) { ghost.remove(); Cal.dragGhost = null; }
+  };
+
+  // 2本指タッチ（ピンチ開始）→ D&Dキャンセル
+  const onTouchStart = ev => {
+    if (ev.touches.length >= 2) { if (done) return; done = true; cleanup(); calDragInfo = null; }
   };
 
   const onTouchEnd = ev => {
@@ -4340,10 +4346,11 @@ function startCalDrag(e, srcKey, obj, onNoMove = null) {
     renderMiniCanvases();
   };
 
-  document.addEventListener('pointermove', onMove,      true);
-  document.addEventListener('pointerup',   onUp,        true);
-  document.addEventListener('touchmove',   onTouchMove, { capture: true, passive: true });
-  document.addEventListener('touchend',    onTouchEnd,  { capture: true, passive: true });
+  document.addEventListener('pointermove', onMove,       true);
+  document.addEventListener('pointerup',   onUp,         true);
+  document.addEventListener('touchmove',   onTouchMove,  { capture: true, passive: true });
+  document.addEventListener('touchend',    onTouchEnd,   { capture: true, passive: true });
+  document.addEventListener('touchstart',  onTouchStart, { capture: true, passive: true });
 }
 
 // ドロップ先のセルとミニキャンバスを座標から探す
@@ -4426,12 +4433,18 @@ function startCellDrag(e, srcKey, onNoMove, onDragStart) {
   };
 
   const cleanup = () => {
-    document.removeEventListener('pointermove', onMove,      true);
-    document.removeEventListener('pointerup',   onUp,        true);
-    document.removeEventListener('touchmove',   onTouchMove, true);
-    document.removeEventListener('touchend',    onTouchEnd,  true);
+    document.removeEventListener('pointermove',  onMove,       true);
+    document.removeEventListener('pointerup',    onUp,         true);
+    document.removeEventListener('touchmove',    onTouchMove,  true);
+    document.removeEventListener('touchend',     onTouchEnd,   true);
+    document.removeEventListener('touchstart',   onTouchStart, true);
     document.querySelectorAll('.cal-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
     if (Cal.dragGhost === ghost) { ghost.remove(); Cal.dragGhost = null; }
+  };
+
+  // 2本指タッチ（ピンチ開始）→ D&Dキャンセル
+  const onTouchStart = ev => {
+    if (ev.touches.length >= 2) { if (done) return; done = true; cleanup(); }
   };
 
   const onTouchEnd = ev => {
@@ -4463,10 +4476,11 @@ function startCellDrag(e, srcKey, onNoMove, onDragStart) {
     renderMiniCanvases();
   };
 
-  document.addEventListener('pointermove', onMove,      true);
-  document.addEventListener('pointerup',   onUp,        true);
-  document.addEventListener('touchmove',   onTouchMove, { capture: true, passive: true });
-  document.addEventListener('touchend',    onTouchEnd,  { capture: true, passive: true });
+  document.addEventListener('pointermove', onMove,       true);
+  document.addEventListener('pointerup',   onUp,         true);
+  document.addEventListener('touchmove',   onTouchMove,  { capture: true, passive: true });
+  document.addEventListener('touchend',    onTouchEnd,   { capture: true, passive: true });
+  document.addEventListener('touchstart',  onTouchStart, { capture: true, passive: true });
 }
 
 // オブジェクトの中心座標を更新
