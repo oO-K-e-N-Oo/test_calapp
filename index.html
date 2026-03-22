@@ -963,9 +963,11 @@ button:focus-visible { outline: none; background: transparent; }
 }
 #clip-viewer-content {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   pointer-events: all;
-  touch-action: none;
+  touch-action: pan-y;
 }
 #clip-viewer-pages {
   display: flex;
@@ -1039,7 +1041,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v490</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v493</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1747,9 +1749,28 @@ function redraw() {
   cx.fillRect(0,0,CANVAS_PX,CANVAS_PX);
 
   const sc = CANVAS_PX / CANVAS_SRC;
+  const now = performance.now();
 
   // 確定済みオブジェクト
-  Draw.objects.forEach(o => drawObj(cx, o, sc));
+  Draw.objects.forEach(o => {
+    const fadeIn  = Draw._fadeIn  && Draw._fadeIn.id  === o.id;
+    const fadeOut = Draw._fadeOut && Draw._fadeOut.id === o.id;
+    if (fadeIn) {
+      const alpha = Math.min(1, (now - Draw._fadeIn.start) / 400);
+      cx.globalAlpha = alpha;
+      drawObj(cx, o, sc);
+      cx.globalAlpha = 1;
+      if (alpha < 1) requestAnimationFrame(() => redraw());
+      else Draw._fadeIn = null;
+    } else if (fadeOut) {
+      const alpha = Math.max(0, 1 - (now - Draw._fadeOut.start) / 400);
+      cx.globalAlpha = alpha;
+      drawObj(cx, o, sc);
+      cx.globalAlpha = 1;
+    } else {
+      drawObj(cx, o, sc);
+    }
+  });
 
   // ★ 描画中のライブストローク（最新の1本）
   if (Draw.activeStroke && Draw.activeStroke.points.length > 1) {
@@ -2666,6 +2687,7 @@ function removeTextInput(){
     pushUndo({type:'create', obj: clone(obj)});
     Draw.objects.push(obj);
     Draw.selId = obj.id;
+    Draw._fadeIn = { id: obj.id, start: performance.now() };
     Draw.pendingClipId = null;
     flushCell(); redraw();
   }
@@ -2744,23 +2766,27 @@ function removeTextInput(){
   const viewerContent = document.getElementById('clip-viewer-content');
   let _scale = 1, _startScale = 1, _startDist = 0;
   let _offsetY = 0, _startOffsetY = 0, _startMidY = 0;
+  let _isPinching = false;
 
   function _touchDist(t) { return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
   function _touchMidY(t) { return (t[0].clientY + t[1].clientY) / 2; }
 
-  viewer.addEventListener('touchstart', e => {
-    e.preventDefault();
+  viewerContent.addEventListener('touchstart', e => {
     if (e.touches.length === 2) {
-      _startScale  = _scale;
-      _startDist   = _touchDist(e.touches);
+      e.preventDefault(); // ピンチのみブラウザズームを防止
+      _isPinching = true;
+      _startScale   = _scale;
+      _startDist    = _touchDist(e.touches);
       _startOffsetY = _offsetY;
-      _startMidY   = _touchMidY(e.touches);
+      _startMidY    = _touchMidY(e.touches);
+    } else {
+      _isPinching = false;
     }
   }, { passive: false });
 
-  viewer.addEventListener('touchmove', e => {
-    e.preventDefault();
-    if (e.touches.length === 2) {
+  viewerContent.addEventListener('touchmove', e => {
+    if (_isPinching && e.touches.length === 2) {
+      e.preventDefault(); // ピンチ中のみスクロール防止
       const dist  = _touchDist(e.touches);
       const midY  = _touchMidY(e.touches);
       _scale = Math.max(0.5, Math.min(8, _startScale * (dist / _startDist)));
@@ -2769,13 +2795,12 @@ function removeTextInput(){
     }
   }, { passive: false });
 
-  viewer.addEventListener('touchend', e => {
-    e.preventDefault();
+  viewerContent.addEventListener('touchend', e => {
     if (e.touches.length < 2) {
-      // 縮小しすぎたらリセット
+      _isPinching = false;
       if (_scale < 1) { _scale = 1; _offsetY = 0; viewerPages.style.transform = ''; }
     }
-  }, { passive: false });
+  });
 
   window.openClipViewer = async function(clipId, displayName) {
     const data = getClipData(clipId);
@@ -2945,6 +2970,7 @@ function placeSticker(lp) {
     pushUndo({type:'create', obj:clone(obj)});
     Draw.objects.push(obj);
     Draw.selId = obj.id;
+    Draw._fadeIn = { id: obj.id, start: performance.now() };
     flushCell();
     redraw();
   };
@@ -2969,7 +2995,22 @@ function placeSticker(lp) {
 function deleteObj(id){
   const obj=Draw.objects.find(o=>o.id===id); if(!obj) return;
   pushUndo({type:'delete',obj:clone(obj)});
-  Draw.objects=Draw.objects.filter(o=>o.id!==id); flushCell(); redraw();
+  // フェードアウト後に削除
+  Draw._fadeOut = { id, start: performance.now() };
+  const DURATION = 400;
+  const animate = () => {
+    const elapsed = performance.now() - Draw._fadeOut?.start;
+    if (!Draw._fadeOut || Draw._fadeOut.id !== id) return;
+    if (elapsed >= DURATION) {
+      Draw._fadeOut = null;
+      Draw.objects = Draw.objects.filter(o=>o.id!==id);
+      flushCell(); redraw();
+    } else {
+      redraw();
+      requestAnimationFrame(animate);
+    }
+  };
+  requestAnimationFrame(animate);
 }
 
 function flushCell(){
@@ -4060,16 +4101,37 @@ function onCellPointerDown(e, el, desc) {
   }
 }
 
-// 選択済みオブジェクトの×ボタンヒットテスト・削除
+// 選択済みオブジェクトの×ボタンヒットテスト・削除（フェードアウトあり）
 function miniHandleDeleteBtn(e, r, sc, key, objs) {
   if (Cal.selCellKey !== key || !Cal.selObjId) return false;
   const selObj = objs.find(o => o.id === Cal.selObjId);
   if (!selObj) return false;
   if (!miniHitDeleteBtn(selObj, sc, e.clientX - r.left, e.clientY - r.top)) return false;
-  setCellObjs(key, objs.filter(o => o.id !== Cal.selObjId));
+  const objId = Cal.selObjId;
   Cal.selObjId = null; Cal.selCellKey = null;
-  renderMiniCanvases();
+  miniDeleteWithFade(key, objId);
   return true;
+}
+
+// ミニキャンバス上のオブジェクトをフェードアウトして削除
+function miniDeleteWithFade(key, objId) {
+  const DURATION = 400;
+  const start = performance.now();
+  Cal._fadeOut = { key, id: objId, start };
+  const animate = () => {
+    const elapsed = performance.now() - start;
+    if (!Cal._fadeOut || Cal._fadeOut.id !== objId) return;
+    if (elapsed >= DURATION) {
+      Cal._fadeOut = null;
+      const objs = getCellObjs(key);
+      setCellObjs(key, objs.filter(o => o.id !== objId));
+      renderMiniCanvases();
+    } else {
+      renderMiniCanvases();
+      requestAnimationFrame(animate);
+    }
+  };
+  requestAnimationFrame(animate);
 }
 
 // ヒットするオブジェクトを返す（選択済み優先、なければ最前面）
@@ -4734,7 +4796,18 @@ function renderMiniCanvases(){
     const c2=mc.getContext('2d');
     const sc=Math.min(w/CANVAS_SRC,h/CANVAS_SRC);
     c2.save(); c2.scale(sc,sc);
-    getCellObjs(key).forEach(o=>drawObjMini(c2,o));
+    const now2 = performance.now();
+    getCellObjs(key).forEach(o => {
+      const isFading = Cal._fadeOut && Cal._fadeOut.id === o.id && Cal._fadeOut.key === key;
+      if (isFading) {
+        const alpha = Math.max(0, 1 - (now2 - Cal._fadeOut.start) / 400);
+        c2.globalAlpha = alpha;
+        drawObjMini(c2, o);
+        c2.globalAlpha = 1;
+      } else {
+        drawObjMini(c2, o);
+      }
+    });
     c2.restore();
     // 選択中オブジェクトのバウンディングボックスを描画
     if (Cal.selCellKey===key && Cal.selObjId) {
@@ -5014,10 +5087,9 @@ function execCalObjAction(action) {
   } else if (action === 'delete' && key && objId) {
     const obj = getCellObjs(key).find(o => o.id === objId);
     if (obj) calPushUndo({type:'cal-delete', key, obj: clone(obj)});
-    setCellObjs(key, getCellObjs(key).filter(o => o.id !== objId));
     saveToStorage();
     Cal.selObjId = null; Cal.selCellKey = null;
-    renderMiniCanvases();
+    miniDeleteWithFade(key, objId);
   }
   closeContextMenus();
 }
