@@ -1038,7 +1038,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v498</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v499</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1221,6 +1221,9 @@ button:focus-visible { outline: none; background: transparent; }
   <div id="clip-viewer-bd"></div>
   <div id="clip-viewer-panel">
     <div id="clip-viewer-toolbar">
+      <button class="icon-btn" id="clip-viewer-download" title="ダウンロード" style="padding:0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;">
+        <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCACEAIQDASIAAhEBAxEB/8QAHAABAAICAwEAAAAAAAAAAAAAAAcIBgkDBAUC/8QARBAAAQQABAMBDAUICwAAAAAAAQACAwQFBgcRCBIhMRMYIkFCUVVhcYGU1CMmMoOSFBVYYnaCkbQJFjM1NzhShJOhsv/EABQBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwC5aIiAiIgIiICIiAi8TKObst5tjvSZbxitibKFp9O0YST3OZva07+3tHQ+Ir20BERAREQEREBERAREQEREBERAREQVm4CP7o1A/aST/wAqzKrTwFxyMwfUHnjc36zSt6jbqGjce0bhWWQEREBERAREQEREBERAREQdfE7tTDMNs4jfsR1qlWF888zzs2ONoLnOJ8wAJVbn8U+M4xasS6faKZszbhEUpibiEIlY15H6scEgHsJ3223A7FkvHNmU5f4f8SpwvLbON2YcOi27SHHnf08xZG5v7yknR/LDMmaXZbyy2JsclDD4o5wBtvMW80p97y4+9BCPfH6p/ox5z/FZ+TWZaPawZ4ztnAYJmDRbMWUKRrvl/ON50xjDm7bM8Ouwbnf/AFeLsWb6p6k5W00w3D8RzXYsVql+42nHLFA6QMcQXcz9uxoDSfP5gVldOzXuVIbdSeOxXnY2SKWNwcx7CNw4EdCCDvugq5wv5lxbAdNNV8dw3K93G71TNVmxFhtcu7rYe7kBibyscd29vRp9gXf74/VP9GPOf4rPya5uA+zNPg+oPdXl2+aJpD08pzRuffsFL2oWqOTsi47geB49fkGJ45ZZXp1a8Rlk8JwaHuA6tZzEDfxnfYHY7BDffH6p/ox5z/FZ+TXbwDiikrZioYXqVpfmLIVfEJO5V7t7ndFzbgbu54oyG9epHNt4+nUWOURcYeV25p4fcyRNhElnDYhidc7blphPM8j7vug96CXUUfcOGZv636H5Txt8ndJ3YeyvYcT1MsO8TyfWXMJ96kFAREQEREBERAREQVh4lfrtxM6V6bM+krVJTi99g6hzA7m2d5vArvH3nrCs8qw6C/Xji41Nz876WpgzRg9J3kg7iPmb7oHn7z1qzyDw8+ZTwLO+VbuWcx0m28PuM5Xt7HMd5L2HyXNPUFVq0vzXj3Dxn6PSfUa4+xk6/IXZdxyToyEF32HHyW7kBw8hx3+y7dWxWI6uae5f1MyXayzmCDeOTw69hgHdKswHgyMPnG/UdhBIPQoKoaB6r4HpPprqHjGIctrEbOZJY8MoNds+1Lyf9MbuC53i3A7SAZT4btKMct5gl1l1X5recMT+lo1Jm7DDoiPB8E/Zfy9A3yG/rE7Y7w48K82T85z5mz/Yo4pJh9gnCK0Li+Jzgelh4cB4XZyt67HqeoCtYgLgxCpXv0LFC3GJK9mJ0MrD2OY4EEfwJXOiCtHAjbsYPh+edMr8hdbyzjjw3m6EseSw7ermhcf3/WrLqsNf6h8fM0X9lQzxg/M0djBMG7/iL67v+X1qzyAiIgIiICIiAse1KzFHlLT7H8zSFo/NmHzWWA+U9rCWN97th71kKhvjXe5nDHm4scWnamNwduhuQAj+CDxuA/LsmEaFRYzaDjbzBfnvyPf9otB7k3f29zLv31Pq0zog3MItM62UcGmo2DZx0fwbA47kLcbwGoyjbplwEgjjHLHIB2lpYG9fEdwgnBfMskcMZklkZGwdrnHYD3r6VUv6QDU/BauRjpth12G1i+IWIpL8Ubw78lhjcHgP27Hue1mze3YEntG4WlbdpO+zbrn2SBcjZ4HfZmjPscFprRBf7jmglwJ+n+qNBhdPlzHGNl5O10biJAD6t4S37z1qytOxDbqQ260jZIJo2yRvb2Oa4bgj3FabFtn0Ne6TRPIr3uLnuy5h5c4nck/k0fVBmKIiAiIgIiIChnja/wAsWbv9l/OwKZlD3GjBNZ4Zs3xwRukeGVZCGjchrbcLnH2AAn3INZCIiAuxh925h1yO7h9uxUsxHeOaCQsew+cOHULrogzOzqvqfZpmnPqJmySAjZzHYvOQ4eY+F1HtWHPe6R7nvcXOcd3OJ3JPnK+UQEREBbZdCf8ABDIf7N4d/LRrU0ttWikE1XRrJFWxG6KaHL1CORjhsWuFeMEH1goMuREQEREBERAXDeq1r1KeldgjsVrEbopopGhzJGOGzmkHtBBI2XMiCueN8G+kuI4lNcr2szYXHI4uFapdiMUe/ib3SJ7tva4rpd5VpZ6fzn8ZW+XVmUQVm7yrSz0/nP4yt8uneVaWen85/GVvl1ZlEFZu8q0s9P5z+MrfLp3lWlnp/Ofxlb5dWZRBWbvKtLPT+c/jK3y6d5VpZ6fzn8ZW+XVmUQQBkzhH0my3jsGLSDG8bdXcHx18Tsxvh5h2EtjjZzbeYkg+MFT+iICIiAiIgIiICIiAiIgIiICIiAiIgIiICIiAiIgIiICIiAiIgIiICIiAiIgIiICIiAiIg//Z" style="width:24px;height:24px;filter:invert(1);" alt="download">
+      </button>
       <button class="icon-btn" id="clip-viewer-close">
         <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -2824,6 +2827,8 @@ function removeTextInput(){
     const data = getClipData(clipId);
     if (!data) return;
 
+    viewer._currentData = data; // ダウンロード用に保持
+
     viewer.classList.add('open');
     viewerPages.innerHTML = '';
     viewerPageInfo.textContent = '';
@@ -2859,6 +2864,15 @@ function removeTextInput(){
       viewerPages.appendChild(img);
     }
   };
+
+  document.getElementById('clip-viewer-download').addEventListener('click', () => {
+    const data = viewer._currentData;
+    if (!data) return;
+    const a = document.createElement('a');
+    a.href     = data.dataUrl;
+    a.download = data.fileName || 'download';
+    a.click();
+  });
 
   const _resetViewer = () => {
     viewer.classList.remove('open');
