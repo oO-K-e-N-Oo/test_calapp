@@ -1044,7 +1044,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v547</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v549</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2099,23 +2099,51 @@ function drawBBox(c, obj) {
   c.beginPath();c.moveTo(delX-cr,delY-cr);c.lineTo(delX+cr,delY+cr);c.stroke();
   c.beginPath();c.moveTo(delX+cr,delY-cr);c.lineTo(delX-cr,delY+cr);c.stroke();
 
+  // サイズ上限・下限チェック
+  let atMin = false, atMax = false;
+  if (obj.type === 'pen') {
+    const allPts = obj.paths.flatMap(p => p.points);
+    if (allPts.length > 0) {
+      const xs = allPts.map(pt => pt.x), ys = allPts.map(pt => pt.y);
+      const bw = Math.max(...xs) - Math.min(...xs);
+      const bh = Math.max(...ys) - Math.min(...ys);
+      const maxS = Math.min(bw > 0 ? CANVAS_SRC / bw : Infinity, bh > 0 ? CANVAS_SRC / bh : Infinity);
+      const minS = Math.max(bw > 0 ? 20 / bw : 0, bh > 0 ? 20 / bh : 0);
+      atMax = maxS <= 1.0;
+      atMin = minS >= 1.0;
+    }
+  } else {
+    const size = obj.size || 1;
+    if (obj.type === 'text') {
+      atMin = size <= 10; atMax = size >= 200;
+    } else if (obj.type === 'clip') {
+      atMin = size <= 60; atMax = size >= CANVAS_SRC;
+    } else {
+      atMin = size <= 20; atMax = size >= CANVAS_SRC;
+    }
+  }
+
   // サイズボタン（下辺中央）
   const gap  = 8;
   const midX = b.x-PAD + (b.w+PAD*2)/2;
   const botY = b.y+b.h+PAD+R;
   // − ボタン
   const minX = midX - R - gap/2;
-  c.fillStyle='rgba(58,111,168,0.75)';
+  c.fillStyle = atMin ? 'rgba(58,111,168,0.25)' : 'rgba(58,111,168,0.75)';
   c.beginPath();c.arc(minX,botY,R,0,Math.PI*2);c.fill();
   c.strokeStyle='#fff';c.lineWidth=4;c.lineCap='round';
+  c.globalAlpha = atMin ? 0.35 : 1.0;
   c.beginPath();c.moveTo(minX-10,botY);c.lineTo(minX+10,botY);c.stroke();
+  c.globalAlpha = 1.0;
   // + ボタン
   const plusX = midX + R + gap/2;
-  c.fillStyle='rgba(58,111,168,0.75)';
+  c.fillStyle = atMax ? 'rgba(58,111,168,0.25)' : 'rgba(58,111,168,0.75)';
   c.beginPath();c.arc(plusX,botY,R,0,Math.PI*2);c.fill();
   c.strokeStyle='#fff';c.lineWidth=4;c.lineCap='round';
+  c.globalAlpha = atMax ? 0.35 : 1.0;
   c.beginPath();c.moveTo(plusX-10,botY);c.lineTo(plusX+10,botY);c.stroke();
   c.beginPath();c.moveTo(plusX,botY-10);c.lineTo(plusX,botY+10);c.stroke();
+  c.globalAlpha = 1.0;
 
   c.restore();
 }
@@ -3864,10 +3892,10 @@ function switchTool(tool) {
   // landscape tool btns
   document.querySelectorAll('.land-tool-btn').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));
 
-  // スタンプツール選択 → ドロップダウンを開く
+  // スタンプツール選択 → DOM更新が画面に反映された後にドロップダウンを開く
   if (tool==='sticker') {
     Draw.pendingStickerId = null;
-    setTimeout(openStickerDropdown, 0);
+    requestAnimationFrame(() => requestAnimationFrame(openStickerDropdown));
   } else {
     closeStickerDropdown();
   }
