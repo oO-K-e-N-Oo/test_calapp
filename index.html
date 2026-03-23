@@ -1044,7 +1044,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v549</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v550</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -3869,8 +3869,13 @@ function renderOpts() {
       el.style.transition = 'none';
       el.style.animation  = 'none';
     });
-    // 同期的に書き換え（rAF待ちを廃止：前ツールのスウォッチ .on が残るバグを防止）
+    // -webkit-mask-image のGPUレイヤーキャッシュをクリアするため
+    // display:none で一瞬レイヤーを破棄してから再描画する
+    container.style.display = 'none';
     container.innerHTML = html;
+    // eslint-disable-next-line no-unused-expressions
+    container.offsetHeight; // reflow を強制
+    container.style.display = '';
     bindOpts(container);
     if (container.id === 'tb-opts-portrait') {
       container.scrollLeft = 0;
