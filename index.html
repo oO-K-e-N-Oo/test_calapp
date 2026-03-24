@@ -854,6 +854,29 @@ button:focus-visible { outline: none; background: transparent; }
 }
 .ctx-item.ctx-blink { animation: ctx-blink 0.25s ease 2; }
 
+/* ════ OBJECT PREVIEW POPUP ════ */
+.obj-preview {
+  position: fixed;
+  z-index: 3100;
+  display: none;
+  background: rgba(44,42,38,0.07);
+  border: 1.5px solid rgba(44,42,38,0.22);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  padding: 10px;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-100%);
+}
+/* 右上表示時：足を左下に */
+.obj-preview.tail-left::after {
+  left: 20px;
+  transform: none;
+}
+.obj-preview.tail-left::before {
+  left: 21px;
+  transform: none;
+}
+
 /* ════════════════════════════════════════════
    YEAR-MONTH DRUM PICKER
 ════════════════════════════════════════════ */
@@ -1044,7 +1067,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v562</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v571</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1211,9 +1234,9 @@ button:focus-visible { outline: none; background: transparent; }
 
 <!-- ══ CLIP VIEWER ══ -->
 <!-- ══ CLIP NAME MODAL ══ -->
-<div id="clip-name-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;">
+<div id="clip-name-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
   <div style="background:var(--surface);border-radius:16px;padding:24px 20px;width:min(320px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:16px;">
-    <div style="font-size:15px;font-weight:700;color:var(--ink);">表示名を入力</div>
+    <div id="clip-name-title" style="font-size:15px;font-weight:700;color:var(--ink);">表示名を入力</div>
     <input id="clip-name-input" type="text" placeholder="表示名（省略可）"
       style="font-size:15px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;color:var(--ink);background:var(--bg);width:100%;box-sizing:border-box;">
     <div style="display:flex;gap:10px;justify-content:flex-end;">
@@ -1336,7 +1359,7 @@ button:focus-visible { outline: none; background: transparent; }
     <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>プレビュー
   </div>
   <div class="ctx-item" id="dctx-edit" style="display:none">
-    <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>表示名を編集
+    <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>編集
   </div>
   <!-- クリップ編集・クリップツール選択時のファイル選択用 -->
   <input type="file" id="clip-file-input" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style="display:none;">
@@ -1360,16 +1383,8 @@ button:focus-visible { outline: none; background: transparent; }
 </div>
 
 <!-- ══ CLIP TOOLTIP ══ -->
-<div id="clip-tooltip" style="
-  display:none;position:fixed;z-index:3000;
-  background:rgba(30,28,26,.88);color:#fff;
-  font-size:13px;font-weight:600;font-family:var(--font-body);
-  padding:6px 12px;border-radius:8px;
-  box-shadow:0 2px 10px rgba(0,0,0,.3);
-  pointer-events:none;white-space:pre-wrap;max-width:200px;
-  line-height:1.4;
-  transform:translateX(-50%);
-"></div>
+<!-- ══ OBJECT PREVIEW POPUP ══ -->
+<div id="obj-preview-popup" class="obj-preview"></div>
 
 <!-- ══ TRANSITION LAYER ══ -->
 <canvas id="transition-canvas" style="
@@ -1662,7 +1677,7 @@ const I18N = {
     pdfError:    'Failed to load PDF',
     // day screen context menu (extra)
     preview:         'Preview',
-    editDisplayName: 'Edit name',
+    editDisplayName: 'Edit',
     // clip name modal
     clipNameTitle:       'Enter display name',
     clipNamePlaceholder: 'Display name (optional)',
@@ -1708,7 +1723,7 @@ const I18N = {
     pdfError:    'PDFの読み込みに失敗しました',
     // day screen context menu (extra)
     preview:         'プレビュー',
-    editDisplayName: '表示名を編集',
+    editDisplayName: '編集',
     // clip name modal
     clipNameTitle:       '表示名を入力',
     clipNamePlaceholder: '表示名（省略可）',
@@ -4052,7 +4067,7 @@ function showClipNameModal(onOk, initialValue = '', onCancel = null) {
   const l = L();
 
   // 言語切り替えに対応して毎回テキストを更新
-  modal.querySelector('div > div').textContent = l.clipNameTitle;
+  $id('clip-name-title').textContent = l.clipNameTitle;
   input.placeholder = l.clipNamePlaceholder;
   cancelBtn.textContent = l.cancel;
 
@@ -4354,7 +4369,7 @@ function onCellPointerDown(e, el, desc) {
 
   // ② オブジェクトヒット → 選択・ドラッグ・長押し
   const hitObj = findMiniHitObj(objs, lx, ly, desc.key);
-  if (hitObj) { handleObjHit(e, desc.key, hitObj); return; }
+  if (hitObj) { handleObjHit(e, desc.key, hitObj, mc); return; }
 
   // ③ 空白タップ → ヘッダーか描画領域かで処理を分岐
   Cal.selObjId = null; Cal.selCellKey = null;
@@ -4417,7 +4432,7 @@ function findMiniHitObj(objs, lx, ly, key) {
 }
 
 // オブジェクトヒット時：即選択 → ドラッグ or 長押しメニュー待機
-function handleObjHit(e, key, obj) {
+function handleObjHit(e, key, obj, mc) {
   Cal.selCellKey = key;
   Cal.selObjId   = obj.id;
   renderMiniCanvases();
@@ -4440,6 +4455,10 @@ function handleObjHit(e, key, obj) {
     document.removeEventListener('pointerup',   onUp);
     document.removeEventListener('touchend',    onTouchUp, true);
     upBeforeTimer = true;
+    // 短タップ → 次フレームでプレビュー表示（pointerdownによる即消しを回避）
+    requestAnimationFrame(() => {
+      window._showObjPreview && _showObjPreview(obj, e.clientX, e.clientY, mc);
+    });
   };
 
   const onUp     = () => doUp();
@@ -4450,6 +4469,7 @@ function handleObjHit(e, key, obj) {
     document.removeEventListener('pointermove', onTryDrag);
     document.removeEventListener('pointerup',   onUp);
     document.removeEventListener('touchend',    onTouchUp, true);
+    window._hideObjPreview && _hideObjPreview();
 
     if (upBeforeTimer) {
       // 既に指が離れていた → 即メニュー
@@ -4943,8 +4963,12 @@ function startCalDrag(e, srcKey, obj, onNoMove = null) {
 
       const r   = dstMc.getBoundingClientRect();
       const sc2 = Math.min(dstMc.width / CANVAS_SRC, dstMc.height / CANVAS_SRC);
-      const nx  = (cx - r.left) / r.width  * (dstMc.width  / sc2);
-      const ny  = (cy - r.top)  / r.height * (dstMc.height / sc2);
+      const rawNx = (cx - r.left) / r.width  * (dstMc.width  / sc2);
+      const rawNy = (cy - r.top)  / r.height * (dstMc.height / sc2);
+      // D案：ヘッダー裏に隠れないようキャンバス論理座標内にクランプ
+      const MARGIN = CANVAS_SRC * 0.05; // 端から最低5%のマージン
+      const nx = Math.max(MARGIN, Math.min(CANVAS_SRC - MARGIN, rawNx));
+      const ny = Math.max(MARGIN, Math.min(CANVAS_SRC - MARGIN, rawNy));
 
       if (dstKey === calDragInfo.srcKey) {
         const origObj = clone(movingObj);
@@ -5355,7 +5379,7 @@ function openObjCtx(clientX, clientY, key, objId) {
 
   // クリップオブジェクトの場合は吹き出し表示
   if (obj?.type === 'clip' && obj.displayName) {
-    window._showClipTooltipForMenu && _showClipTooltipForMenu(obj.displayName, clientX, clientY - 48);
+    window._showClipTooltipForMenu && _showClipTooltipForMenu(obj, clientX, clientY, null);
   }
 }
 
@@ -5465,7 +5489,20 @@ function execDayObjAction(action) {
 
 // クリップ編集：clickイベント内でinput.clickを呼ぶ（blinkAndExecより先に登録）
 blinkAndExec('dctx-preview', () => execDayObjAction('preview'));
-blinkAndExec('dctx-edit',    () => execDayObjAction('edit'));
+// dctx-edit はブリンクなし（iOS Safari の input.click() 制約対応）
+$id('dctx-edit').addEventListener('click', () => {
+  const objId = $id('ctx-day-obj')._targetObjId;
+  const obj   = objId ? Draw.objects.find(o => o.id === objId) : null;
+  if (!obj) { closeContextMenus(); return; }
+  closeContextMenus();
+  if (obj.type === 'text') {
+    showTextInput(obj.x, obj.y, obj);
+  } else if (obj.type === 'clip') {
+    const fileInput = $id('clip-file-input');
+    fileInput._changeTargetObjId = obj.id;
+    fileInput.click();
+  }
+});
 blinkAndExec('dctx-cut',     () => execDayObjAction('cut'));
 blinkAndExec('dctx-paste',   () => execDayObjAction('paste'));
 blinkAndExec('dctx-delete',  () => execDayObjAction('delete'));
@@ -5961,32 +5998,16 @@ renderTabs();
 renderCalendar();
 renderOpts();
 
-/* ════ CLIP TOOLTIP（PC：マウスオン500ms / タブレット：長押しコンテクストメニューと同時表示） ════ */
+/* ════ PC HOVER PREVIEW（全オブジェクト対応）→ _showObjPreview に統一 ════ */
 (function() {
-  const tooltip = $id('clip-tooltip');
   let _hoverTimer = null;
-  let _currentClipId = null;
+  let _currentObjId = null;
 
-  function showTooltip(name, x, y) {
-    if (!name) return;
-    tooltip.textContent = name;
-    tooltip.style.display = 'block';
-    // 吹き出しをカーソルの上に表示
-    tooltip.style.left = x + 'px';
-    tooltip.style.top  = (y - 48) + 'px';
-  }
-
-  function hideTooltip() {
-    tooltip.style.display = 'none';
-    _currentClipId = null;
-  }
-
-  // PCホバー：cal-grid-area上のmousemoveでヒットテスト
   const area = $id('cal-grid-area');
 
   area.addEventListener('mousemove', e => {
     const mc = e.target.closest('canvas[data-key]');
-    if (!mc) { clearTimeout(_hoverTimer); hideTooltip(); return; }
+    if (!mc) { clearTimeout(_hoverTimer); window._hideObjPreview && _hideObjPreview(); _currentObjId = null; return; }
 
     const key  = mc.dataset.key;
     const r    = mc.getBoundingClientRect();
@@ -5994,37 +6015,176 @@ renderOpts();
     const lx   = (e.clientX - r.left) / r.width  * (mc.width  / sc);
     const ly   = (e.clientY - r.top)  / r.height * (mc.height / sc);
     const objs = getCellObjs(key);
-    const hit  = objs.slice().reverse().find(o => o.type === 'clip' && miniHitObj(o, lx, ly));
+    // 全オブジェクトをヒットテスト（前面優先）
+    const hit  = objs.slice().reverse().find(o => miniHitObj(o, lx, ly));
 
-    if (!hit) { clearTimeout(_hoverTimer); hideTooltip(); return; }
-    if (hit.id === _currentClipId) { // 同じアイコン上 → 位置更新のみ
-      if (tooltip.style.display === 'block') {
-        tooltip.style.left = e.clientX + 'px';
-        tooltip.style.top  = (e.clientY - 48) + 'px';
-      }
-      return;
-    }
+    if (!hit) { clearTimeout(_hoverTimer); window._hideObjPreview && _hideObjPreview(); _currentObjId = null; return; }
+    if (hit.id === _currentObjId) return; // 同じオブジェクト上 → 何もしない
 
-    // 別のアイコンに移動 → タイマーリセット
     clearTimeout(_hoverTimer);
-    hideTooltip();
-    _currentClipId = hit.id;
+    window._hideObjPreview && _hideObjPreview();
+    _currentObjId = hit.id;
     _hoverTimer = setTimeout(() => {
-      showTooltip(hit.displayName, e.clientX, e.clientY);
+      window._showObjPreview && _showObjPreview(hit, e.clientX, e.clientY, mc);
     }, 500);
   });
 
   area.addEventListener('mouseleave', () => {
     clearTimeout(_hoverTimer);
-    hideTooltip();
+    window._hideObjPreview && _hideObjPreview();
+    _currentObjId = null;
   });
 
-  // 長押しコンテクストメニュー表示と同時に吹き出し表示
-  window._showClipTooltipForMenu = function(name, x, y) {
-    if (!name) return;
-    showTooltip(name, x, y);
+  // 長押しコンテクストメニューと同時表示 → _showObjPreview に統一
+  window._showClipTooltipForMenu = function(obj, x, y, mc) {
+    if (!obj) return;
+    window._showObjPreview && _showObjPreview(obj, x, y, mc);
   };
-  window._hideClipTooltip = hideTooltip;
+  window._hideClipTooltip = function() {
+    window._hideObjPreview && _hideObjPreview();
+  };
+})();
+
+/* ════ OBJECT PREVIEW POPUP｜カレンダー画面オブジェクト短タッププレビュー ════ */
+(function() {
+  const POPUP_SIZE = 240; // ポップアップ内キャンバスの一辺(px)（1.5倍）
+  const SHOW_MS    = 1500; // 自動非表示までの時間(ms)
+  let _timer = null;
+
+  function hidePreview() {
+    clearTimeout(_timer);
+    _timer = null;
+    const popup = $id('obj-preview-popup');
+    popup.style.display = 'none';
+    popup.innerHTML = '';
+  }
+
+  function showPreview(obj, clientX, clientY, mc) {
+    hidePreview();
+    const popup = $id('obj-preview-popup');
+    popup.innerHTML = '';
+
+    if (obj.type === 'clip') {
+      // クリップ：表示名テキスト
+      if (!obj.displayName) return;
+      const span = document.createElement('span');
+      span.style.cssText = 'font-size:14px;font-weight:600;color:var(--ink);white-space:pre-wrap;max-width:200px;display:block;';
+      span.textContent = obj.displayName;
+      popup.appendChild(span);
+    } else {
+      // ペン・テキスト・スティッカー：ミニキャンバスで拡大描画
+      const cvs = document.createElement('canvas');
+      cvs.width  = POPUP_SIZE;
+      cvs.height = POPUP_SIZE;
+      cvs.style.cssText = `width:${POPUP_SIZE}px;height:${POPUP_SIZE}px;display:block;border-radius:6px;`;
+      popup.appendChild(cvs);
+
+      const c = cvs.getContext('2d');
+      c.clearRect(0, 0, POPUP_SIZE, POPUP_SIZE);
+
+      // オブジェクトのバウンディングボックスを論理座標で取得
+      let bx0, by0, bx1, by1;
+      if (obj.type === 'pen') {
+        const pts = obj.paths.flatMap(p => p.points);
+        if (pts.length === 0) return;
+        bx0 = Math.min(...pts.map(p => p.x));
+        by0 = Math.min(...pts.map(p => p.y));
+        bx1 = Math.max(...pts.map(p => p.x));
+        by1 = Math.max(...pts.map(p => p.y));
+      } else if (obj.type === 'text') {
+        const lines = (obj.text || '').split('\n');
+        const fontSize = obj.size || 16;
+        c.font = `${fontSize}px 'Noto Sans JP',sans-serif`;
+        const tw = Math.max(...lines.map(l => c.measureText(l).width));
+        const th = lines.length * fontSize * 1.35;
+        bx0 = obj.x; by0 = obj.y;
+        bx1 = obj.x + tw; by1 = obj.y + th;
+      } else if (obj.type === 'sticker') {
+        const sz = obj.size || 44;
+        bx0 = obj.x - sz/2; by0 = obj.y - sz/2;
+        bx1 = obj.x + sz/2; by1 = obj.y + sz/2;
+      }
+      const bw = Math.max(bx1 - bx0, 1), bh = Math.max(by1 - by0, 1);
+      const pad = 8;
+      const sc  = Math.min((POPUP_SIZE - pad*2) / bw, (POPUP_SIZE - pad*2) / bh);
+      const ox  = pad + (POPUP_SIZE - pad*2 - bw*sc) / 2 - bx0*sc;
+      const oy  = pad + (POPUP_SIZE - pad*2 - bh*sc) / 2 - by0*sc;
+
+      c.save();
+      c.translate(ox, oy);
+      c.scale(sc, sc);
+      drawObj(c, obj, 1);
+      c.restore();
+    }
+
+    // オブジェクトのスクリーン上の左上座標を計算
+    const POPUP_W = POPUP_SIZE + 24; // padding込みの概算幅
+    const GAP = 16; // オブジェクトとポップアップの間隔
+
+    let anchorX = clientX;
+    let anchorY = clientY;
+    let onLeft  = false;
+
+    if (mc) {
+      const r    = mc.getBoundingClientRect();
+      const scX  = r.width  / CANVAS_SRC; // 論理→スクリーンX変換係数
+      const scY  = r.height / CANVAS_SRC; // 論理→スクリーンY変換係数
+
+      // オブジェクトのスクリーン左上を求める
+      let objLeft = r.left, objTop = r.top;
+      if (obj.type === 'pen') {
+        const pts = obj.paths.flatMap(p => p.points);
+        if (pts.length > 0) {
+          const lx0 = Math.min(...pts.map(p => p.x));
+          const ly0 = Math.min(...pts.map(p => p.y));
+          objLeft = r.left + lx0 * scX;
+          objTop  = r.top  + ly0 * scY;
+        }
+      } else if (obj.x !== undefined) {
+        const halfSz = (obj.size || 44) / 2;
+        objLeft = r.left + (obj.x - halfSz) * scX;
+        objTop  = r.top  + (obj.y - halfSz) * scY;
+      }
+
+      // 画面左端に近い場合は右上に
+      onLeft = objLeft - POPUP_W - GAP < 8;
+      if (onLeft) {
+        // 右上：オブジェクト右端の右側の上
+        const halfSzX = (obj.size || 44) / 2;
+        const objRight = (obj.x !== undefined)
+          ? r.left + (obj.x + halfSzX) * scX
+          : objLeft + 40;
+        anchorX = objRight + GAP;
+        anchorY = objTop;
+      } else {
+        // 左上：オブジェクト左端の上
+        anchorX = objLeft;
+        anchorY = objTop;
+      }
+    }
+
+    // CSS: transform で anchor に対して位置調整
+    if (onLeft) {
+      popup.classList.add('tail-left');
+      popup.style.transform = 'translateY(-100%)';
+    } else {
+      popup.classList.remove('tail-left');
+      popup.style.transform = 'translateX(-50%) translateY(-100%)';
+    }
+    popup.style.left    = anchorX + 'px';
+    popup.style.top     = (anchorY - GAP) + 'px';
+    popup.style.display = 'block';
+
+    _timer = setTimeout(hidePreview, SHOW_MS);
+  }
+
+  // pointerdownで消す
+  document.addEventListener('pointerdown', () => {
+    if (_timer) hidePreview();
+  }, { capture: true, passive: true });
+
+  window._showObjPreview = showPreview;
+  window._hideObjPreview = hidePreview;
 })();
 updateI18nDOM();
 
