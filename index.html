@@ -1176,7 +1176,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v672</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v674</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -2576,6 +2576,19 @@ cvs.addEventListener('dblclick', e=>{
 
 // prevent browser gestures
 cvs.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+
+// 右クリックで日付詳細オブジェクトのコンテクストメニュー
+cvs.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (S.tool !== 'select') return;
+  const lp = toLogical(e.clientX, e.clientY);
+  const found = [...Draw.objects].reverse().find(o => !o._hidden && hitObj(o, lp.x, lp.y));
+  if (found) {
+    Draw.selId = found.id;
+    redraw();
+    openDayObjCtx(e.clientX, e.clientY, found.id);
+  }
+});
 
 Draw._pinching = false;
 
@@ -4599,6 +4612,17 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
         renderSpanOverlay();
         addResizeButtons(ev);
       });
+      path.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!SpanMode.active) return;
+        SpanMode.selectedSpanId = ev.id;
+        SpanMode.colorPicked    = false;
+        document.querySelectorAll('#span-palette .swatch').forEach(s => s.classList.remove('on'));
+        renderSpanOverlay();
+        addResizeButtons(ev);
+        openSpanTabCtx(e.clientX, e.clientY, ev.id);
+      });
     }
     svg.appendChild(path);
 
@@ -4679,6 +4703,14 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
         tabLeft = x1 + Math.max(0, Math.min(tabMaxPx, rawOffset));
       }
       tab.style.left = tabLeft + 'px';
+
+      // タブ右クリックでコンテクストメニュー
+      tab.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!SpanMode.active) return;
+        openSpanTabCtx(e.clientX, e.clientY, ev.id);
+      });
 
       // タブD&D（左右のみ）
       tab.addEventListener('pointerdown', e => {
@@ -4826,8 +4858,7 @@ function openSpanTabCtx(clientX, clientY, spanId) {
 }
 
 /** 期間タブコンテクストメニュー操作 */
-$id('sctx-rename').addEventListener('click', () => {
-  closeContextMenus();
+blinkAndExec('sctx-rename', () => {
   const spanId = SpanMode.ctxSpanId;
   if (!spanId) return;
   const events = getSpanEvents();
@@ -4841,8 +4872,7 @@ $id('sctx-rename').addEventListener('click', () => {
   }, null, ev.name);
 });
 
-$id('sctx-delete').addEventListener('click', () => {
-  closeContextMenus();
+blinkAndExec('sctx-delete', () => {
   const spanId = SpanMode.ctxSpanId;
   if (!spanId) return;
   const events = getSpanEvents().filter(e => e.id !== spanId);
@@ -6260,8 +6290,9 @@ function openCellCtx(e, key) {
   const m       = $id('ctx-cell');
   const isEmpty = getCellObjs(key).length === 0;
 
-  m.style.left = e.clientX + 'px';
-  m.style.top  = e.clientY + 'px';
+  const mw = 220, mh = 200;
+  m.style.left = Math.min(e.clientX, window.innerWidth  - mw - 8) + 'px';
+  m.style.top  = Math.min(e.clientY, window.innerHeight - mh - 8) + 'px';
 
   // 空セルはコピー・カット・削除を非表示
   $id('cctx-copy').style.display        = isEmpty ? 'none' : '';
