@@ -209,7 +209,8 @@ button:focus-visible { outline: none; background: transparent; }
   border-color: rgba(44,42,38,.35);
   font-weight: 600;
   z-index: 2;
-  box-shadow: -2px -3px 8px rgba(0,0,0,.08), 2px -3px 8px rgba(0,0,0,.08);
+  box-shadow: -2px -6px 6px rgba(0,0,0,.08), 2px -6px 6px rgba(0,0,0,.08);
+  clip-path: inset(-20px -20px 0 -20px);
 }
 /* アクティブタブ直下の罫線消し（JS制御） */
 #cal-tab-border-eraser {
@@ -347,6 +348,14 @@ button:focus-visible { outline: none; background: transparent; }
 }
 .span-bar-dot:active { transform: scale(1.25); }
 #cal-screen { overflow: visible; position: relative; }
+/* 期間ドット押下時のセル黒塗りオーバーレイ */
+#span-cell-blackout {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
 
 .cal-grid {
   display: grid;
@@ -1218,6 +1227,7 @@ button:focus-visible { outline: none; background: transparent; }
     </div>
   </div>
   <div class="cal-grid-area" id="cal-grid-area" style="position:relative;">
+    <div id="span-cell-blackout"></div>
     <svg id="span-overlay"></svg>
     <div id="span-tab-layer" style="position:absolute;top:0;left:0;width:100%;height:0;pointer-events:none;z-index:15;"></div>
     <div class="cal-weekdays" id="cal-wd"></div>
@@ -4496,11 +4506,50 @@ function renderSpanOverlay() {
  *  activeColor: 不透明にする色（null = 全て半透明に戻す）
  *  selectedId:  期間設定モード時の選択中ID（null以外の場合は選択状態を優先）
  */
-function setSpanOpacity(activeColor, selectedId = null) {
+/** 対象色以外のセルを黒で塗りつぶす（null で解除） */
+function setSpanCellBlackout(activeColor) {
+  const container = $id('span-cell-blackout');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!activeColor) return;
+
+  const events = getSpanEvents();
+  // 対象色の期間枠が占めるセルキーを収集
+  const activeCellKeys = new Set();
+  events.forEach(ev => {
+    if (ev.color !== activeColor) return;
+    getKeysBetween(ev.startKey, ev.endKey).forEach(k => activeCellKeys.add(k));
+  });
+
+  const area = $id('cal-grid-area');
+  const ar = area.getBoundingClientRect();
+
+  // 通常セル（キーあり）
+  const allKeys = getVisibleKeys();
+  allKeys.forEach(key => {
+    if (activeCellKeys.has(key)) return;
+    const r = getCellRect(key);
+    if (!r) return;
+    const el = document.createElement('div');
+    el.style.cssText = `position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:#000;`;
+    container.appendChild(el);
+  });
+
+  // blankセル（メモ用・日付なし）も黒塗り
+  document.querySelectorAll('.cal-cell.is-blank').forEach(cell => {
+    const cr = cell.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.style.cssText = `position:absolute;left:${cr.left - ar.left}px;top:${cr.top - ar.top}px;width:${cr.width}px;height:${cr.height}px;background:#000;`;
+    container.appendChild(el);
+  });
+}
+
+function setSpanOpacity(activeColor, selectedId = null, hideOthers = false) {
   const svg      = $id('span-overlay');
   const tabLayer = $id('span-tab-layer');
   const bar      = $id('cal-span-bar');
   const events   = getSpanEvents();
+  const inactiveOpacity = hideOthers ? '0' : '0.45';
 
   // 期間枠（span-rect）のopacity
   if (svg) {
@@ -4514,7 +4563,7 @@ function setSpanOpacity(activeColor, selectedId = null) {
       } else if (activeColor !== null) {
         opaque = (ev.color === activeColor);
       }
-      path.style.opacity = opaque ? '1' : '0.45';
+      path.style.opacity = opaque ? '1' : inactiveOpacity;
     });
   }
 
@@ -4530,7 +4579,7 @@ function setSpanOpacity(activeColor, selectedId = null) {
       } else if (activeColor !== null) {
         opaque = (ev.color === activeColor);
       }
-      tab.style.opacity = opaque ? '1' : '0.45';
+      tab.style.opacity = opaque ? '1' : inactiveOpacity;
     });
   }
 
@@ -4540,13 +4589,12 @@ function setSpanOpacity(activeColor, selectedId = null) {
       const dotColor = dot.dataset.color;
       let opaque = false;
       if (selectedId !== null) {
-        // 選択中の期間枠の色と一致するドットを不透明に
         const selEv = events.find(e => e.id === selectedId);
         opaque = selEv ? (dotColor === selEv.color) : false;
       } else if (activeColor !== null) {
         opaque = (dotColor === activeColor);
       }
-      dot.style.opacity = opaque ? '1' : '0.45';
+      dot.style.opacity = opaque ? '1' : inactiveOpacity;
     });
   }
 }
@@ -4573,11 +4621,12 @@ function renderSpanBar() {
     // ポインターダウン中：同色を不透明に（ドット・期間枠・タブ連動）
     dot.addEventListener('pointerdown', e => {
       e.stopPropagation();
-      setSpanOpacity(color, SpanMode.active ? SpanMode.selectedSpanId : null);
+      setSpanOpacity(color, SpanMode.active ? SpanMode.selectedSpanId : null, true);
+      if (SpanMode.active) setSpanCellBlackout(color);
       const onUp = () => {
-        // 期間設定モードは選択状態を維持、カレンダーモードは全て戻す
         if (SpanMode.active) {
           setSpanOpacity(null, SpanMode.selectedSpanId);
+          setSpanCellBlackout(null);
         } else {
           setSpanOpacity(null, null);
         }
@@ -7311,7 +7360,7 @@ $id('btn-span').addEventListener('click', e => {
     $id('cal-nav-right').style.visibility = 'hidden';
 
     setHeaderColor(SPAN_MODE_HEADER_COLOR);
-    $id('cal-header-nav').style.boxShadow = '-2px -3px 8px rgba(0,0,0,.12), 2px -3px 8px rgba(0,0,0,.12)';
+    $id('cal-header-nav').style.boxShadow = '-2px -6px 6px rgba(0,0,0,.12), 2px -6px 6px rgba(0,0,0,.12)';
     $id('hdr-month').style.color = '#fff';
     $id('hdr-year').style.color  = '#fff';
     $id('btn-prev').style.color  = '#fff';
@@ -7319,7 +7368,8 @@ $id('btn-span').addEventListener('click', e => {
     document.querySelectorAll('.cal-tab').forEach(t => {
       t.style.color       = '#fff';
       t.style.borderColor = 'transparent';
-      t.style.boxShadow   = '-2px -3px 8px rgba(0,0,0,.12), 2px -3px 8px rgba(0,0,0,.12)';
+      t.style.boxShadow   = '-2px -6px 6px rgba(0,0,0,.12), 2px -6px 6px rgba(0,0,0,.12)';
+      t.style.clipPath    = 'inset(-20px -20px 0 -20px)';
     });
     document.querySelectorAll('.cal-tab:not(.active)').forEach(t => t.style.display = 'none');
     renderSpanOverlay();
@@ -7415,6 +7465,7 @@ function exitSpanMode() {
     t.style.color       = '';
     t.style.borderColor = '';
     t.style.boxShadow   = '';
+    t.style.clipPath    = '';
     t.style.display     = '';
   });
   $id('cal-tabs').style.visibility = '';
