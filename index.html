@@ -4461,7 +4461,11 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
   for (let i = 1; i < keys.length; i++) {
     const prevRect = getCellRect(keys[i-1]);
     const currRect = getCellRect(keys[i]);
-    if (!prevRect || !currRect) continue;
+    if (!prevRect || !currRect) {
+      // DOMが未確定の場合は同じ行として扱う（スキップしない）
+      curRow.push(keys[i]);
+      continue;
+    }
     if (currRect.top > prevRect.top + prevRect.height / 2) {
       rows.push(curRow);
       curRow = [keys[i]];
@@ -4874,7 +4878,7 @@ function addResizeButtons(ev) {
   for (let i = 1; i < keys.length; i++) {
     const prevRect = getCellRect(keys[i-1]);
     const currRect = getCellRect(keys[i]);
-    if (!prevRect || !currRect) continue;
+    if (!prevRect || !currRect) { curRow.push(keys[i]); continue; }
     if (currRect.top > prevRect.top + prevRect.height / 2) {
       rows.push(curRow); curRow = [keys[i]];
     } else { curRow.push(keys[i]); }
