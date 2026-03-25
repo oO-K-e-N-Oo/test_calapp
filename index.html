@@ -106,6 +106,7 @@ button:focus-visible { outline: none; background: transparent; }
   flex-shrink: 0;
   outline: none;
   -webkit-appearance: none;
+  transition: color 0.2s ease;
 }
 @media (hover: hover) { .icon-btn:hover { background: var(--tool-hover); } }
 .icon-btn:focus,
@@ -114,6 +115,8 @@ button:focus-visible { outline: none; background: transparent; }
 .icon-btn:focus:not(:focus-visible) { outline: none; background: transparent; }
 .icon-btn svg         { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .icon-btn svg.filled  { fill: currentColor; stroke: none; }
+#btn-prev, #btn-next  { width: 68px; height: 51px; }
+#btn-prev svg, #btn-next svg { width: 36px; height: 27px; }
 
 /* ════════════════════════════════════════════
    SHARED — Undo/Redoボタン
@@ -154,10 +157,20 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-header-top {
   display: flex;
   align-items: flex-end;
-  padding: 0 12px 0 8px;
+  padding: 14px 12px 0 8px;
   border-bottom: 2px solid rgba(44,42,38,.35);
   position: relative;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, border-bottom-color 0.2s ease;
+}
+.cal-header-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  position: absolute;
+  right: 12px;
+  top: 0;
+  bottom: 0;
 }
 .cal-tabs {
   display: flex;
@@ -187,7 +200,7 @@ button:focus-visible { outline: none; background: transparent; }
   white-space: nowrap;
   position: relative;
   z-index: 0;
-  transition: background .12s, color .12s, border-color .12s;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .cal-tab:hover  { background: var(--tool-hover); color: var(--ink); }
 .cal-tab.active {
@@ -196,7 +209,7 @@ button:focus-visible { outline: none; background: transparent; }
   border-color: rgba(44,42,38,.35);
   font-weight: 600;
   z-index: 2;
-  box-shadow: -2px -2px 6px rgba(0,0,0,.08), 2px -2px 6px rgba(0,0,0,.08);
+  box-shadow: -2px -3px 8px rgba(0,0,0,.08), 2px -3px 8px rgba(0,0,0,.08);
 }
 /* アクティブタブ直下の罫線消し（JS制御） */
 #cal-tab-border-eraser {
@@ -205,6 +218,7 @@ button:focus-visible { outline: none; background: transparent; }
   background: var(--surface);
   z-index: 10;
   pointer-events: none;
+  transition: background 0.2s ease;
 }
 .cal-tab-input {
   font-size: 13px;
@@ -222,8 +236,11 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-header-nav {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
+  justify-content: center;
+  padding: 16px 16px;
   position: relative;
+  transition: background 0.2s ease;
+  box-shadow: -2px -6px 6px rgba(0,0,0,.08), 2px -6px 6px rgba(0,0,0,.08);
 }
 .cal-nav-left, .cal-nav-right {
   display: flex;
@@ -258,7 +275,7 @@ button:focus-visible { outline: none; background: transparent; }
 }
 .cal-title {
   font-family: var(--font-disp);
-  font-size: 22px;
+  font-size: 36px;
   font-weight: 700;
   letter-spacing: .02em;
   text-align: center;
@@ -267,8 +284,9 @@ button:focus-visible { outline: none; background: transparent; }
   gap: 6px;
   justify-content: center;
   white-space: nowrap;
+  transition: color 0.2s ease;
 }
-.cal-title-year { font-size: 13px; color: inherit; font-family: var(--font-body); font-weight: 700; }
+.cal-title-year { font-size: 18px; color: inherit; font-family: var(--font-body); font-weight: 700; }
 
 /* ════════════════════════════════════════════
    CALENDAR SCREEN — 曜日ヘッダー & グリッド
@@ -304,6 +322,30 @@ button:focus-visible { outline: none; background: transparent; }
   flex-shrink: 0;
   position: relative;
 }
+/* 期間枠バー */
+.cal-span-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--surface);
+  border: none;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 4px 12px;
+  position: relative;
+}
+.span-bar-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+  padding: 7px;
+  box-sizing: content-box;
+}
+.span-bar-dot:active { transform: scale(1.25); }
 #cal-screen { overflow: visible; position: relative; }
 
 .cal-grid {
@@ -329,7 +371,7 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-cell:active             { filter: brightness(.96); }
 .cal-cell.inactive           { background: var(--inactive-bg); pointer-events: none; }
 .cal-cell.is-blank           { background: var(--inactive-bg); }
-.cal-cell.today              { box-shadow: inset 0 0 0 2px var(--today-ring); }
+.cal-cell.today              { background: #fff8f0; }
 .cal-cell.is-sun             { background: var(--sun-bg); }
 .cal-cell.is-sat             { background: var(--sat-bg); }
 .cal-cell.is-hol             { background: var(--hol-bg); }
@@ -395,7 +437,7 @@ button:focus-visible { outline: none; background: transparent; }
 @keyframes slide-out-to-left   { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 @keyframes slide-out-to-right  { from { transform: translateX(0); } to { transform: translateX( 100%); } }
 
-.cal-grid-area.tab-switching { animation: cal-fadein 0.4s ease forwards; }
+.cal-grid-area.tab-switching { animation: cal-fadein 0.2s ease forwards; }
 
 .cal-grid.slide-in-right,
 .draw-slide-in-right  { animation: slide-in-from-right 0.4s cubic-bezier(.4,0,.2,1) forwards; }
@@ -856,26 +898,27 @@ button:focus-visible { outline: none; background: transparent; }
 .ctx-item.ctx-blink { animation: ctx-blink 0.25s ease 2; }
 
 /* ════ SPAN MODE｜期間設定 ════ */
-#btn-span { position: relative; align-self: center; background: #fff; border-color: rgba(44,42,38,.25); color: var(--ink); }
-#btn-span:hover { background: #fff; }
-#btn-span.active { background: #fff; border-color: rgba(44,42,38,.25); color: var(--ink); }
+#btn-span { position: relative; align-self: center; background: #fff; border-color: rgba(44,42,38,.5); color: var(--ink); border-width: 2.5px; transition: box-shadow .1s ease; }
+#btn-span.active { background: #ff8fab; border-color: #ff8fab; color: #fff; box-shadow: inset 2px 2px 4px rgba(0,0,0,.45); }
 #span-palette {
   display: none;
   position: absolute;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
   align-items: center;
   justify-content: center;
   gap: 10px;
   flex-wrap: nowrap;
-  padding: 4px 8px;
+  padding: 0 64px;
   overflow: visible;
   z-index: 420;
   pointer-events: none;
+  background: none;
 }
 #span-palette.open { display: flex; pointer-events: auto; }
-#span-palette .swatch { width: 22px; height: 22px; cursor: pointer; border-radius: 50%; border: 5px solid transparent; flex-shrink: 0; box-sizing: content-box; background-clip: padding-box; }
+#span-palette .swatch { width: 16px; height: 16px; cursor: pointer; border-radius: 50%; border: 4px solid transparent; flex-shrink: 0; box-sizing: content-box; background-clip: padding-box; }
 #span-palette .swatch.on { outline: 2.5px solid var(--ink); outline-offset: 2px; }
 
 /* SVGオーバーレイ */
@@ -1130,22 +1173,24 @@ button:focus-visible { outline: none; background: transparent; }
         <!-- JSで描画 -->
       </div>
       <div id="span-palette"></div>
-      <button class="today-pill-btn" id="btn-span" title="期間設定" style="margin-left:auto;flex-shrink:0;align-self:center;display:flex;align-items:center;justify-content:center;gap:4px;padding:4px 20px;position:relative;min-width:64px;">
-        <svg viewBox="0 0 36 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:18px;">
-          <polyline points="8 8 3 12 8 16"/>
-          <polyline points="28 8 33 12 28 16"/>
-          <line x1="3" y1="12" x2="33" y2="12"/>
-        </svg>
-      </button>
-      <button class="icon-btn" id="btn-settings" style="flex-shrink:0;align-self:center;margin-left:8px;">
+      <div class="cal-header-top-right">
+        <button class="today-pill-btn" id="btn-span" title="期間設定" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:4px 20px;position:relative;min-width:64px;">
+          <svg viewBox="0 0 36 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:18px;">
+            <polyline points="9 8 3 12 9 16"/>
+            <polyline points="27 8 33 12 27 16"/>
+            <line x1="3" y1="12" x2="33" y2="12"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-settings" style="margin-left:8px;">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
+        </button>
+      </div>
     </div>
     <!-- 下段：月ナビゲーション -->
-    <div class="cal-header-nav">
+    <div class="cal-header-nav" id="cal-header-nav">
       <div class="cal-nav-left">
       </div>
-      <div style="display:flex;align-items:center;gap:8px;position:relative;">
+      <div style="display:flex;align-items:center;gap:16px;position:relative;">
         <button class="icon-btn" id="btn-prev">
           <svg class="filled" viewBox="0 0 24 24"><path d="M18 5 Q19 5.5 19 6.5 L19 17.5 Q19 18.5 18 19 Q17 19 16 18 L8 13 Q7 12 8 11 L16 6 Q17 5 18 5 Z"/></svg>
         </button>
@@ -1158,7 +1203,11 @@ button:focus-visible { outline: none; background: transparent; }
         </button>
         <button class="today-pill-btn" id="btn-today-cal" onclick="goToThisMonth()" style="display:none;position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);white-space:nowrap;">Today</button>
       </div>
-      <div class="cal-nav-right" id="cal-nav-right">
+      <!-- cal-nav-rightをcal-span-barに移動したため、中央寄せ維持用のダミー -->
+      <div style="flex:1;"></div>
+    </div>
+    <div class="cal-span-bar" id="cal-span-bar">
+      <div class="cal-nav-right" id="cal-nav-right" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);">
         <button class="ur-btn" id="cal-btn-undo" disabled>
           <svg viewBox="0 0 24 24"><path d="M8 7H17a5 5 0 0 1 0 10H7"/><polyline points="11 4 8 7 11 10"/></svg>
         </button>
@@ -4437,6 +4486,108 @@ function renderSpanOverlay() {
       addResizeButtons(tempEv);
     }
   }
+
+  // 期間枠バーを更新し、選択状態に応じてopacityを連動
+  renderSpanBar();
+  setSpanOpacity(null, SpanMode.selectedSpanId || null);
+}
+
+/** 期間枠ドットと期間オブジェクトの不透明/半透明を連動して制御
+ *  activeColor: 不透明にする色（null = 全て半透明に戻す）
+ *  selectedId:  期間設定モード時の選択中ID（null以外の場合は選択状態を優先）
+ */
+function setSpanOpacity(activeColor, selectedId = null) {
+  const svg      = $id('span-overlay');
+  const tabLayer = $id('span-tab-layer');
+  const bar      = $id('cal-span-bar');
+  const events   = getSpanEvents();
+
+  // 期間枠（span-rect）のopacity
+  if (svg) {
+    svg.querySelectorAll('.span-rect').forEach(path => {
+      const spanId = path.dataset.spanId;
+      const ev = events.find(e => e.id === spanId);
+      if (!ev) return;
+      let opaque = false;
+      if (selectedId !== null) {
+        opaque = (ev.id === selectedId);
+      } else if (activeColor !== null) {
+        opaque = (ev.color === activeColor);
+      }
+      path.style.opacity = opaque ? '1' : '0.45';
+    });
+  }
+
+  // タブのopacity
+  if (tabLayer) {
+    tabLayer.querySelectorAll('.span-tab').forEach(tab => {
+      const spanId = tab.dataset.spanId;
+      const ev = events.find(e => e.id === spanId);
+      if (!ev) return;
+      let opaque = false;
+      if (selectedId !== null) {
+        opaque = (ev.id === selectedId);
+      } else if (activeColor !== null) {
+        opaque = (ev.color === activeColor);
+      }
+      tab.style.opacity = opaque ? '1' : '0.45';
+    });
+  }
+
+  // ドットのopacity
+  if (bar) {
+    bar.querySelectorAll('.span-bar-dot').forEach(dot => {
+      const dotColor = dot.dataset.color;
+      let opaque = false;
+      if (selectedId !== null) {
+        // 選択中の期間枠の色と一致するドットを不透明に
+        const selEv = events.find(e => e.id === selectedId);
+        opaque = selEv ? (dotColor === selEv.color) : false;
+      } else if (activeColor !== null) {
+        opaque = (dotColor === activeColor);
+      }
+      dot.style.opacity = opaque ? '1' : '0.45';
+    });
+  }
+}
+
+/** 期間枠バーを描画 */
+function renderSpanBar() {
+  const bar = $id('cal-span-bar');
+  if (!bar) return;
+  // ドット要素のみ削除（cal-nav-rightは保持）
+  bar.querySelectorAll('.span-bar-dot').forEach(d => d.remove());
+
+  const events = getSpanEvents();
+  if (events.length === 0) return;
+
+  // 同色はまとめて1つのドット
+  const uniqueColors = [...new Set(events.map(ev => ev.color))];
+
+  uniqueColors.forEach(color => {
+    const dot = document.createElement('div');
+    dot.className = 'span-bar-dot';
+    dot.style.background = color;
+    dot.dataset.color = color;
+
+    // ポインターダウン中：同色を不透明に（ドット・期間枠・タブ連動）
+    dot.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      setSpanOpacity(color, SpanMode.active ? SpanMode.selectedSpanId : null);
+      const onUp = () => {
+        // 期間設定モードは選択状態を維持、カレンダーモードは全て戻す
+        if (SpanMode.active) {
+          setSpanOpacity(null, SpanMode.selectedSpanId);
+        } else {
+          setSpanOpacity(null, null);
+        }
+        document.removeEventListener('pointerup', onUp);
+      };
+      document.addEventListener('pointerup', onUp, { once: true });
+    });
+
+    bar.appendChild(dot);
+  });
 }
 
 /** グリッドコンテキストを構築（全可視キーのインデックスマップ） */
@@ -4611,8 +4762,6 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
         e.stopPropagation();
         if (!SpanMode.active) return;
         SpanMode.selectedSpanId = ev.id;
-        SpanMode.colorPicked    = false;
-        document.querySelectorAll('#span-palette .swatch').forEach(s => s.classList.remove('on'));
         renderSpanOverlay();
         addResizeButtons(ev);
       });
@@ -4621,8 +4770,6 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
         e.stopPropagation();
         if (!SpanMode.active) return;
         SpanMode.selectedSpanId = ev.id;
-        SpanMode.colorPicked    = false;
-        document.querySelectorAll('#span-palette .swatch').forEach(s => s.classList.remove('on'));
         renderSpanOverlay();
         addResizeButtons(ev);
         openSpanTabCtx(e.clientX, e.clientY, ev.id);
@@ -4720,8 +4867,6 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
       tab.addEventListener('pointerdown', e => {
         e.stopPropagation();
         SpanMode.selectedSpanId = ev.id;
-        SpanMode.colorPicked    = false;
-        document.querySelectorAll('#span-palette .swatch').forEach(s => s.classList.remove('on'));
         renderSpanOverlay(); // 即不透明化（タブが再生成される）
         addResizeButtons(ev);
 
@@ -4818,24 +4963,26 @@ function _followTabForEndResize(ev, currentEndKey) {
   if (!endRect || !startRect) return;
 
   // タブはstartKeyの行に属する → startRectとendRectが同じ行かで判定
-  // （タブのstyle.topはセルより26px上なので使わない）
   const startRowTop    = startRect.top;
   const startRowBottom = startRect.bottom;
   const sameRow = endRect.top < startRowBottom && endRect.bottom > startRowTop;
 
-  // タブのcal-grid-area相対left
-  const tabLeft = parseFloat(tabEl.style.left);
-  const endIsLeft = endRect.right < tabLeft;
+  if (sameRow) {
+    const PAD     = 3.75;
+    const tabLeft = parseFloat(tabEl.style.left);
+    const tabW    = tabEl.offsetWidth;
 
-  if (sameRow && endIsLeft) {
-    const PAD = 3;
-    const newLeft = endRect.left + PAD;
-    tabEl.style.left = newLeft + 'px';
-    ev.tabOffset = newLeft - (startRect.left + PAD);
+    // ▶ボタンがタブ左辺より左 → タブを終点セル右端にクランプ（視覚追従のみ・tabOffsetはonUpで確定）
+    if (endRect.right < tabLeft) {
+      const newLeft = Math.max(startRect.left + PAD,
+                               endRect.right - PAD - tabW);
+      tabEl.style.left = newLeft + 'px';
+      // ev.tabOffsetはonUpで確定するため、ここでは更新しない
+    }
   }
 
-  // 行が変わった場合はY座標も追従
-  tabEl.style.top = (startRect.top - 26) + 'px';
+  // Y座標は常にstartKeyの行に追従（renderOneSpanと同じ PAD=3.75 を使用）
+  tabEl.style.top = (startRect.top + 3.75 - 26) + 'px';
 }
 
 /** リサイズ中のタブ追従ヘルパー（start側） */
@@ -4844,9 +4991,9 @@ function _followTabForStartResize(ev, currentStartKey) {
   if (!tabEl) return;
   const startRect = getCellRect(currentStartKey);
   if (!startRect) return;
-  const PAD = 3;
+  const PAD = 3.75;
   tabEl.style.left = (startRect.left + PAD) + 'px';
-  tabEl.style.top  = (startRect.top  - 26) + 'px';
+  tabEl.style.top  = (startRect.top  + PAD - 26) + 'px';
   ev.tabOffset = 0;
 }
 
@@ -4885,7 +5032,7 @@ function addResizeButtons(ev) {
   }
   rows.push(curRow);
 
-  const PAD = 1, BTN_R = 14;
+  const PAD = 3.75, BTN_R = 14;
   const color = ev.color;
 
   rows.forEach((rowKeys, rowIdx) => {
@@ -4970,7 +5117,8 @@ function startResizeDrag(el, ev, which) {
               SpanMode.resizeKey = newEndKey;
               const startRect = getCellRect(ev.startKey);
               const tabEl = $id('span-tab-layer').querySelector(`[data-span-id="${ev.id}"]`);
-              if (tabEl && startRect) tabEl.style.left = (startRect.left + 3) + 'px';
+              if (tabEl && startRect) tabEl.style.left = (startRect.left + 3.75) + 'px';
+              if (newEndKey === ev.startKey) ev.tabOffset = 0; // 最短1日になった場合リセット
               renderSpanOverlay();
             }
             return;
@@ -5012,8 +5160,18 @@ function startResizeDrag(el, ev, which) {
         if (newIdx < 0 || newIdx < startIdx) return;
         SpanMode.resizeKey = k;
         renderSpanOverlay();
-        // タブ追従（終点が同じ行かつタブより左側なら追従）
-        _followTabForEndResize(ev, k);
+        // 最短（1日）の場合はタブを左端に移動してtabOffsetをリセット
+        if (k === ev.startKey) {
+          const tabEl2 = $id('span-tab-layer').querySelector(`[data-span-id="${ev.id}"]`);
+          const startRect2 = getCellRect(ev.startKey);
+          if (tabEl2 && startRect2) {
+            tabEl2.style.left = (startRect2.left + 3.75) + 'px';
+          }
+          ev.tabOffset = 0; // 以降のonUpでsavedOffset=0として確定される
+        } else {
+          // タブ追従（終点が同じ行かつタブより左側なら追従）
+          _followTabForEndResize(ev, k);
+        }
         return;
       }
 
@@ -5087,7 +5245,7 @@ function startResizeDrag(el, ev, which) {
       const tabElS = $id('span-tab-layer').querySelector(`[data-span-id="${ev.id}"]`);
       const newStartRect = getCellRect(k);
       if (tabElS && newStartRect) {
-        tabElS.style.top = (newStartRect.top - 26) + 'px';
+        tabElS.style.top = (newStartRect.top + 3.75 - 26) + 'px';
       }
       // タブX追従（始点がタブより右側になったらロック→以降は始点左端に固定）
       if (!tabLocked) {
@@ -5110,17 +5268,20 @@ function startResizeDrag(el, ev, which) {
         else                   ev.endKey   = finalKey;
 
         // タブを1行目の範囲内にクランプ
-        const PAD = 3;
+        const PAD = 3.75;
         const newKeys = getKeysBetween(ev.startKey, ev.endKey);
         if (newKeys.length > 0) {
           const firstRect = getCellRect(newKeys[0]);
           if (firstRect) {
             const newX1 = firstRect.left + PAD;
-            // 1行目の右端：同じ週の土曜 or endKey のうち早い方
+            // 1行目の右端：startKeyと同じ行にある最後のキー（行変わりで止める）
             let firstRowLastKey = newKeys[0];
             for (const k of newKeys) {
+              const r = getCellRect(k);
+              if (!r) break;
+              // startKeyの行より下に行ったら止める
+              if (r.top > firstRect.bottom) break;
               firstRowLastKey = k;
-              if (new Date(k).getDay() === 6) break;
             }
             const firstRowLastRect = getCellRect(firstRowLastKey);
             const newX2 = firstRowLastRect ? firstRowLastRect.right - PAD : newX1;
@@ -5133,8 +5294,13 @@ function startResizeDrag(el, ev, which) {
             if (which === 'start') {
               absTabLeft = newX1; // startKeyの左端にリセット
             } else {
-              absTabLeft = tabEl ? parseFloat(tabEl.style.left) : newX1;
-              absTabLeft = Math.max(newX1, Math.min(newX1 + newTabMaxPx, absTabLeft));
+              // end側：最短1日の場合は左端にリセット、それ以外はD&D前のtabOffsetをベースにクランプ
+              if (ev.startKey === ev.endKey) {
+                absTabLeft = newX1;
+              } else {
+                const savedOffset = typeof ev.tabOffset === 'number' ? ev.tabOffset : 0;
+                absTabLeft = Math.max(newX1, Math.min(newX1 + newTabMaxPx, newX1 + savedOffset));
+              }
             }
             ev.tabOffset = absTabLeft - newX1;
             if (tabEl) tabEl.style.left = absTabLeft + 'px';
@@ -5185,7 +5351,6 @@ function startResizeDrag(el, ev, which) {
         saveToStorage();
       }
       SpanMode.resizeKey = null;
-      renderSpanOverlay();
     };
 
     document.addEventListener('pointermove', onMove);
@@ -7077,7 +7242,7 @@ renderOpts();
 /* ════ SPAN MODE｜期間設定機能 ════ */
 const SpanMode = {
   active:         false,
-  colorPicked:    false,
+  colorPicked:    true,
   color:          '#1c1a18',
   dragging:       false,
   startKey:       null,
@@ -7134,7 +7299,7 @@ $id('btn-span').addEventListener('click', e => {
   } else {
     // アクティブ化
     SpanMode.active      = true;
-    SpanMode.colorPicked = true; // 常にドラッグ可能（デフォルト色で即描画）
+    // colorPickedは常にtrue（モード中は常にD&D可能）
     $id('btn-span').classList.add('active');
     $id('btn-span').style.setProperty('--span-color', SpanMode.color);
     $id('span-palette').classList.add('open');
@@ -7144,7 +7309,18 @@ $id('btn-span').addEventListener('click', e => {
     });
     $id('btn-settings').style.visibility  = 'hidden';
     $id('cal-nav-right').style.visibility = 'hidden';
-    $id('cal-header-top').style.background = 'rgba(44,42,38,0.07)';
+
+    setHeaderColor(SPAN_MODE_HEADER_COLOR);
+    $id('cal-header-nav').style.boxShadow = '-2px -3px 8px rgba(0,0,0,.12), 2px -3px 8px rgba(0,0,0,.12)';
+    $id('hdr-month').style.color = '#fff';
+    $id('hdr-year').style.color  = '#fff';
+    $id('btn-prev').style.color  = '#fff';
+    $id('btn-next').style.color  = '#fff';
+    document.querySelectorAll('.cal-tab').forEach(t => {
+      t.style.color       = '#fff';
+      t.style.borderColor = 'transparent';
+      t.style.boxShadow   = '-2px -3px 8px rgba(0,0,0,.12), 2px -3px 8px rgba(0,0,0,.12)';
+    });
     document.querySelectorAll('.cal-tab:not(.active)').forEach(t => t.style.display = 'none');
     renderSpanOverlay();
   }
@@ -7171,21 +7347,50 @@ document.addEventListener('pointerdown', e => {
   if ($id('span-name-modal').contains(target)) return;
   // ctx-span-tab はスルー
   if ($id('ctx-span-tab').contains(target)) return;
-  // cal-grid-area 内：colorPicked=false（期間オブジェクト選択後）はモード解除のみ
-  if ($id('cal-grid-area').contains(target)) {
-    if (!SpanMode.colorPicked) {
-      e.stopImmediatePropagation();
-      exitSpanMode();
-    }
+  // その他コンテクストメニュー表示中 → メニューを消すのみ、モード解除しない
+  if (target.closest('.ctx-menu')) return;
+  if (document.querySelector('.ctx-menu.open')) {
+    // メニュー外タップ → closeContextMenusはpointerdownハンドラが処理
     return;
   }
+  // ym-picker・ym-backdrop表示中 → ドラムロールを閉じるのみ、モード解除しない
+  if ($id('ym-picker').classList.contains('open') ||
+      $id('ym-backdrop').classList.contains('open')) return;
+  // cal-title（年月テキスト）はスルー（ドラムロール開閉を許可）
+  if ($id('cal-title').contains(target)) return;
+  // cal-span-bar（期間枠バー）はスルー（モード解除しない）
+  if ($id('cal-span-bar').contains(target)) return;
+  // cal-grid-area 内：常にスルー（D&Dハンドラに委ねる）
+  if ($id('cal-grid-area').contains(target)) return;
 
-  // それ以外（ヘッダー、設定ボタンなど）→ モード解除
+  // それ以外（曜日バー・設定ボタンなど）→ モード解除
   exitSpanMode();
 }, { capture: true });
 
+// カレンダーヘッダー一体化グループの背景色を一括変更
+// 対象：タブバー(border-bottom) / カレンダータブ(background・border-bottom) /
+//        月ナビバー(background) / cal-tab-border-eraser(background)
+// color='' で元の状態にリセット
+// 期間設定モード中のヘッダー一体化グループの色定数
+const SPAN_MODE_HEADER_COLOR = '#1a1a2e'; // 月ナビバー・カレンダータブ・eraserの背景色
+const SPAN_MODE_TABBAR_BG    = '#ffffff'; // タブバー背景色（通常と同じ白）
+
+function setHeaderColor(color) {
+  const isReset = color === '';
+  $id('cal-header-top').style.background        = isReset ? '' : SPAN_MODE_TABBAR_BG;
+  $id('cal-header-top').style.borderBottomColor = color;
+  $id('cal-header-nav').style.background        = color;
+  const eraser = $id('cal-tab-border-eraser');
+  if (eraser) eraser.style.background = color;
+  document.querySelectorAll('.cal-tab').forEach(t => {
+    t.style.background        = color;
+    t.style.borderBottomColor = color;
+  });
+}
+
 function exitSpanMode() {
   SpanMode.active         = false;
+  SpanMode.colorPicked    = true;
   SpanMode.dragging       = false;
   SpanMode.selectedSpanId = null;
   SpanMode.startKey       = null;
@@ -7199,8 +7404,19 @@ function exitSpanMode() {
   $id('span-palette').classList.remove('open');
   $id('btn-settings').style.visibility  = '';
   $id('cal-nav-right').style.visibility = '';
-  $id('cal-header-top').style.background = '';
-  document.querySelectorAll('.cal-tab').forEach(t => t.style.display = '');
+
+  setHeaderColor('');
+  $id('cal-header-nav').style.boxShadow = '';
+  $id('hdr-month').style.color = '';
+  $id('hdr-year').style.color  = '';
+  $id('btn-prev').style.color  = '';
+  $id('btn-next').style.color  = '';
+  document.querySelectorAll('.cal-tab').forEach(t => {
+    t.style.color       = '';
+    t.style.borderColor = '';
+    t.style.boxShadow   = '';
+    t.style.display     = '';
+  });
   $id('cal-tabs').style.visibility = '';
   $id('span-mode-overlay').classList.remove('active');
   renderSpanOverlay();
@@ -7272,6 +7488,59 @@ function exitSpanMode() {
         SpanMode.startKey   = null;
         SpanMode.currentKey = null;
         renderSpanOverlay();
+
+        // 新規タブと既存タブの重なり回避
+        const newTabEl = $id('span-tab-layer').querySelector(`[data-span-id="${newId}"]`);
+        if (newTabEl) {
+          const areaRect = $id('cal-grid-area').getBoundingClientRect();
+          const toRel = r => ({
+            left:   r.left   - areaRect.left,
+            right:  r.right  - areaRect.left,
+            top:    r.top    - areaRect.top,
+            bottom: r.bottom - areaRect.top,
+          });
+          const PAD = 3.75;
+          const firstRect = getCellRect(ev.startKey);
+          let firstRowLastKey = ev.startKey;
+          const evKeys = getKeysBetween(ev.startKey, ev.endKey);
+          for (const k of evKeys) {
+            firstRowLastKey = k;
+            if (new Date(k).getDay() === 6) break;
+          }
+          const firstRowLastRect = getCellRect(firstRowLastKey);
+          const newX1 = firstRect ? firstRect.left + PAD : 0;
+          const newX2 = firstRowLastRect ? firstRowLastRect.right - PAD : newX1;
+          const tabW  = newTabEl.offsetWidth;
+          const newTabMaxPx = Math.max(0, (newX2 - newX1) - tabW);
+          let myRel = toRel(newTabEl.getBoundingClientRect());
+          let curLeft = parseFloat(newTabEl.style.left);
+          $id('span-tab-layer').querySelectorAll('.span-tab').forEach(other => {
+            if (other === newTabEl) return;
+            const or = toRel(other.getBoundingClientRect());
+            const overlapX = myRel.left < or.right  && myRel.right  > or.left;
+            const overlapY = myRel.top  < or.bottom && myRel.bottom > or.top;
+            if (!(overlapX && overlapY)) return;
+            const gapRight = or.right  - myRel.left;
+            const gapLeft  = myRel.right - or.left;
+            let newLeft = curLeft;
+            if (gapRight <= gapLeft) {
+              newLeft = curLeft + gapRight + 4;
+            } else {
+              newLeft = curLeft - gapLeft  - 4;
+            }
+            newLeft = Math.max(newX1, Math.min(newX1 + newTabMaxPx, newLeft));
+            ev.tabOffset          = newLeft - newX1;
+            newTabEl.style.left   = newLeft + 'px';
+            const tw = myRel.right - myRel.left;
+            myRel.left  = newLeft;
+            myRel.right = newLeft + tw;
+            curLeft     = newLeft;
+          });
+          // tabOffset変更があれば保存
+          const evList = getSpanEvents();
+          const evObj  = evList.find(e => e.id === newId);
+          if (evObj) { evObj.tabOffset = ev.tabOffset; setSpanEvents(evList); saveToStorage(); }
+        }
       }, () => {
         // キャンセル → モード継続
         SpanMode.dragging   = false;
