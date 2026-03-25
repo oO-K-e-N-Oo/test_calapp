@@ -958,7 +958,7 @@ button:focus-visible { outline: none; background: transparent; }
   position: fixed;
   z-index: 3100;
   display: none;
-  background: rgba(44,42,38,0.07);
+  background: #ffffff;
   border: 1.5px solid rgba(44,42,38,0.22);
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0,0,0,.12);
@@ -1176,7 +1176,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v674</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v673</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4471,7 +4471,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
   }
   rows.push(curRow);
 
-  const PAD   = 1; // ストローク中心をセル境界からわずかに内側に
+  const PAD   = 3.75; // ストローク中心をセル境界から内側に（stroke-width:7.5の半分ちょうど）
   const R     = 8;
   const color = ev.color;
   let tabDrawn = false;
@@ -4749,21 +4749,6 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
         document.addEventListener('pointerup',   onLpUp,   { once: false });
         document.addEventListener('pointermove', onLpMove);
 
-        // 期間設定モード中：短タップでタブ名プレビュー（pointerup後rAFで表示）
-        if (SpanMode.active) {
-          const downX = e.clientX, downY = e.clientY;
-          const onUp = upEv => {
-            document.removeEventListener('pointerup', onUp);
-            // 大きく動いていなければタップと判定
-            if (Math.hypot(upEv.clientX - downX, upEv.clientY - downY) < 8) {
-              requestAnimationFrame(() => {
-                window._showObjPreview && _showObjPreview({type:'span', name:ev.name, id:ev.id}, downX, downY, null);
-              });
-            }
-          };
-          document.addEventListener('pointerup', onUp, { once: true });
-        }
-
         const startX       = e.clientX;
         const startTabLeft = parseFloat(liveTab.style.left); // 最新タブの現在位置
         const onMove = mv => {
@@ -4823,17 +4808,30 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
 function _followTabForEndResize(ev, currentEndKey) {
   const tabEl = $id('span-tab-layer').querySelector(`[data-span-id="${ev.id}"]`);
   if (!tabEl) return;
-  const endRect = getCellRect(currentEndKey);
-  if (!endRect) return;
-  const tabRect = tabEl.getBoundingClientRect();
-  // 同じ行（Y軸重なり）かつ終点がタブより左側
-  const sameRow  = tabRect.top < endRect.bottom && tabRect.bottom > endRect.top;
-  const endIsLeft = endRect.right < tabRect.left;
+
+  const endRect   = getCellRect(currentEndKey);
+  const startRect = getCellRect(ev.startKey);
+  if (!endRect || !startRect) return;
+
+  // タブはstartKeyの行に属する → startRectとendRectが同じ行かで判定
+  // （タブのstyle.topはセルより26px上なので使わない）
+  const startRowTop    = startRect.top;
+  const startRowBottom = startRect.bottom;
+  const sameRow = endRect.top < startRowBottom && endRect.bottom > startRowTop;
+
+  // タブのcal-grid-area相対left
+  const tabLeft = parseFloat(tabEl.style.left);
+  const endIsLeft = endRect.right < tabLeft;
+
   if (sameRow && endIsLeft) {
     const PAD = 3;
-    tabEl.style.left = (endRect.left + PAD) + 'px';
-    ev.tabOffset = endRect.left + PAD - (getCellRect(ev.startKey) ? getCellRect(ev.startKey).left + PAD : 0);
+    const newLeft = endRect.left + PAD;
+    tabEl.style.left = newLeft + 'px';
+    ev.tabOffset = newLeft - (startRect.left + PAD);
   }
+
+  // 行が変わった場合はY座標も追従
+  tabEl.style.top = (startRect.top - 26) + 'px';
 }
 
 /** リサイズ中のタブ追従ヘルパー（start側） */
@@ -4844,6 +4842,7 @@ function _followTabForStartResize(ev, currentStartKey) {
   if (!startRect) return;
   const PAD = 3;
   tabEl.style.left = (startRect.left + PAD) + 'px';
+  tabEl.style.top  = (startRect.top  - 26) + 'px';
   ev.tabOffset = 0;
 }
 
@@ -4858,29 +4857,7 @@ function openSpanTabCtx(clientX, clientY, spanId) {
 }
 
 /** 期間タブコンテクストメニュー操作 */
-blinkAndExec('sctx-rename', () => {
-  const spanId = SpanMode.ctxSpanId;
-  if (!spanId) return;
-  const events = getSpanEvents();
-  const ev = events.find(e => e.id === spanId);
-  if (!ev) return;
-  showSpanNameModal(name => {
-    ev.name = name;
-    setSpanEvents(events);
-    saveToStorage();
-    renderSpanOverlay();
-  }, null, ev.name);
-});
 
-blinkAndExec('sctx-delete', () => {
-  const spanId = SpanMode.ctxSpanId;
-  if (!spanId) return;
-  const events = getSpanEvents().filter(e => e.id !== spanId);
-  setSpanEvents(events);
-  saveToStorage();
-  if (SpanMode.selectedSpanId === spanId) SpanMode.selectedSpanId = null;
-  renderSpanOverlay();
-});
 
 function addResizeButtons(ev) {
   const svg = $id('span-overlay');
@@ -4984,7 +4961,6 @@ function startResizeDrag(el, ev, which) {
             const newEndKey    = rowSundayIdx <= startIdx
               ? ev.startKey
               : (allKeys[rowSundayIdx - 1] || ev.startKey);
-            shrunk       = true;
             shrunkEndKey = newEndKey;
             if (SpanMode.resizeKey !== newEndKey) {
               SpanMode.resizeKey = newEndKey;
@@ -4998,11 +4974,11 @@ function startResizeDrag(el, ev, which) {
         }
 
         // 日曜左50%の外
-        if (shrunk && shrunkEndKey) {
+        if (shrunkEndKey) {
           // shrunkEndKeyセルの右端を越えたら延長再開
           const shrunkRect = getCellRect(shrunkEndKey);
           if (!shrunkRect || mv.clientX <= shrunkRect.right) return; // まだ越えていない
-          shrunk = false; shrunkEndKey = null;
+          shrunkEndKey = null;
         }
 
 
@@ -5064,6 +5040,7 @@ function startResizeDrag(el, ev, which) {
           if (SpanMode.resizeKey !== newStartKey) {
             SpanMode.resizeKey = newStartKey;
             renderSpanOverlay();
+            _followTabForStartResize(ev, newStartKey);
           }
           return;
         }
@@ -5088,7 +5065,7 @@ function startResizeDrag(el, ev, which) {
           if (SpanMode.resizeKey !== firstKey) {
             SpanMode.resizeKey = firstKey;
             renderSpanOverlay();
-            if (tabLocked) _followTabForStartResize(ev, firstKey);
+            _followTabForStartResize(ev, firstKey);
           }
           return;
         }
@@ -5102,13 +5079,17 @@ function startResizeDrag(el, ev, which) {
       if (newIdx < 0 || newIdx > otherIdx) return;
       SpanMode.resizeKey = k;
       renderSpanOverlay();
-      // タブ追従（始点がタブより右側になったらロック→以降は常に始点左端に追従）
+      // タブY座標を常に新startKeyの行に追従
+      const tabElS = $id('span-tab-layer').querySelector(`[data-span-id="${ev.id}"]`);
+      const newStartRect = getCellRect(k);
+      if (tabElS && newStartRect) {
+        tabElS.style.top = (newStartRect.top - 26) + 'px';
+      }
+      // タブX追従（始点がタブより右側になったらロック→以降は始点左端に固定）
       if (!tabLocked) {
-        const tabEl = $id('span-tab-layer').querySelector(`[data-span-id="${ev.id}"]`);
-        const startRect = getCellRect(k);
-        if (tabEl && startRect) {
-          const tabRect = tabEl.getBoundingClientRect();
-          if (startRect.left > tabRect.left) tabLocked = true;
+        if (tabElS && newStartRect) {
+          const tabRect = tabElS.getBoundingClientRect();
+          if (newStartRect.left > tabRect.left) tabLocked = true;
         }
       }
       if (tabLocked) _followTabForStartResize(ev, k);
@@ -5142,10 +5123,58 @@ function startResizeDrag(el, ev, which) {
             const tabEl = $id('span-tab-layer').querySelector(`[data-span-id="${ev.id}"]`);
             const tabW  = tabEl ? tabEl.offsetWidth : 40;
             const newTabMaxPx = Math.max(0, (newX2 - newX1) - tabW);
-            let absTabLeft = tabEl ? parseFloat(tabEl.style.left) : newX1;
-            absTabLeft = Math.max(newX1, Math.min(newX1 + newTabMaxPx, absTabLeft));
+            // start側リサイズはstartKeyが移動するためtabOffsetをリセット
+            // end側リサイズはタブ位置を維持しつつ新しい範囲内にクランプ
+            let absTabLeft;
+            if (which === 'start') {
+              absTabLeft = newX1; // startKeyの左端にリセット
+            } else {
+              absTabLeft = tabEl ? parseFloat(tabEl.style.left) : newX1;
+              absTabLeft = Math.max(newX1, Math.min(newX1 + newTabMaxPx, absTabLeft));
+            }
             ev.tabOffset = absTabLeft - newX1;
             if (tabEl) tabEl.style.left = absTabLeft + 'px';
+
+            // 他タブとの重なり回避
+            // renderSpanOverlay後の最新タブ要素で判定するため一旦再描画
+            SpanMode.resizing = false;
+            renderSpanOverlay();
+            const freshTabEl = $id('span-tab-layer').querySelector(`[data-span-id="${ev.id}"]`);
+            if (freshTabEl) {
+              // 全座標をcal-grid-area相対に統一して重なり判定
+              const areaRect = $id('cal-grid-area').getBoundingClientRect();
+              const toRel = r => ({
+                left:   r.left   - areaRect.left,
+                right:  r.right  - areaRect.left,
+                top:    r.top    - areaRect.top,
+                bottom: r.bottom - areaRect.top,
+              });
+              const tabLayer = $id('span-tab-layer');
+              const myRel    = toRel(freshTabEl.getBoundingClientRect());
+              let curLeft    = parseFloat(freshTabEl.style.left);
+              tabLayer.querySelectorAll('.span-tab').forEach(other => {
+                if (other === freshTabEl) return;
+                const or = toRel(other.getBoundingClientRect());
+                const overlapX = myRel.left < or.right  && myRel.right  > or.left;
+                const overlapY = myRel.top  < or.bottom && myRel.bottom > or.top;
+                if (!(overlapX && overlapY)) return;
+                const gapRight = or.right  - myRel.left;
+                const gapLeft  = myRel.right - or.left;
+                let newLeft = curLeft;
+                if (gapRight <= gapLeft) {
+                  newLeft = curLeft + gapRight + 4;
+                } else {
+                  newLeft = curLeft - gapLeft  - 4;
+                }
+                newLeft = Math.max(newX1, Math.min(newX1 + newTabMaxPx, newLeft));
+                ev.tabOffset           = newLeft - newX1;
+                freshTabEl.style.left  = newLeft + 'px';
+                const tabW             = myRel.right - myRel.left;
+                myRel.left             = newLeft;
+                myRel.right            = newLeft + tabW;
+                curLeft                = newLeft;
+              });
+            }
           }
         }
 
@@ -5394,9 +5423,7 @@ function onCellPointerDown(e, el, desc) {
   // ③ 空白タップ → ヘッダーか描画領域かで処理を分岐
   Cal.selObjId = null; Cal.selCellKey = null;
   renderMiniCanvases();
-  if (e.target.closest('.cell-num')) {
-    handleCellNumTap(e, desc);
-  } else if (e.target.closest('.cell-top')) {
+  if (e.target.closest('.cell-top')) {
     handleCellHeaderTap(e, desc);
   } else {
     handleEmptyCellTap(e, desc);
@@ -5557,45 +5584,7 @@ function handleEmptyCellTap(e, desc) {
   document.addEventListener('touchend',    onTouchUp, { capture: true, passive: true });
 }
 
-// 日付セルヘッダータップ：6px移動で即D&D、長押し500ms→ゴースト→指離しでメニュー、短タップ→何もしない
-// 日付番号タップ：短タップ→日付詳細画面遷移、長押し→handleCellHeaderTapに委譲
-function handleCellNumTap(e, desc) {
-  let longPressed = false;
-
-  const onTryDrag = mv => {
-    if (Math.hypot(mv.clientX - e.clientX, mv.clientY - e.clientY) > 6) {
-      clearTimeout(longPressTimer);
-      document.removeEventListener('pointermove', onTryDrag);
-      document.removeEventListener('pointerup',   onUp);
-      // ドラッグはヘッダー全体と同じ挙動
-      startCellDrag(e, desc.key, () => {}, () => {});
-    }
-  };
-
-  const onUp = () => {
-    clearTimeout(longPressTimer);
-    document.removeEventListener('pointermove', onTryDrag);
-    document.removeEventListener('pointerup',   onUp);
-    if (!longPressed) {
-      // 短タップ → 日付詳細画面へ遷移
-      if (desc.type === 'date') {
-        openDayCell(desc.key, desc.d);
-      }
-    }
-  };
-
-  const longPressTimer = setTimeout(() => {
-    longPressed = true;
-    document.removeEventListener('pointermove', onTryDrag);
-    document.removeEventListener('pointerup',   onUp);
-    // 長押し → ヘッダーと同じD&D・メニュー処理に委譲
-    handleCellHeaderTap(e, desc);
-  }, LONG_PRESS_MS);
-
-  document.addEventListener('pointermove', onTryDrag);
-  document.addEventListener('pointerup',   onUp);
-}
-
+// 日付セルヘッダータップ：6px移動で即D&D、長押し500ms→ゴースト→指離しでメニュー、短タップ→日付詳細画面遷移
 function handleCellHeaderTap(e, desc) {
   let longPressed   = false;
   let upBeforeTimer = false;
@@ -5616,7 +5605,10 @@ function handleCellHeaderTap(e, desc) {
     document.removeEventListener('pointerup',   onUp);
     document.removeEventListener('touchend',    onTouchUp, true);
     if (longPressed) { upBeforeTimer = true; }
-    // 短タップ → 何もしない
+    // 短タップ → 日付詳細画面へ遷移
+    if (!longPressed && desc.type === 'date') {
+      openDayCell(desc.key, desc.d);
+    }
   };
 
   const onTouchUp = () => {
@@ -6290,7 +6282,7 @@ function openCellCtx(e, key) {
   const m       = $id('ctx-cell');
   const isEmpty = getCellObjs(key).length === 0;
 
-  const mw = 220, mh = 200;
+  const mw = 200, mh = 200;
   m.style.left = Math.min(e.clientX, window.innerWidth  - mw - 8) + 'px';
   m.style.top  = Math.min(e.clientY, window.innerHeight - mh - 8) + 'px';
 
@@ -6375,6 +6367,30 @@ function blinkAndExec(itemId, fn) {
     }, { once: true });
   });
 }
+
+blinkAndExec('sctx-rename', () => {
+  const spanId = SpanMode.ctxSpanId;
+  if (!spanId) return;
+  const events = getSpanEvents();
+  const ev = events.find(e => e.id === spanId);
+  if (!ev) return;
+  showSpanNameModal(name => {
+    ev.name = name;
+    setSpanEvents(events);
+    saveToStorage();
+    renderSpanOverlay();
+  }, null, ev.name);
+});
+
+blinkAndExec('sctx-delete', () => {
+  const spanId = SpanMode.ctxSpanId;
+  if (!spanId) return;
+  const events = getSpanEvents().filter(e => e.id !== spanId);
+  setSpanEvents(events);
+  saveToStorage();
+  if (SpanMode.selectedSpanId === spanId) SpanMode.selectedSpanId = null;
+  renderSpanOverlay();
+});
 
 blinkAndExec('cctx-copy',       () => execCalCellAction('copy'));
 blinkAndExec('cctx-cut',        () => execCalCellAction('cut'));
@@ -7319,47 +7335,7 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
 (function() {
   let _hoverTimer    = null;
   let _currentObjId  = null;
-  let _tabHoverTimer = null;
-  let _currentTabId  = null;
-
   const area = $id('cal-grid-area');
-
-  // 期間タブホバー：span-tab-layer は pointer-events:none なので
-  // cal-grid-area の mousemove で座標からタブを探す
-  area.addEventListener('mousemove', e => {
-    const tabLayer = $id('span-tab-layer');
-    // タブ一覧を座標で当たり判定
-    let hitTab = null;
-    tabLayer.querySelectorAll('.span-tab').forEach(tab => {
-      const r = tab.getBoundingClientRect();
-      if (e.clientX >= r.left && e.clientX <= r.right &&
-          e.clientY >= r.top  && e.clientY <= r.bottom) {
-        hitTab = tab;
-      }
-    });
-
-    if (hitTab) {
-      const spanId = hitTab.dataset.spanId;
-      if (spanId === _currentTabId) return; // 同じタブ上 → 何もしない
-      clearTimeout(_tabHoverTimer);
-      window._hideObjPreview && _hideObjPreview();
-      _currentTabId = spanId;
-      const ev = getSpanEvents().find(ev => ev.id === spanId);
-      if (ev) {
-        _tabHoverTimer = setTimeout(() => {
-          window._showObjPreview && _showObjPreview({type:'span', name:ev.name, id:ev.id}, e.clientX, e.clientY, null);
-        }, 500);
-      }
-      return;
-    }
-
-    // タブ上でなければタブホバーをリセット
-    if (_currentTabId) {
-      clearTimeout(_tabHoverTimer);
-      window._hideObjPreview && _hideObjPreview();
-      _currentTabId = null;
-    }
-  });
 
   area.addEventListener('mousemove', e => {
     const mc = e.target.closest('canvas[data-key]');
@@ -7387,10 +7363,8 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
 
   area.addEventListener('mouseleave', () => {
     clearTimeout(_hoverTimer);
-    clearTimeout(_tabHoverTimer);
     window._hideObjPreview && _hideObjPreview();
     _currentObjId = null;
-    _currentTabId = null;
   });
 
   // 長押しコンテクストメニューと同時表示 → _showObjPreview に統一
@@ -7511,6 +7485,19 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
         objTop  = r.top  + (obj.y - halfSz) * scY;
       }
 
+      // オブジェクトの下端を計算（flipY時の下表示で使用）
+      let objBottom = objTop;
+      if (obj.type === 'pen') {
+        const pts = obj.paths.flatMap(p => p.points);
+        if (pts.length > 0) {
+          const ly1 = Math.max(...pts.map(p => p.y));
+          objBottom = r.top + ly1 * scY;
+        }
+      } else if (obj.x !== undefined) {
+        const halfSz = (obj.size || 44) / 2;
+        objBottom = r.top + (obj.y + halfSz) * scY;
+      }
+
       // 画面左端に近い場合は右上に
       onLeft = objLeft - POPUP_W - GAP < 8;
       if (onLeft) {
@@ -7526,18 +7513,45 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
         anchorX = objLeft;
         anchorY = objTop;
       }
+
+      // CSS: transform で anchor に対して位置調整
+      // ポップアップサイズの概算（表示後に確定するため余裕を持った値を使う）
+      const POPUP_H = POPUP_SIZE + 44; // padding + tail 込みの概算高さ
+      const rawTopUp   = anchorY - GAP;       // 上表示：オブジェクト上端 - GAP
+      const rawTopDown = objBottom + GAP;     // 下表示：オブジェクト下端 + GAP
+
+      // 上端が画面外に出る場合はオブジェクトの下側に出す
+      const flipY = rawTopUp - POPUP_H < 8;
+      const finalTop = flipY ? rawTopDown : rawTopUp;
+
+      if (onLeft) {
+        popup.classList.add('tail-left');
+        popup.style.transform = flipY ? 'translateY(0)' : 'translateY(-100%)';
+      } else {
+        popup.classList.remove('tail-left');
+        popup.style.transform = flipY
+          ? 'translateX(-50%) translateY(0)'
+          : 'translateX(-50%) translateY(-100%)';
+      }
+
+      popup.style.left    = anchorX + 'px';
+      popup.style.top     = finalTop + 'px';
+      popup.style.display = 'block';
+
+      _timer = setTimeout(hidePreview, SHOW_MS);
+      return;
     }
 
-    // CSS: transform で anchor に対して位置調整
-    if (onLeft) {
-      popup.classList.add('tail-left');
-      popup.style.transform = 'translateY(-100%)';
-    } else {
-      popup.classList.remove('tail-left');
-      popup.style.transform = 'translateX(-50%) translateY(-100%)';
-    }
+    // mc なし（期間タブ・クリップ名のみ）：clientX/Y 基準でシンプルに上表示
+    const POPUP_H_SIMPLE = 60;
+    const rawTopSimple = anchorY - GAP;
+    const flipYSimple  = rawTopSimple - POPUP_H_SIMPLE < 8;
+    popup.classList.remove('tail-left');
+    popup.style.transform = flipYSimple
+      ? 'translateX(-50%) translateY(0)'
+      : 'translateX(-50%) translateY(-100%)';
     popup.style.left    = anchorX + 'px';
-    popup.style.top     = (anchorY - GAP) + 'px';
+    popup.style.top     = flipYSimple ? (anchorY + GAP) + 'px' : rawTopSimple + 'px';
     popup.style.display = 'block';
 
     _timer = setTimeout(hidePreview, SHOW_MS);
