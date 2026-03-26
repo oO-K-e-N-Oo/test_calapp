@@ -343,7 +343,7 @@ button:focus-visible { outline: none; background: transparent; }
   cursor: pointer;
   flex-shrink: 0;
   transition: transform 0.15s ease;
-  padding: 7px;
+  padding: 10px;
   box-sizing: content-box;
 }
 .span-bar-dot:active { transform: scale(1.25); }
@@ -1235,7 +1235,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v724</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v726</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -7525,48 +7525,7 @@ $id('btn-span').addEventListener('click', e => {
   }
 });
 
-// 期間設定モード中：span関連要素・cal-grid-area以外のタップを全遮断 or モード解除
-document.addEventListener('pointerdown', e => {
-  if (!SpanMode.active) return;
-  if (SpanMode.dragging || SpanMode.resizing) return;
-
-  const target = e.target;
-  // span-overlay（枠・リサイズボタン）はスルー
-  if ($id('span-overlay').contains(target)) return;
-  // span-tab-layer（タブ）はスルー
-  if ($id('span-tab-layer').contains(target)) return;
-  // btn-span はスルー（clickハンドラに委ねる）
-  if ($id('btn-span').contains(target)) return;
-  // btn-prev/btn-next はスルー（月遷移を許可）
-  if ($id('btn-prev').contains(target)) return;
-  if ($id('btn-next').contains(target)) return;
-  // span-palette はスルー
-  if ($id('span-palette').contains(target)) return;
-  // span-name-modal はスルー
-  if ($id('span-name-modal').contains(target)) return;
-  // ctx-span-tab はスルー
-  if ($id('ctx-span-tab').contains(target)) return;
-  // その他コンテクストメニュー表示中 → メニューを消すのみ、モード解除しない
-  if (target.closest('.ctx-menu')) return;
-  if (document.querySelector('.ctx-menu.open')) {
-    // メニュー外タップ → closeContextMenusはpointerdownハンドラが処理
-    return;
-  }
-  // ym-picker・ym-backdrop表示中 → ドラムロールを閉じるのみ、モード解除しない
-  if ($id('ym-picker').classList.contains('open') ||
-      $id('ym-backdrop').classList.contains('open')) return;
-  // cal-title（年月テキスト）はスルー（ドラムロール開閉を許可）
-  if ($id('cal-title').contains(target)) return;
-  // cal-span-bar（期間枠バー）はスルー（モード解除しない）
-  if ($id('cal-span-bar').contains(target)) return;
-  // cal-header-nav（月ナビバー）はスルー（フリック月遷移を許可）
-  if ($id('cal-header-nav').contains(target)) return;
-  // cal-grid-area 内：常にスルー（D&Dハンドラに委ねる）
-  if ($id('cal-grid-area').contains(target)) return;
-
-  // それ以外（曜日バー・設定ボタンなど）→ モード解除
-  exitSpanMode();
-}, { capture: true });
+// 期間設定モード解除は btn-span タップのみ（btn-span の click ハンドラで処理）
 
 // カレンダーヘッダー一体化グループの背景色を一括変更
 // 対象：タブバー(border-bottom) / カレンダータブ(background・border-bottom) /
