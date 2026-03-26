@@ -1235,7 +1235,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v722</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v723</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -7559,6 +7559,8 @@ document.addEventListener('pointerdown', e => {
   if ($id('cal-title').contains(target)) return;
   // cal-span-bar（期間枠バー）はスルー（モード解除しない）
   if ($id('cal-span-bar').contains(target)) return;
+  // cal-header-nav（月ナビバー）はスルー（フリック月遷移を許可）
+  if ($id('cal-header-nav').contains(target)) return;
   // cal-grid-area 内：常にスルー（D&Dハンドラに委ねる）
   if ($id('cal-grid-area').contains(target)) return;
 
@@ -7665,6 +7667,7 @@ function exitSpanMode() {
     const downX = e.clientX, downY = e.clientY;
     let moved = false;
 
+    const startTime = Date.now();
     const onMove = mv => {
       if (!SpanMode.dragging) return;
       const k = getCellKeyAt(mv.clientX, mv.clientY);
@@ -7675,10 +7678,22 @@ function exitSpanMode() {
       }
     };
 
-    const onUp = () => {
+    const onUp = (upEvent) => {
       document.removeEventListener('pointermove', onMove);
       if (!SpanMode.dragging) return;
       SpanMode.dragging = false;
+
+      // フリック判定：短時間で大きく横移動した場合はキャンセル（月遷移フリックと区別）
+      const dt = Date.now() - startTime;
+      const dx = upEvent ? Math.abs(upEvent.clientX - downX) : 0;
+      const dy = upEvent ? Math.abs(upEvent.clientY - downY) : 0;
+      if (dx > 30 && dy < dx && dt < 500) {
+        SpanMode.startKey   = null;
+        SpanMode.currentKey = null;
+        renderSpanOverlay();
+        return;
+      }
+
       // タップのみ（移動なし）でも startKey == currentKey の1日期間枠として続行
 
       const startKey = SpanMode.startKey;
