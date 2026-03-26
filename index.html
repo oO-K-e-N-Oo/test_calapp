@@ -1235,7 +1235,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v723</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v724</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -7357,7 +7357,7 @@ function navigateMonth(dir) {
     if (e.changedTouches.length !== 1) return;
     try { if (calDragInfo) return; } catch(err) {}
     if (hadMultiTouch) return; // ピンチ操作があったらフリックキャンセル
-    if (SpanMode.active) return; // 期間設定モード中はフリック無効
+    // 期間設定モード中もフリックで月遷移を許可
 
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
