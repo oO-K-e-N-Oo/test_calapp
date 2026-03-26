@@ -1235,7 +1235,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v673</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v722</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4355,12 +4355,30 @@ function isLandscapeCalendar() {
 // ── SpanMode ユーティリティ ──────────────────────────────────
 /** ビューポート座標から有効な日付セルキーを返す（blank・inactive除外） */
 function getCellKeyAt(cx, cy) {
-  const cells = document.querySelectorAll('.cal-cell:not(.inactive):not(.is-blank)');
-  for (const cell of cells) {
+  // #cal-grid のみを対象にする（navigateMonth中のoldCloneを除外するため）
+  const grid = $id('cal-grid');
+  if (!grid) return null;
+  // まず日付セルで探す
+  const dateCells = grid.querySelectorAll('.cal-cell:not(.inactive):not(.is-blank)');
+  for (const cell of dateCells) {
     const r = cell.getBoundingClientRect();
     if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) {
       const mc = cell.querySelector('canvas[data-key]');
       if (mc) return mc.dataset.key;
+    }
+  }
+  // blank セル上の場合は最近傍の日付キーを返す
+  const blankCells = grid.querySelectorAll('.cal-cell.is-blank');
+  for (const cell of blankCells) {
+    const r = cell.getBoundingClientRect();
+    if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) {
+      const allKeys = getVisibleKeys();
+      if (allKeys.length === 0) return null;
+      // blank が前にあれば月初、後ろにあれば月末
+      const gridRect = grid.getBoundingClientRect();
+      return cy < gridRect.top + gridRect.height / 2
+        ? allKeys[0]
+        : allKeys[allKeys.length - 1];
     }
   }
   return null;
@@ -4406,7 +4424,10 @@ function dateToKey(d) { return cellKey(d.getFullYear(), d.getMonth()+1, d.getDat
 
 /** カレンダーグリッド上でキーに対応するセルのBoundingRectを返す */
 function getCellRect(key) {
-  const mc = document.querySelector(`.cal-cell .cell-preview canvas[data-key="${key}"]`);
+  // #cal-grid のみを対象にする（navigateMonth中のoldCloneを除外するため）
+  const grid = $id('cal-grid');
+  if (!grid) return null;
+  const mc = grid.querySelector(`.cal-cell .cell-preview canvas[data-key="${key}"]`);
   if (!mc) return null;
   const cell = mc.closest('.cal-cell');
   if (!cell) return null;
@@ -4425,7 +4446,10 @@ function getCellRect(key) {
 
 /** 現在表示中の月のセルキー一覧（表示順）を返す */
 function getVisibleKeys() {
-  const cells = document.querySelectorAll('.cal-cell:not(.inactive):not(.is-blank) .cell-preview canvas[data-key]');
+  // #cal-grid のみを対象にする（navigateMonth中のoldCloneを除外するため）
+  const grid = $id('cal-grid');
+  if (!grid) return [];
+  const cells = grid.querySelectorAll('.cal-cell:not(.inactive):not(.is-blank) .cell-preview canvas[data-key]');
   return Array.from(cells).map(c => c.dataset.key).filter(Boolean);
 }
 
@@ -4446,10 +4470,7 @@ function renderSpanOverlay() {
   if (!svg || !tabLayer) return;
 
   svg.innerHTML = '';
-
-  if (!SpanMode.resizing) {
-    tabLayer.querySelectorAll('.span-tab').forEach(t => t.remove());
-  }
+  tabLayer.querySelectorAll('.span-tab').forEach(t => t.remove());
 
   const area = $id('cal-grid-area');
   if (!area) return;
@@ -4467,35 +4488,34 @@ function renderSpanOverlay() {
   const events = getSpanEvents();
   events.forEach(ev => {
     if (SpanMode.resizing && SpanMode.selectedSpanId === ev.id && SpanMode.resizeKey) {
+      // リサイズ中の選択スパン：isPreview=false でタブ・ボタンも描画する
       const previewEv = Object.assign({}, ev);
       if (SpanMode.resizeEnd === 'start') previewEv.startKey = SpanMode.resizeKey;
       else                                previewEv.endKey   = SpanMode.resizeKey;
-      renderOneSpan(svg, tabLayer, previewEv, true, false, gridCtx);
+      renderOneSpan(svg, tabLayer, previewEv, false, false, gridCtx);
     } else {
-      renderOneSpan(svg, tabLayer, ev, false, SpanMode.resizing, gridCtx);
+      // リサイズ中も他スパンのタブを描画する（タブは常にクリア→再生成方式のため）
+      renderOneSpan(svg, tabLayer, ev, false, false, gridCtx);
     }
   });
 
   if (SpanMode.active && SpanMode.dragging && SpanMode.startKey && SpanMode.currentKey) {
+    // startKey と currentKey を日付順に正規化してプレビュー表示
+    const previewStart = SpanMode.startKey <= SpanMode.currentKey
+      ? SpanMode.startKey : SpanMode.currentKey;
+    const previewEnd   = SpanMode.startKey <= SpanMode.currentKey
+      ? SpanMode.currentKey : SpanMode.startKey;
     renderOneSpan(svg, tabLayer, {
       id: '__preview__',
-      startKey: SpanMode.startKey,
-      endKey:   SpanMode.currentKey,
+      startKey: previewStart,
+      endKey:   previewEnd,
       color:    SpanMode.color,
       name:     '',
       tabOffset: 0,
     }, true, false, gridCtx);
   }
 
-  if (SpanMode.resizing && SpanMode.selectedSpanId) {
-    const resizingEv = getSpanEvents().find(e => e.id === SpanMode.selectedSpanId);
-    if (resizingEv) {
-      const tempEv = Object.assign({}, resizingEv);
-      if (SpanMode.resizeEnd === 'start' && SpanMode.resizeKey) tempEv.startKey = SpanMode.resizeKey;
-      if (SpanMode.resizeEnd === 'end'   && SpanMode.resizeKey) tempEv.endKey   = SpanMode.resizeKey;
-      addResizeButtons(tempEv);
-    }
-  }
+  // addResizeButtons は renderOneSpan(isSelected=true) 内で呼ばれるため不要
 
   // 期間枠バーを更新し、選択状態に応じてopacityを連動
   renderSpanBar();
@@ -4609,8 +4629,19 @@ function renderSpanBar() {
   const events = getSpanEvents();
   if (events.length === 0) return;
 
+  // 日付文字列比較で表示月と重なる期間枠を抽出
+  // getKeysBetweenはDOM依存のため月またがり期間枠では使えない
+  const firstOfMonth = `${S.year}-${String(S.month + 1).padStart(2,'0')}-01`;
+  const lastDay = new Date(S.year, S.month + 1, 0).getDate();
+  const lastOfMonth = `${S.year}-${String(S.month + 1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  const visibleEvents = events.filter(ev => {
+    return ev.startKey <= lastOfMonth && ev.endKey >= firstOfMonth;
+  });
+
+  if (visibleEvents.length === 0) return;
+
   // 同色はまとめて1つのドット
-  const uniqueColors = [...new Set(events.map(ev => ev.color))];
+  const uniqueColors = [...new Set(visibleEvents.map(ev => ev.color))];
 
   uniqueColors.forEach(color => {
     const dot = document.createElement('div');
@@ -4618,15 +4649,25 @@ function renderSpanBar() {
     dot.style.background = color;
     dot.dataset.color = color;
 
-    // ポインターダウン中：同色を不透明に（ドット・期間枠・タブ連動）
+    // ポインターダウン中：同色を全て不透明に（ドット・期間枠・タブ連動）
+    // 押下中のみ全不透明、離したら元の選択状態に戻る（selectedSpanId は変えない）
     dot.addEventListener('pointerdown', e => {
       e.stopPropagation();
-      setSpanOpacity(color, SpanMode.active ? SpanMode.selectedSpanId : null, true);
-      if (SpanMode.active) setSpanCellBlackout(color);
+      // カレンダーモード・期間設定モード共通の挙動：同色を全て不透明に
+      setSpanOpacity(color, null, true);
+      // 期間設定モード中はアクティブオブジェクトの◀▶ボタンを非表示に
+      if (SpanMode.active) {
+        $id('span-overlay').querySelectorAll('.span-resize-btn').forEach(btn => {
+          btn.style.display = 'none';
+        });
+      }
       const onUp = () => {
+        // ◀▶ボタンを再表示
+        $id('span-overlay').querySelectorAll('.span-resize-btn').forEach(btn => {
+          btn.style.display = '';
+        });
         if (SpanMode.active) {
           setSpanOpacity(null, SpanMode.selectedSpanId);
-          setSpanCellBlackout(null);
         } else {
           setSpanOpacity(null, null);
         }
@@ -4641,17 +4682,38 @@ function renderSpanBar() {
 
 /** グリッドコンテキストを構築（全可視キーのインデックスマップ） */
 function _buildGridCtx() {
-  const allVisible = getVisibleKeys();
+  const grid = $id('cal-grid');
+  // allGrid: blank含む全セル（列位置・隣接判定用）
+  const allGrid = grid
+    ? Array.from(grid.querySelectorAll('.cal-cell:not(.inactive) .cell-preview canvas[data-key]'))
+        .map(c => c.dataset.key).filter(Boolean)
+    : [];
   const keyIdx = {};
-  allVisible.forEach((k, i) => { keyIdx[k] = i; });
-  return { allVisible, keyIdx, colCount: 7 };
+  allGrid.forEach((k, i) => { keyIdx[k] = i; });
+  // allVisible は date セルのみ（期間枠の範囲計算用）
+  const allVisible = getVisibleKeys();
+  return { allVisible, allGrid, keyIdx, colCount: 7 };
 }
 
 /** 1イベント分の枠＋タブを描画 */
 function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gridCtx = null) {
-  const keys = getKeysBetween(ev.startKey, ev.endKey);
-  if (keys.length === 0) return;
+  // 月またがり期間枠：表示月に合わせて始点/終点をクランプ
+  const visibleKeys = getVisibleKeys();
+  let effectiveStartKey = ev.startKey;
+  let effectiveEndKey   = ev.endKey;
+  if (visibleKeys.length > 0) {
+    const firstVisible = visibleKeys[0];
+    const lastVisible  = visibleKeys[visibleKeys.length - 1];
+    if (ev.startKey < firstVisible) effectiveStartKey = firstVisible;
+    if (ev.endKey   > lastVisible)  effectiveEndKey   = lastVisible;
+    if (effectiveStartKey > effectiveEndKey) return; // 表示月に含まれない
+  }
+  const evForRender = (effectiveStartKey !== ev.startKey || effectiveEndKey !== ev.endKey)
+    ? Object.assign({}, ev, { startKey: effectiveStartKey, endKey: effectiveEndKey })
+    : ev;
 
+  const keys = getKeysBetween(evForRender.startKey, evForRender.endKey);
+  if (keys.length === 0) return;
   // シードベース疑似乱数（同じev.idなら常に同じゆらぎ）
 
 
@@ -4662,7 +4724,6 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
     const prevRect = getCellRect(keys[i-1]);
     const currRect = getCellRect(keys[i]);
     if (!prevRect || !currRect) {
-      // DOMが未確定の場合は同じ行として扱う（スキップしない）
       curRow.push(keys[i]);
       continue;
     }
@@ -4685,6 +4746,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
   const { allVisible, keyIdx, colCount } = gridCtx;
 
   // 2行で上下に重なるセルがないか判定
+  const { allGrid } = gridCtx;
   const getCol = k => (keyIdx[k] !== undefined) ? keyIdx[k] % colCount : -1;
   let twoRowNoOverlap = false;
   if (rows.length === 2) {
@@ -4712,10 +4774,10 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
     const getNeighbor = (k, dir) => {
       const i = keyIdx[k];
       if (i === undefined) return null;
-      if (dir === 'left')  return (i % colCount === 0) ? null : allVisible[i - 1];
-      if (dir === 'right') return (i % colCount === colCount - 1) ? null : allVisible[i + 1];
-      if (dir === 'up')    return (i < colCount) ? null : allVisible[i - colCount];
-      if (dir === 'down')  return (i + colCount >= allVisible.length) ? null : allVisible[i + colCount];
+      if (dir === 'left')  return (i % colCount === 0) ? null : allGrid[i - 1];
+      if (dir === 'right') return (i % colCount === colCount - 1) ? null : allGrid[i + 1];
+      if (dir === 'up')    return (i < colCount) ? null : allGrid[i - colCount];
+      if (dir === 'down')  return (i + colCount >= allGrid.length) ? null : allGrid[i + colCount];
       return null;
     };
     const isEdge = (k, dir) => {
@@ -4736,7 +4798,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
       if (dir === 'left')  return i % colCount === 0;
       if (dir === 'right') return i % colCount === colCount - 1;
       if (dir === 'up')    return i < colCount;
-      if (dir === 'down')  return i + colCount >= allVisArr.length;
+      if (dir === 'down')  return i + colCount >= allGrid.length;
       return false;
     };
 
@@ -4807,13 +4869,6 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
       path.style.pointerEvents = SpanMode.active ? 'all' : 'none';
       path.style.cursor = SpanMode.active ? 'pointer' : 'default';
       path.setAttribute('data-span-id', ev.id);
-      path.addEventListener('pointerdown', e => {
-        e.stopPropagation();
-        if (!SpanMode.active) return;
-        SpanMode.selectedSpanId = ev.id;
-        renderSpanOverlay();
-        addResizeButtons(ev);
-      });
       path.addEventListener('contextmenu', e => {
         e.preventDefault();
         e.stopPropagation();
@@ -4878,7 +4933,16 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
       const tab = document.createElement('div');
       tab.className = 'span-tab';
       tab.dataset.spanId = ev.id;
-      tab.textContent = ev.name;
+      // 月またがり時のタブテキスト（← / →）
+      const startDate = new Date(ev.startKey);
+      const endDate   = new Date(ev.endKey);
+      const hasLeft  = (startDate.getFullYear() < S.year) ||
+                       (startDate.getFullYear() === S.year && startDate.getMonth() < S.month);
+      const hasRight = (endDate.getFullYear() > S.year) ||
+                       (endDate.getFullYear() === S.year && endDate.getMonth() > S.month);
+      const prefix = hasLeft  ? '← ' : '';
+      const suffix = hasRight ? ' →' : '';
+      tab.textContent = prefix + ev.name + suffix;
       tab.style.background = color;
       tab.style.pointerEvents = SpanMode.active ? 'auto' : 'none';
       const isActive = (ev.id === SpanMode.selectedSpanId);
@@ -4991,7 +5055,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
           });
 
           saveToStorage();
-          if (resolved) renderSpanOverlay();
+          renderSpanOverlay();
           window._hideObjPreview && _hideObjPreview();
         };
         document.addEventListener('pointermove', onMove);
@@ -5135,8 +5199,81 @@ function startResizeDrag(el, ev, which) {
     let shrunkStart    = false;
     let shrunkStartKey = null;
     let tabLocked      = false; // 始点がタブより右になった後、タブを始点に固定追従
+    let transitioning  = false; // 月遷移中フラグ
+    let triggerArmed   = true;  // B案：トリガー領域を一度離れるまで次の遷移を抑制
+
+    // 月またぎリサイズ用：元の始点/終点を保持
+    const origStartKey = ev.startKey;
+    const origEndKey   = ev.endKey;
+
+    /** 月遷移トリガー判定（即時切り替え・アニメーションなし） */
+    function checkMonthTransition(mv) {
+      const allCells = document.querySelectorAll('.cal-cell');
+      if (allCells.length === 0) return false;
+
+      const firstCell = allCells[0];
+      const lastCell  = allCells[allCells.length - 1];
+      const firstR    = firstCell.getBoundingClientRect();
+      const lastR     = lastCell.getBoundingClientRect();
+
+      const topLeftMid  = firstR.left + firstR.width / 2;
+      const botRightMid = lastR.left  + lastR.width  / 2;
+
+      const inPrevZone = mv.clientX < topLeftMid  && mv.clientY < firstR.bottom;
+      const inNextZone = mv.clientX > botRightMid && mv.clientY > lastR.top;
+      const inAnyZone  = inPrevZone || inNextZone;
+
+      if (!inAnyZone) { triggerArmed = true; return false; }
+      if (!triggerArmed) return false;
+
+      let dir = null;
+      if (which === 'start' && inPrevZone) dir = 'prev';
+      if (which === 'end'   && inNextZone) dir = 'next';
+      if (which === 'end'   && inPrevZone) dir = 'prev';
+      if (which === 'start' && inNextZone) dir = 'next';
+      if (!dir) return false;
+
+      triggerArmed  = false;
+      transitioning = true;
+
+      if (dir === 'next') {
+        if (++S.month > 11) { S.month = 0; S.year++; }
+      } else {
+        if (--S.month < 0) { S.month = 11; S.year--; }
+      }
+      clearCalUR();
+
+      // renderCalendar の rAF内で applyCellSizes → forced reflow → renderSpanOverlay
+      // resizeKey は renderCalendar より前に確定させる（DOM非依存で計算）
+      const newDescs = buildCellDescsFor(S.year, S.month);
+      const newDateKeys = newDescs.filter(d => d.type === 'date').map(d => d.key);
+      if (which === 'end') {
+        const isOrigMonth = (S.year === new Date(origEndKey).getFullYear() &&
+                             S.month === new Date(origEndKey).getMonth());
+        SpanMode.resizeKey = isOrigMonth ? origEndKey : newDateKeys[newDateKeys.length - 1];
+      } else {
+        const isOrigMonth = (S.year === new Date(origStartKey).getFullYear() &&
+                             S.month === new Date(origStartKey).getMonth());
+        SpanMode.resizeKey = isOrigMonth ? origStartKey : newDateKeys[0];
+      }
+
+      // 月遷移時：リサイズ中でもタブをクリア（旧月のタブが残らないように）
+      const tabLayerEl = $id('span-tab-layer');
+      if (tabLayerEl) tabLayerEl.querySelectorAll('.span-tab').forEach(t => t.remove());
+
+      renderCalendar();
+
+      // renderCalendarのrAF完了後にtransitioningを解除
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        transitioning = false;
+      }));
+
+      return true;
+    }
 
     const onMove = mv => {
+      if (transitioning) return;
+      if (checkMonthTransition(mv)) return;
       const allKeys = getVisibleKeys();
 
       if (which === 'end') {
@@ -5204,7 +5341,9 @@ function startResizeDrag(el, ev, which) {
         // 通常リサイズ
         const k = getCellKeyAt(mv.clientX, mv.clientY);
         if (!k || k === SpanMode.resizeKey) return;
-        const startIdx = allKeys.indexOf(ev.startKey);
+        let startIdx = allKeys.indexOf(ev.startKey);
+        // 別月の場合 ev.startKey が allKeys に存在しない → 月初から移動可能にする
+        if (startIdx < 0) startIdx = 0;
         const newIdx   = allKeys.indexOf(k);
         if (newIdx < 0 || newIdx < startIdx) return;
         SpanMode.resizeKey = k;
@@ -5285,7 +5424,9 @@ function startResizeDrag(el, ev, which) {
       // 通常リサイズ
       const k = getCellKeyAt(mv.clientX, mv.clientY);
       if (!k || k === SpanMode.resizeKey) return;
-      const otherIdx = allKeys.indexOf(ev.endKey);
+      let otherIdx = allKeys.indexOf(ev.endKey);
+      // 別月の場合 ev.endKey が allKeys に存在しない → 月末まで移動可能にする
+      if (otherIdx < 0) otherIdx = allKeys.length - 1;
       const newIdx   = allKeys.indexOf(k);
       if (newIdx < 0 || newIdx > otherIdx) return;
       SpanMode.resizeKey = k;
@@ -5400,6 +5541,8 @@ function startResizeDrag(el, ev, which) {
         saveToStorage();
       }
       SpanMode.resizeKey = null;
+      // resizing終了後にrenderSpanOverlayを呼んでタブを再表示
+      renderSpanOverlay();
     };
 
     document.addEventListener('pointermove', onMove);
@@ -5423,6 +5566,10 @@ function renderCalendar() {
   renderCalendarDOM(descs, headers, isLand);
   requestAnimationFrame(() => {
     applyCellSizes(numRows, isLand);
+    // applyCellSizes後に getBoundingClientRect を読んで forced reflow を確定させる
+    // これにより renderSpanOverlay内のgetCellRectが正しい座標を返す
+    const firstCell = $id('cal-grid')?.querySelector('.cal-cell');
+    if (firstCell) firstCell.getBoundingClientRect();
     renderSpanOverlay();
   });
   updateTodayBtns();
@@ -5558,6 +5705,7 @@ function renderCalendarDOM(descs, headers, isLand) {
     el.addEventListener('pointerdown', e => onCellPointerDown(e, el, desc));
     el.addEventListener('contextmenu', e => {
       e.preventDefault();
+      if (SpanMode.active) return;
       if (Cal.dragGhost) return;
       const mc = el.querySelector('canvas');
       if (mc) {
@@ -5604,6 +5752,8 @@ function buildCellTop(desc) {
 // ── セルのポインターイベントハンドラ ──
 function onCellPointerDown(e, el, desc) {
   if (e.button > 0) return;
+  // 期間設定モード中はセルのポインターイベントを無視（SpanModeのD&Dハンドラに委ねる）
+  if (SpanMode.active) return;
   // ピンチ拡大中はオブジェクト操作を無効化
   if (window.visualViewport && window.visualViewport.scale > 1.01) return;
   if ($id('ctx-obj').classList.contains('open') ||
@@ -5874,7 +6024,6 @@ function applyCellSizes(numRows, isLand) {
   const wrap = $id('cal-wd-grid-wrap');
   const areaW = area.clientWidth;
   const areaH = area.clientHeight;
-
   if (!areaW || !areaH) { setTimeout(renderMiniCanvases, 50); return; }
 
   if (!isLand) {
@@ -7480,25 +7629,47 @@ function exitSpanMode() {
   area.addEventListener('pointerdown', e => {
     if (!SpanMode.active) return;
     if (e.button > 0) return;
-    // span-overlay（リサイズボタン）からは既にstartResizeDragが処理
-    if ($id('span-overlay').contains(e.target)) return;
-    // タブはD&Dハンドラが処理
+    // リサイズボタン・タブは各自のハンドラに委ねる
     if ($id('span-tab-layer').contains(e.target)) return;
+    if (e.target.closest && e.target.closest('.span-resize-btn')) return;
+
     e.preventDefault();
     e.stopImmediatePropagation();
 
     const key = getCellKeyAt(e.clientX, e.clientY);
-    if (!key) return;
 
+    // キーなし（空白・枠線上など）
+    if (!key) {
+      // アクティブあり → 非アクティブ化
+      if (SpanMode.selectedSpanId) {
+        SpanMode.selectedSpanId = null;
+        renderSpanOverlay();
+      }
+      return;
+    }
+
+    // 日付セル上にいる
+    // アクティブな期間オブジェクトがある場合 → 非アクティブ化のみ
+    if (SpanMode.selectedSpanId) {
+      SpanMode.selectedSpanId = null;
+      renderSpanOverlay();
+      return;
+    }
+
+    // pointerdown 直後からプレビュー表示開始
     SpanMode.dragging   = true;
     SpanMode.startKey   = key;
     SpanMode.currentKey = key;
     renderSpanOverlay();
 
+    const downX = e.clientX, downY = e.clientY;
+    let moved = false;
+
     const onMove = mv => {
       if (!SpanMode.dragging) return;
       const k = getCellKeyAt(mv.clientX, mv.clientY);
       if (k && k !== SpanMode.currentKey) {
+        moved = true;
         SpanMode.currentKey = k;
         renderSpanOverlay();
       }
@@ -7508,6 +7679,7 @@ function exitSpanMode() {
       document.removeEventListener('pointermove', onMove);
       if (!SpanMode.dragging) return;
       SpanMode.dragging = false;
+      // タップのみ（移動なし）でも startKey == currentKey の1日期間枠として続行
 
       const startKey = SpanMode.startKey;
       const endKey   = SpanMode.currentKey;
