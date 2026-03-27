@@ -206,6 +206,9 @@ button:focus-visible { outline: none; background: transparent; }
   position: relative;
   z-index: 0;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .cal-tab:hover  { background: var(--tool-hover); color: var(--ink); }
 .cal-tab.active {
@@ -412,6 +415,9 @@ button:focus-visible { outline: none; background: transparent; }
   padding: var(--dot-hit-extra);
   box-sizing: content-box;
   background-clip: content-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .span-bar-dot:active { transform: scale(1.25); }
 #cal-screen { overflow: visible; position: relative; }
@@ -443,6 +449,9 @@ button:focus-visible { outline: none; background: transparent; }
   flex-direction: column;
   overflow: hidden;
   transition: filter .12s;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .cal-cell:active             { filter: brightness(.96); }
 .cal-cell.inactive           { background: var(--inactive-bg); pointer-events: none; }
@@ -788,6 +797,9 @@ button:focus-visible { outline: none; background: transparent; }
   box-shadow: var(--shadow-sm), 0 0 0 1px var(--border);
   display: block;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* ════════════════════════════════════════════
@@ -1027,6 +1039,7 @@ button:focus-visible { outline: none; background: transparent; }
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   opacity: 0.45;
   transition: opacity 0.15s ease;
   touch-action: none;
@@ -1318,7 +1331,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v792</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v796</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -3309,14 +3322,20 @@ function removeTextInput(){
   }, { passive: false });
 
   function _applyScale() {
+    // transform-origin を top left にして左方向のクリップを防ぐ
     viewerPages.style.transform = `scale(${_scale})`;
-    viewerPages.style.transformOrigin = 'top center';
-    // スケール後の実際の高さ・幅をマージンで補完してスクロールを有効に
+    viewerPages.style.transformOrigin = 'top left';
+    // スケール後の実サイズをマージンで補完してスクロール領域を確保
     const naturalH = viewerPages.scrollHeight / _scale;
     const naturalW = viewerPages.scrollWidth  / _scale;
+    const expandW  = naturalW * (_scale - 1);
     viewerPages.style.marginBottom = `${naturalH * (_scale - 1)}px`;
-    viewerPages.style.marginRight  = `${naturalW * (_scale - 1) / 2}px`;
-    viewerPages.style.marginLeft   = `${naturalW * (_scale - 1) / 2}px`;
+    // 左右マージンを均等にしてコンテンツを中央に見せる
+    viewerPages.style.marginRight  = `${expandW / 2}px`;
+    viewerPages.style.marginLeft   = `${expandW / 2}px`;
+    // スクロール位置を中央に合わせて左端クリップを解消
+    const scrollableW = viewerContent.scrollWidth - viewerContent.clientWidth;
+    viewerContent.scrollLeft = scrollableW / 2;
   }
 
   viewerContent.addEventListener('touchend', e => {
@@ -7785,6 +7804,9 @@ function toggleSpanVisible() {
   } else {
     // 表示：バーをスライドダウン + 期間枠フェードイン（同時）
     bar.classList.remove('span-hidden');
+    // renderSpanOverlay は S.spanVisible === false の場合に早期 return するため、
+    // フラグを true に戻した後に呼び出して SVG を描画してからフェードインする
+    renderSpanOverlay();
     if (overlay)  { overlay.style.transition = 'opacity 0.4s ease'; overlay.style.opacity = '1'; overlay.style.pointerEvents = ''; }
     if (tabLayer) { tabLayer.style.transition = 'opacity 0.4s ease'; tabLayer.style.opacity = '1'; tabLayer.style.pointerEvents = ''; }
     setTimeout(() => {
