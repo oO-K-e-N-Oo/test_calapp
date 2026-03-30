@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v813-debug</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v814</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4667,6 +4667,79 @@ function getKeysBetween(startKey, endKey) {
   const [a, b] = si <= ei ? [si, ei] : [ei, si];
   return all.slice(a, b + 1);
 }
+/**
+ * 期間枠D&D共通：月遷移トリガー判定
+ *
+ * 新規D&DとリサイズD&Dで共用する月遷移チェック関数。
+ * ゾーン判定・armedフラグ制御・navigateMonth呼び出し・完了通知を一本化。
+ *
+ * @param {PointerEvent} mv         - pointermove イベント
+ * @param {Object}       ctx        - D&D固有の状態を持つコンテキストオブジェクト
+ *   ctx.transitioning  {boolean}  - 月遷移中フラグ（参照で渡す → ctx経由で更新）
+ *   ctx.triggerArmed   {boolean}  - 次の遷移を許可するフラグ
+ *   ctx.onKeyConfirmed {Function} - (dir, newDateKeys) → void  キー確定コールバック
+ * @returns {boolean} 月遷移を発火したら true
+ */
+function checkSpanDragMonthTransition(mv, ctx) {
+  // #cal-grid のみを対象（navigateMonth中の cal-grid-old を除外）
+  const grid = $id('cal-grid');
+  if (!grid) return false;
+  const allCells = grid.querySelectorAll('.cal-cell');
+  if (allCells.length === 0) return false;
+
+  const firstCell   = allCells[0];
+  const lastCell    = allCells[allCells.length - 1];
+  const firstR      = firstCell.getBoundingClientRect();
+  const lastR       = lastCell.getBoundingClientRect();
+  const topLeftMid  = firstR.left + firstR.width / 2;
+  const botRightMid = lastR.left  + lastR.width  / 2;
+
+  const inPrevZone = mv.clientX < topLeftMid  && mv.clientY < firstR.bottom;
+  const inNextZone = mv.clientX > botRightMid && mv.clientY > lastR.top;
+  const inAnyZone  = inPrevZone || inNextZone;
+
+  if (!inAnyZone) { ctx.triggerArmed = true; return false; }
+  if (!ctx.triggerArmed) return false;
+
+  const dir = inNextZone ? 'next' : 'prev';
+  ctx.triggerArmed  = false;
+  ctx.transitioning = true;
+
+  // 遷移先月のキー一覧を DOM 非依存で事前確定
+  const nextY = dir === 'next' ? (S.month === 11 ? S.year + 1 : S.year) : (S.month === 0 ? S.year - 1 : S.year);
+  const nextM = dir === 'next' ? (S.month === 11 ? 0 : S.month + 1) : (S.month === 0 ? 11 : S.month - 1);
+  const newDateKeys = buildCellDescsFor(nextY, nextM)
+    .filter(d => d.type === 'date')
+    .map(d => d.key);
+
+  // 差分：呼び出し元がキーを確定する（currentKey or resizeKey）
+  ctx.onKeyConfirmed(dir, newDateKeys);
+
+  // タブをクリア
+  const tabLayerEl = $id('span-tab-layer');
+  if (tabLayerEl) tabLayerEl.querySelectorAll('.span-tab').forEach(t => t.remove());
+
+  // スライドアニメーション付き月遷移（skipSpanHide=true でD&D中も期間枠維持）
+  navigateMonth(dir, true);
+
+  // アニメーション完了後に transitioning を解除
+  const onDone = () => {
+    window.removeEventListener('calapp-month-navigated', onDone);
+    clearInterval(waitTimer);
+    ctx.transitioning = false;
+  };
+  window.addEventListener('calapp-month-navigated', onDone, { once: true });
+  const waitTimer = setInterval(() => {
+    if (!_monthNavigating) { clearInterval(waitTimer); ctx.transitioning = false; }
+  }, 50);
+  setTimeout(() => {
+    clearInterval(waitTimer);
+    window.removeEventListener('calapp-month-navigated', onDone);
+    ctx.transitioning = false;
+  }, 600);
+
+  return true;
+}
 
 /** 枠とタブを全描画 */
 function renderSpanOverlay() {
@@ -5516,100 +5589,47 @@ function startResizeDrag(el, ev, which) {
     let shrunkStart    = false;
     let shrunkStartKey = null;
     let tabLocked      = false; // 始点がタブより右になった後、タブを始点に固定追従
-    let transitioning  = false; // 月遷移中フラグ
-    let triggerArmed   = true;  // B案：トリガー領域を一度離れるまで次の遷移を抑制
 
     // 月またぎリサイズ用：元の始点/終点を保持
     const origStartKey = ev.startKey;
     const origEndKey   = ev.endKey;
 
-    /** 月遷移トリガー判定（即時切り替え・アニメーションなし） */
+    // ── 月遷移チェック：checkSpanDragMonthTransition の薄いラッパー ──
+    // リサイズD&D固有の差分：which/origStartKey/origEndKey に基づいて resizeKey を確定
+    const resizeCtx = {
+      transitioning: false,
+      triggerArmed:  true,
+      onKeyConfirmed: (dir, newDateKeys) => {
+        const nextY = dir === 'next' ? (S.month === 11 ? S.year + 1 : S.year) : (S.month === 0 ? S.year - 1 : S.year);
+        const nextM = dir === 'next' ? (S.month === 11 ? 0 : S.month + 1) : (S.month === 0 ? 11 : S.month - 1);
+        if (which === 'end') {
+          const isOrig = nextY === new Date(origEndKey).getFullYear() && nextM === new Date(origEndKey).getMonth();
+          SpanMode.resizeKey = isOrig ? origEndKey : newDateKeys[newDateKeys.length - 1];
+        } else {
+          const isOrig = nextY === new Date(origStartKey).getFullYear() && nextM === new Date(origStartKey).getMonth();
+          SpanMode.resizeKey = isOrig ? origStartKey : newDateKeys[0];
+        }
+      },
+    };
+    // transitioning / triggerArmed は resizeCtx 経由で読み書きする
     function checkMonthTransition(mv) {
-      // #cal-grid のみを対象（navigateMonth中の cal-grid-old を除外）
+      // which による方向制限（リサイズ固有）
       const grid = $id('cal-grid');
       if (!grid) return false;
       const allCells = grid.querySelectorAll('.cal-cell');
       if (allCells.length === 0) return false;
-
-      const firstCell = allCells[0];
-      const lastCell  = allCells[allCells.length - 1];
-      const firstR    = firstCell.getBoundingClientRect();
-      const lastR     = lastCell.getBoundingClientRect();
-
-      const topLeftMid  = firstR.left + firstR.width / 2;
-      const botRightMid = lastR.left  + lastR.width  / 2;
-
-      const inPrevZone = mv.clientX < topLeftMid  && mv.clientY < firstR.bottom;
-      const inNextZone = mv.clientX > botRightMid && mv.clientY > lastR.top;
-      const inAnyZone  = inPrevZone || inNextZone;
-
-      if (!inAnyZone) { triggerArmed = true; return false; }
-      if (!triggerArmed) return false;
-
-      let dir = null;
-      if (which === 'start' && inPrevZone) dir = 'prev';
-      if (which === 'end'   && inNextZone) dir = 'next';
-      if (which === 'end'   && inPrevZone) dir = 'prev';
-      if (which === 'start' && inNextZone) dir = 'next';
-      if (!dir) return false;
-
-      triggerArmed  = false;
-      transitioning = true;
-
-      // resizeKey を月遷移前に確定（DOM非依存）
-      const newDescsCheck = buildCellDescsFor(
-        dir === 'next'
-          ? (S.month === 11 ? S.year + 1 : S.year)
-          : (S.month === 0  ? S.year - 1 : S.year),
-        dir === 'next'
-          ? (S.month === 11 ? 0 : S.month + 1)
-          : (S.month === 0  ? 11 : S.month - 1)
-      );
-      const newDateKeysCheck = newDescsCheck.filter(d => d.type === 'date').map(d => d.key);
-      const nextYear  = dir === 'next' ? (S.month === 11 ? S.year + 1 : S.year) : (S.month === 0 ? S.year - 1 : S.year);
-      const nextMonth = dir === 'next' ? (S.month === 11 ? 0 : S.month + 1) : (S.month === 0 ? 11 : S.month - 1);
-      if (which === 'end') {
-        const isOrigMonth = (nextYear === new Date(origEndKey).getFullYear() &&
-                             nextMonth === new Date(origEndKey).getMonth());
-        SpanMode.resizeKey = isOrigMonth ? origEndKey : newDateKeysCheck[newDateKeysCheck.length - 1];
-      } else {
-        const isOrigMonth = (nextYear === new Date(origStartKey).getFullYear() &&
-                             nextMonth === new Date(origStartKey).getMonth());
-        SpanMode.resizeKey = isOrigMonth ? origStartKey : newDateKeysCheck[0];
-      }
-
-      // タブをクリア
-      const tabLayerEl = $id('span-tab-layer');
-      if (tabLayerEl) tabLayerEl.querySelectorAll('.span-tab').forEach(t => t.remove());
-
-      // スライドアニメーション付き月遷移（skipSpanHide=true でD&D中も期間枠維持）
-      navigateMonth(dir, true);
-
-      // navigateMonthのアニメーション完了後にtransitioningを解除
-      // _monthNavigating が false になるまで待つ（500msフォールバック）
-      const onMonthNavigated = () => {
-        window.removeEventListener('calapp-month-navigated', onMonthNavigated);
-        clearInterval(waitTransition);
-        transitioning = false;
-      };
-      window.addEventListener('calapp-month-navigated', onMonthNavigated, { once: true });
-      const waitTransition = setInterval(() => {
-        if (!_monthNavigating) {
-          clearInterval(waitTransition);
-          transitioning = false;
-        }
-      }, 50);
-      setTimeout(() => {
-        clearInterval(waitTransition);
-        window.removeEventListener('calapp-month-navigated', onMonthNavigated);
-        transitioning = false;
-      }, 600);
-
-      return true;
+      const firstR = allCells[0].getBoundingClientRect();
+      const lastR  = allCells[allCells.length - 1].getBoundingClientRect();
+      const inPrevZone = mv.clientX < firstR.left + firstR.width / 2 && mv.clientY < firstR.bottom;
+      const inNextZone = mv.clientX > lastR.left  + lastR.width  / 2 && mv.clientY > lastR.top;
+      // リサイズ固有：which と方向が一致しない場合は発火しない
+      if (inNextZone && which === 'start' && !inPrevZone) { resizeCtx.triggerArmed = true; return false; }
+      if (inPrevZone && which === 'end'   && !inNextZone) { resizeCtx.triggerArmed = true; return false; }
+      return checkSpanDragMonthTransition(mv, resizeCtx);
     }
 
     const onMove = mv => {
-      if (transitioning) return;
+      if (resizeCtx.transitioning) return;
       if (checkMonthTransition(mv)) return;
       const allKeys = getVisibleKeys();
 
@@ -8153,75 +8173,23 @@ function exitSpanMode() {
     let moved = false;
 
     const startTime = Date.now();
-    let newSpanTransitioning = false;
-    let newSpanTriggerArmed  = false; // 初回も「ゾーン外→ゾーン内」で発火（既存リサイズと統一）
-
-    const checkNewSpanMonthTransition = mv => {
-      // #cal-grid のみを対象（navigateMonth中の cal-grid-old を除外）
-      const grid = $id('cal-grid');
-      if (!grid) return;
-      const allCells = grid.querySelectorAll('.cal-cell');
-      if (allCells.length === 0) return;
-      const firstCell = allCells[0];
-      const lastCell  = allCells[allCells.length - 1];
-      const firstR    = firstCell.getBoundingClientRect();
-      const lastR     = lastCell.getBoundingClientRect();
-      const topLeftMid  = firstR.left + firstR.width / 2;
-      const botRightMid = lastR.left  + lastR.width  / 2;
-      const inPrevZone  = mv.clientX < topLeftMid  && mv.clientY < firstR.bottom;
-      const inNextZone  = mv.clientX > botRightMid && mv.clientY > lastR.top;
-      if (!inPrevZone && !inNextZone) { newSpanTriggerArmed = true; return; }
-      if (!newSpanTriggerArmed) return;
-      newSpanTriggerArmed  = false;
-      newSpanTransitioning = true;
-      const dir = inNextZone ? 'next' : 'prev';
-
-      // 新月の端をcurrentKeyに事前確定（DOM非依存）
-      const nextY = dir === 'next' ? (S.month === 11 ? S.year + 1 : S.year) : (S.month === 0 ? S.year - 1 : S.year);
-      const nextM = dir === 'next' ? (S.month === 11 ? 0 : S.month + 1) : (S.month === 0 ? 11 : S.month - 1);
-      const newDescsNew   = buildCellDescsFor(nextY, nextM);
-      const newDateKeysNew = newDescsNew.filter(d => d.type === 'date').map(d => d.key);
-      SpanMode.currentKey = dir === 'next' ? newDateKeysNew[0] : newDateKeysNew[newDateKeysNew.length - 1];
-      moved = true;
-
-      // タブをクリア
-      const tabLayerNewSpan = $id('span-tab-layer');
-      if (tabLayerNewSpan) tabLayerNewSpan.querySelectorAll('.span-tab').forEach(t => t.remove());
-
-      // スライドアニメーション付き月遷移
-      navigateMonth(dir, true);
-
-      // アニメーション完了後に transitioning を解除し、翌月でのドラッグを再開できるようにする
-      const onMonthNavigatedNew = () => {
-        window.removeEventListener('calapp-month-navigated', onMonthNavigatedNew);
-        clearInterval(waitNewSpan);
-        newSpanTransitioning = false;
-        // armed=false のまま：ゾーン外に出てから再発火（既存リサイズと同じ挙動）
-        newSpanTriggerArmed  = false;
-      };
-      window.addEventListener('calapp-month-navigated', onMonthNavigatedNew, { once: true });
-      const waitNewSpan = setInterval(() => {
-        if (!_monthNavigating) {
-          clearInterval(waitNewSpan);
-          newSpanTransitioning = false;
-          newSpanTriggerArmed  = false; // ゾーン外に出てから再発火
-        }
-      }, 50);
-      setTimeout(() => {
-        clearInterval(waitNewSpan);
-        window.removeEventListener('calapp-month-navigated', onMonthNavigatedNew);
-        newSpanTransitioning = false;
-        newSpanTriggerArmed  = false; // ゾーン外に出てから再発火
-      }, 600);
+    // ── 月遷移コンテキスト（checkSpanDragMonthTransition 共通関数に渡す） ──
+    const newSpanCtx = {
+      transitioning:  false,
+      triggerArmed:   true,
+      onKeyConfirmed: (dir, newDateKeys) => {
+        // 新規D&D固有：currentKey を遷移先月の端日に更新
+        SpanMode.currentKey = dir === 'next' ? newDateKeys[0] : newDateKeys[newDateKeys.length - 1];
+        moved = true;
+      },
     };
 
     const onMove = mv => {
-      if (!SpanMode.dragging) { console.log('[newSpan onMove] dragging=false, skip'); return; }
-      if (newSpanTransitioning) { console.log('[newSpan onMove] transitioning, skip'); return; }
-      checkNewSpanMonthTransition(mv);
-      if (newSpanTransitioning) { console.log('[newSpan onMove] after check: transitioning, skip'); return; }
+      if (!SpanMode.dragging) return;
+      if (newSpanCtx.transitioning) return;
+      checkSpanDragMonthTransition(mv, newSpanCtx);
+      if (newSpanCtx.transitioning) return;
       const k = getCellKeyAt(mv.clientX, mv.clientY);
-      console.log('[newSpan onMove] armed='+newSpanTriggerArmed+' k='+k+' currentKey='+SpanMode.currentKey);
       if (k && k !== SpanMode.currentKey) {
         // 始点より前のキーには移動させない（左方向ドラッグ無効）
         if (k < SpanMode.startKey) return;
