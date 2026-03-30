@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v812b</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v813-debug</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -8216,11 +8216,12 @@ function exitSpanMode() {
     };
 
     const onMove = mv => {
-      if (!SpanMode.dragging) return;
-      if (newSpanTransitioning) return;
+      if (!SpanMode.dragging) { console.log('[newSpan onMove] dragging=false, skip'); return; }
+      if (newSpanTransitioning) { console.log('[newSpan onMove] transitioning, skip'); return; }
       checkNewSpanMonthTransition(mv);
-      if (newSpanTransitioning) return;
+      if (newSpanTransitioning) { console.log('[newSpan onMove] after check: transitioning, skip'); return; }
       const k = getCellKeyAt(mv.clientX, mv.clientY);
+      console.log('[newSpan onMove] armed='+newSpanTriggerArmed+' k='+k+' currentKey='+SpanMode.currentKey);
       if (k && k !== SpanMode.currentKey) {
         // 始点より前のキーには移動させない（左方向ドラッグ無効）
         if (k < SpanMode.startKey) return;
