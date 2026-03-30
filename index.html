@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v808</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v812b</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -5525,7 +5525,10 @@ function startResizeDrag(el, ev, which) {
 
     /** 月遷移トリガー判定（即時切り替え・アニメーションなし） */
     function checkMonthTransition(mv) {
-      const allCells = document.querySelectorAll('.cal-cell');
+      // #cal-grid のみを対象（navigateMonth中の cal-grid-old を除外）
+      const grid = $id('cal-grid');
+      if (!grid) return false;
+      const allCells = grid.querySelectorAll('.cal-cell');
       if (allCells.length === 0) return false;
 
       const firstCell = allCells[0];
@@ -5584,13 +5587,23 @@ function startResizeDrag(el, ev, which) {
 
       // navigateMonthのアニメーション完了後にtransitioningを解除
       // _monthNavigating が false になるまで待つ（500msフォールバック）
+      const onMonthNavigated = () => {
+        window.removeEventListener('calapp-month-navigated', onMonthNavigated);
+        clearInterval(waitTransition);
+        transitioning = false;
+      };
+      window.addEventListener('calapp-month-navigated', onMonthNavigated, { once: true });
       const waitTransition = setInterval(() => {
         if (!_monthNavigating) {
           clearInterval(waitTransition);
           transitioning = false;
         }
       }, 50);
-      setTimeout(() => { clearInterval(waitTransition); transitioning = false; }, 600);
+      setTimeout(() => {
+        clearInterval(waitTransition);
+        window.removeEventListener('calapp-month-navigated', onMonthNavigated);
+        transitioning = false;
+      }, 600);
 
       return true;
     }
@@ -5603,7 +5616,7 @@ function startResizeDrag(el, ev, which) {
       if (which === 'end') {
         // カーソルがいる行の日曜セルを取得
         let sundayRect = null, sundayCellKey = null;
-        document.querySelectorAll(".cal-cell:not(.inactive):not(.is-blank)").forEach(cell => {
+        ($id('cal-grid') || document).querySelectorAll(".cal-cell:not(.inactive):not(.is-blank)").forEach(cell => {
           if (sundayCellKey) return;
           const mc = cell.querySelector('canvas[data-key]');
           if (!mc || new Date(mc.dataset.key).getDay() !== 0) return;
@@ -5645,7 +5658,7 @@ function startResizeDrag(el, ev, which) {
 
 
         // 日付無しセル上（最終行） → 月最終日で固定
-        const blankCells_end = document.querySelectorAll('.cal-cell.is-blank');
+        const blankCells_end = ($id('cal-grid') || document).querySelectorAll('.cal-cell.is-blank');
         let inBlankEnd = false;
         for (const cell of blankCells_end) {
           const r = cell.getBoundingClientRect();
@@ -5690,7 +5703,7 @@ function startResizeDrag(el, ev, which) {
       // start リサイズ（土曜右50%で行ごと短縮）
       // カーソルがいる行の土曜セルを取得
       let saturdayRect = null, saturdayCellKey = null;
-      document.querySelectorAll(".cal-cell:not(.inactive):not(.is-blank)").forEach(cell => {
+      ($id('cal-grid') || document).querySelectorAll(".cal-cell:not(.inactive):not(.is-blank)").forEach(cell => {
         if (saturdayCellKey) return;
         const mc = cell.querySelector('canvas[data-key]');
         if (!mc || new Date(mc.dataset.key).getDay() !== 6) return;
@@ -5730,7 +5743,7 @@ function startResizeDrag(el, ev, which) {
 
 
       // 日付無しセル上（最初の行） → 月初日で固定
-      const blankCells_start = document.querySelectorAll('.cal-cell.is-blank');
+      const blankCells_start = ($id('cal-grid') || document).querySelectorAll('.cal-cell.is-blank');
       for (const cell of blankCells_start) {
         const r = cell.getBoundingClientRect();
         if (mv.clientX >= r.left && mv.clientX <= r.right &&
@@ -7667,7 +7680,8 @@ function navigateMonth(dir, skipSpanHide = false) {
 
   // ── [1] 期間設定モード：遷移後の月に存在しないスパンを非アクティブ化 ──
   // 月またがり期間枠は選択状態を維持する
-  if (SpanMode.active && SpanMode.selectedSpanId) {
+  // リサイズD&D中は startKey/endKey が未確定のため非アクティブ化しない
+  if (SpanMode.active && SpanMode.selectedSpanId && !SpanMode.resizing) {
     const events = getSpanEvents();
     const ev = events.find(e => e.id === SpanMode.selectedSpanId);
     if (ev) {
@@ -7737,6 +7751,10 @@ function navigateMonth(dir, skipSpanHide = false) {
       }
       renderSpanOverlay();
       _monthNavigating = false;
+      // D&D中の月遷移フラグを解除（transitioning / newSpanTransitioning は
+      // _monthNavigating ポーリングで解除されるが、cleanup が先に走る場合もあるため
+      // ここでも明示的にイベントを発行して解除タイミングを保証する）
+      window.dispatchEvent(new Event('calapp-month-navigated'));
     };
     newGrid.addEventListener('animationend', cleanup, { once: true });
     setTimeout(cleanup, 500);
@@ -8136,7 +8154,7 @@ function exitSpanMode() {
 
     const startTime = Date.now();
     let newSpanTransitioning = false;
-    let newSpanTriggerArmed  = true;
+    let newSpanTriggerArmed  = false; // 初回も「ゾーン外→ゾーン内」で発火（既存リサイズと統一）
 
     const checkNewSpanMonthTransition = mv => {
       // #cal-grid のみを対象（navigateMonth中の cal-grid-old を除外）
@@ -8174,17 +8192,26 @@ function exitSpanMode() {
       navigateMonth(dir, true);
 
       // アニメーション完了後に transitioning を解除し、翌月でのドラッグを再開できるようにする
+      const onMonthNavigatedNew = () => {
+        window.removeEventListener('calapp-month-navigated', onMonthNavigatedNew);
+        clearInterval(waitNewSpan);
+        newSpanTransitioning = false;
+        // armed=false のまま：ゾーン外に出てから再発火（既存リサイズと同じ挙動）
+        newSpanTriggerArmed  = false;
+      };
+      window.addEventListener('calapp-month-navigated', onMonthNavigatedNew, { once: true });
       const waitNewSpan = setInterval(() => {
         if (!_monthNavigating) {
           clearInterval(waitNewSpan);
           newSpanTransitioning = false;
-          newSpanTriggerArmed  = true; // 翌月での再ドラッグを許可
+          newSpanTriggerArmed  = false; // ゾーン外に出てから再発火
         }
       }, 50);
       setTimeout(() => {
         clearInterval(waitNewSpan);
+        window.removeEventListener('calapp-month-navigated', onMonthNavigatedNew);
         newSpanTransitioning = false;
-        newSpanTriggerArmed  = true; // 翌月での再ドラッグを許可
+        newSpanTriggerArmed  = false; // ゾーン外に出てから再発火
       }, 600);
     };
 
