@@ -321,6 +321,8 @@ button:focus-visible { outline: none; background: transparent; }
 .wd.sat { color: var(--sat-txt); }
 
 .cal-grid-area {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow: visible;
@@ -330,8 +332,10 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-wd-grid-wrap {
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 /* 期間枠バー */
 .cal-span-bar {
@@ -1331,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v797</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v804</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -5884,14 +5888,14 @@ function renderCalendar() {
   const numRows = descs.length / 7;
 
   renderCalendarDOM(descs, headers, isLand);
-  requestAnimationFrame(() => {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     applyCellSizes(numRows, isLand);
     // applyCellSizes後に getBoundingClientRect を読んで forced reflow を確定させる
     // これにより renderSpanOverlay内のgetCellRectが正しい座標を返す
     const firstCell = $id('cal-grid')?.querySelector('.cal-cell');
     if (firstCell) firstCell.getBoundingClientRect();
     renderSpanOverlay();
-  });
+  }));
   updateTodayBtns();
 }
 
@@ -6342,8 +6346,14 @@ function applyCellSizes(numRows, isLand) {
   const grid = $id('cal-grid');
   const wd   = $id('cal-wd');
   const wrap = $id('cal-wd-grid-wrap');
-  const areaW = area.clientWidth;
-  const areaH = area.clientHeight;
+  const areaW  = area.clientWidth;
+  // グリッドが使える高さ: window.innerHeight からヘッダー・曜日バーを引く
+  // window.innerHeight はアニメーション中でも安定した値を返す
+  const screen  = $id('cal-screen');
+  const header  = screen ? screen.querySelector('.cal-header') : null;
+  const headerH = header ? header.getBoundingClientRect().height : 0;
+  const wdH     = wd ? wd.getBoundingClientRect().height : 0;
+  const areaH   = window.innerHeight - headerH - wdH;
   if (!areaW || !areaH) { setTimeout(renderMiniCanvases, 50); return; }
 
   if (!isLand) {
@@ -6383,19 +6393,23 @@ function applyCellSizes(numRows, isLand) {
 
   } else {
     /* ── 横長モード ──
-       案C: 縦長と同様に cellW = areaW / 7 で固定
-       セル幅 = DATE_W + squareSz、squareSz = cellW - DATE_W
-       高さは行数に従属（行数が変わっても横幅は変わらない）
+       セル高さは常に6行固定で計算（月によってサイズが変わらないよう）
+       5行月は下に余白が空く（上揃え固定）
+       cellH = areaH / 6
+       squareSz = cellH（プレビューキャンバスはセル高さと同じ）
+       cellW = DATE_W + squareSz
     */
-    const cellW    = Math.floor(areaW / 7);
+    // cellH は areaH/6 固定、cellW は areaW/7 と DATE_W+cellH の小さい方
+    const cellH    = Math.floor(areaH / 6);
+    const cellWMax = Math.floor(areaW / 7);          // 横幅に収まる上限
+    const cellW    = Math.min(cellWMax, DATE_W + cellH);
     const squareSz = Math.max(cellW - DATE_W, 1);
-    const cellH    = squareSz;
     const totalW   = cellW * 7;
 
     grid.style.gridTemplateColumns = `repeat(7, ${cellW}px)`;
     grid.style.gridTemplateRows    = `repeat(${numRows}, ${cellH}px)`;
     grid.style.width  = `${totalW}px`;
-    grid.style.height = `${cellH*numRows}px`;
+    grid.style.height = `${cellH * numRows}px`; // 実際の行数分（5行月は下に余白が空く）
 
     // 曜日ヘッダーとwrapをグリッドと同幅に同期
     wd.style.width = `${totalW}px`;
