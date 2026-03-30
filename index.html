@@ -1331,7 +1331,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v796</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v797</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1689,12 +1689,11 @@ button:focus-visible { outline: none; background: transparent; }
 const $id = id => document.getElementById(id);
 
 
-/* ══════════════════════════════════════════════
-   STICKER DEFS
-══════════════════════════════════════════════ */
-// STICKERS: PNG画像をBase64 data URIとしてHTMLに直接埋め込み
-// 本番環境ではurlをサーバーのPNG/WebPパスに差し替えるだけ
-// （プロトタイプはData URIを使用することで外部通信ゼロで動作）
+/* ════ STICKER DEFS｜スティッカー画像定義 ════
+   責務: スティッカー画像を Base64 Data URI で定義
+   備考: 本番環境では url をサーバーパスに差し替えるだけでよい
+   依存: なし（定数定義のみ）
+════════════════════════════════════════════ */
 const STICKERS = [
   {id:'onair', label:'ON AIR', url: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCACAAU0DASIAAhEBAxEB/8QAHQAAAgIDAQEBAAAAAAAAAAAABgcEBQADCAIBCf/EAFEQAAEDAgEGBQ4MBAUCBwAAAAEAAgMEBREGBxIhMZEYMkKV0QgTFCJBUVJVVmFxc6GxCTM1NzhicnWBs7TBFSM2siQ0Q3SCJZMWJkVTY+Hw/8QAHAEAAQUBAQEAAAAAAAAAAAAAAgEDBAUGBwAI/8QAOxEAAQMDAgMDCQcDBQEAAAAAAQACAwQFETFBBhIhQlFhExQycYGRscHwIjQ1UnKh0TOCshUjJMLh8f/aAAwDAQACEQMRAD8A6mzkZb5PZAZLz5Q5R1ZhpYyGMYwaUk8h2Rsb3XHA+YAEkgAlcfZZdVpl9ca5/wD4ZobZYqIH+WJIuyZiPrOdg3H0N/FRerlyprLvneGThlcKGxUsbY48e1M0rRI9+Hf0Sxv/AB85SCQEp5jBjJTl4TmeTyioea4ehZwnM8nlFQ81w9CTS9BrjrDTuSZRhgOycfCczyeUVDzXD0LOE5nk8oqHmuHoSc0HeCdyzQd4LtyTmXvJ+CcfCczyeUVDzXD0LOE5nk8oaHmuHoSebE88h25SYaKR3IduQmQDdONp3O0amxwm88nlDQ81w9C+8JrPL5RUPNcPQljDbJDyDuUllokI4h3Jl1U0bqSy2yO7KYvCazzeUVFzXD0LOE3nl8oaHmuHoS7Nokw4h3LTJapByHbl4VTDuidbJR2UyeE3nk8oaLmuHoWcJvPJ5Q0PNcPQlebbLjxDuX1tsk8B25H5w3vTXmEmfRTP4TeeTyhoua4ehZwnM8nlDQ81w9CWf8Lkw4jty1SW6Uch25eFQ07rxoJB2U0eE5nk8oqHmuHoWcJvPJ5Q0PNcPQlT2BLjxHbltjt0h5DtyUztG6EUUh7KaPCazyeUNDzXD0LOE3nk8oaHmuHoSzFrkw4jty1yW2Rox0HbkIqGndGaCQD0U0OE5nk8oqHmuHoWcJzPJ5RUPNcPQlJLSyN5Dty0mKQHiO3J0PB3Ud0BaeoTh4TmeTyioea4ehZwm88nlDQ81w9CUMdPI7kO3KXFb5HDiHchdKG7omUrn6NTT4TWeTyhoea4ehZwm88nlDRc1w9CWYtcmHEO5eH2yUch25B5w3vTxt8n5Uz+E5nk8oqHmuHoWcJvPJ5Q0PNcPQlWaCTHiO3L2y3SHax25F5dvegFDIeymjwm88vlDRc1w9C+8JvPL5Q0PNcPQlm21yHkHcvX8Kk8A7kHnLe9Oi3SnsplcJrPL5Q0PNcPQs4TWeXyhoea4ehLhtpkPIO5exaJMOKdyE1TO9ELZL+VMThNZ5fKGh5rh6F84TeeTyhoua4ehLt1okA4h3KPJbJByHbkoqmndC62yt7KZnCczyeUVDzXD0LOE5nk8oqHmuHoSomoZG8h25RnwyN5DtyeEgO6jOpnN1anBwnM8nlFQ81w9CzhOZ5PKKh5rh6EnNB3gu3LNF3gu3IuZN+T8E4+E5nk8oqHmuHoX1nVO542uBN/t7wOS61w4HcEmiCOMMPTqXxLlJygbLsDM71WDLhc4LPnEoKSgEzgyO60gLYWOOoddYSS0fWBIHdAGsdVRva9gexwc1wxBBxBC/JX07F391F2VNZlLmWp6auldLUWWqfbxI5xJdE0NdHie7g14b/xRNKbe0DqFyz1Xn0h8qPtU36aNKhNjqvPpD5Ufapv00SUyEpwaIpyatUIpWVtSwSSSDFjXDENb0q+1dxR7Z8m0vqW+5SFmZ5HSSEuX0tYrdBQUMccLcdASdySOpP14LF7YwlYxuJU6lgJOxRnuDQrYnC1wU5d3FOgpPMptLS44ala0lCXYalBlqMKLJOGqpio/Mt7aE4bETUtpc4DtVYRWUkcVV769o3VfJcWN3QUaL6q1Po/q+xHj7KQOKVEns7hyUja9pOqBlyYTqgh1Hr2L02j8yJ32twPFK2Q2px5KeNYMaqQa1gGcoXNFq2LVJR+ZGps7sMdFQqq2uZyUjK0E6oWVzXHGUJdhjHYtkdH9VXRozpbFMpbcXYdqnXVQAyn31LQMoeFEcNi1yUeA2I0Fodo8VQ6u2loPapptaCdUwyua44ygqelw7iiGnOOxFFXTYEghQXU4xU5k+Qp7JchVkFLj3FOio8e4ptNTYnABXFHby/DtU1LU8qalqA3VUIoj3l5fR+ZGTLQ4t4qj1NrLRxVFbWtJ1UVtc0nGUIGk83sXtlH3grx9EQ7YpNNbi7kp11UAE86qaBlD4oj3l97D8yMI7O4t4i9fwY+CmPP296jG4s70Htoj3l7FCcNhRiyzEniraLKfBQG4NG6A3Ng3QO6hPg+xapKI95Hb7KcOKoVTaXNB7VEyvad0TLix26BpqTDkqDPT4a8EY1lAW7Wqoq6bDHUrCKoBVhFOHIZewgrwrGrhwJ1KA9uBU5juYKWDla5YopmFksbHsIwIcEG5QW5tBVgR49ZkBczHud8I0Q7lr8XSfad7grCgkc2UN2KxXHlvgmtT6hzftswQd+pAI9XVDS7Z+D8+bO//fR/IiXEy7a+D8+bPKD76P5ES0DdVwaTRc/dV59IfKj7VN+miSmKbPVefSHyo+1TfpokpikKIaI/tnybTepZ7gpA1lR7Z8m03qWe4KVGMSsrJ6RX1JRfdY/0j4BSaWPEjUruigxw1KBQx44IitkGLhqVdUS4STScoU220ReRqRZarTpAdqtdhodLRxCP8nbPNV1EdNTRacjzq7w858wWXq6p7nBjBknRY663PyYPXCqaO0tDR2oV3RZOVlQ3Sp6Colb32xkjemjYsmLZaYWzTtjnnaMXSyAaLfQDsHtXytyvtNM8si67Ukd2Nva7yVZjhxkEYkuVQI87an69QPrXPZuIpp3ltMwu8UtZslbnG0ufbKoAd3rRPuVPU2gBxaWEOG0EYEJu0+WttkeGywVEQx24Bw9hxVlU0dnv9GJHMiqGHU2RnGb+O0egomcO0tYD/p9UHOGx+sj3JsX+qpyPOIyB3j6+aQMlnGPFWyC0NB4qPMosn5bTUgO/mQP+Lkw9h86rWwgHZ3Vk6p9RSymGYYcNQr9l2M0Ycw5BVJJk/UMiL30c7WgYkmJwAHpwVJcbSMDg1dMljXw6LwHNc3BwI1EJV5Z5PfwytPW2k0suuI+D32n0e5ae82Ca1RCdj+du/TGO72KttXEjp5eR4wdvFJ6S0nrnF7qtLZahqxaiOS3gu2KVSUjWkalnZK8luFpprmXM1UKLJ+pfCHMo53NcMQRE4g+xUV4toYD2uGC6OyXaRk7QDvQM9ySmUcQ69Pq/1He8q5uVtNujglD+bygzpjHQH5qktF6kqah7CMcp/lKW70wY86lTFnbIrygjAe70odbHpSKdTSZZldNpJcx5KlWum03DUjSzWwEDtVUWCk0iNSYNionPMcbG4veQ1ow2k6lU3CpOeVqobtXcmcFa6awzyRacdJM9p7rYyR7Aq65WjR0muYWuBwIIwIK6JtNEy326no4x2sTA3Hvnunel9nHtTYLualrP5dS3TP2hqP7FWV14fmttI2q58npzDGmfHfr0WEt/EjqipMZGBt4pLz2v+ZxVYW21jEYtRDNQjTxwUqipQ07FnZK0lq1EtycWarRS2CofG17KOdzSMQRE4g+xfDamgkFuBG0EJ25KDDJygHehalxcIwa+px/95/8AcVY3m2G3U0M4kz5QZ006A/NZilvUtRK9hGOVDsNnL3aLInPPea0lTY8mq94xZbaoj1LuhNLIRuGT0eAA/mP96y4ZUUNHVy0r4ahz43aLtFowx3qyh4fpW0cdVV1PIHgHTvGcaqFJfqp0zooo848UqqjJ2riBMtBUsHfdE4fsqertLSD2qdlPlbaZXBsnX4fO9mr2Erdd7Ha73S9c0Yw94xZPENfs2j0o28NxVLC+31IkI2+j09o9qKPiKeB4FRGWjvXNF2tWAPaoQudJoOOpOTKa1SUdTNSztAkjdgcNh84S5ygpg1x1Ksoqh7Xlj+hHQro1ouHlQDnVL+vh26lSVLMHIouMYBKHq1uBK1NO/IWxhdkKAh3LX4uk9L/cERHah3LX4uk9L/cFbUX9dv1ss/xr+Bz/ANv+TUNLtr4Pz5s8oPvo/kRLiVdtfB+fNnlB99H8iJaNuq+eJNFz91Xn0h8qPtU36aJKYps9V59IfKj7VN+miSmKQohoj+2fJtN6lnuCnU4xcFBtnydTepZ7grClHbLKTalfUdF91j/SPgrq3s1hFVlh0nt1Iatw1hGFgaC9qoq1+GlQq5/Kwo4yfpwGt1J1ZuLW2mtPZ72jrtRxT3mA/ude5KSxNwjHoT8oWNpbRAwDtYoGjc1BwjTtmrnzv7A6es7+4Fcc4rqXcojHaPwQRl/e3y1brdC8iCH4zA8d3n8w96Bamvaw7VKu873uklccXPcXE98nX+6DLvVua861mamokulU+eQ6np4DYK2tFta2MRhEsNwDnbUS5LXqW2VrZWuJhcQJmeEO/wCkdxKy31j3SYYowtMpcwJoiSilbNEcOHUKTcbc0MLXDoU77rRxXW1SQ6nCRmlG7vHaClgWlr9Fwwc04EefFMbI2Z02TlIXYktaWY+YEgexA+UEYjvtYwbBMTv1/utRxnGyppaavaMFwAPtGR7uqxNoLo5ZIDt8uiZFdOaW3TVIbpGKMv0cduAxUWrgo77aMCdKKZukxw2tPcPpC3XkY2Or/wBu/wDtKDci7x2FUiind/h5T2pPId0Fau53WKmrY6SpH+3K3Bzsc46+B0PsVZTUrpIXSx+k0ofuFvloqySlnbg9h2gaiO4R5itTGAFMbK2zi50fXYWjsmEEs+uPBS9wwOBBBG0HaFzDiCzPtVVyasPVp8O71j/3daagrhVR53GqZ+TXyBQ+ob7klsohjLP9t3vKdOTXyDRepakvlD8bN9t3vK1PFP3Si/T8mpjh771L6/mUt8oBi9ypaWEulGruq+vjcZCo1rp9KUau6q2KTliXWoJeSFEOT1LqacE1s2ts6/dBUubiymbpaxq0jiBu1lAdjp9FrdSduRFALfYIi8aMk/8ANfj59g3YI+H6Tz+5tLvRZ9o+zT9/guecT1/LE4DV3T+V6v14Fvr6Cn0sBJJjLj3GbPecfwXzLOg7Pscha3GSH+azDzbRuxQXlBW9n3aonBJj0tFn2RqHT+KOslq0V9lic86UjB1uT0jpGC0Nvu7L1U1dDIfsO9H1Docfs4e1ZKeldRxxTt1Gvx/8SsdECdi9Rx4HYrW/UJt91npgMGNdiz7J1joUEBcunjkgldFJq0kH2LUsm8owOGhTOyX/AKfofUhLmv8A89Uetf7ymNkv/T9D6oJc1/8An6j1r/7itzxf+HUX6f8Aq1UNq+8Tev5lHeQv9Px+sf70HZTf1BXetPuCMMhv6ej9Y/3qlvWTt1qrtVVEMMZjkkxaeuAasApF4o6iqsNG2BhcQG6DPZPcgpJWRV0peca/FDGtGmbuWR1HVROJMccgLcdgxGsDcN6rKXJC5SPAnfBCzunHSKKYI7fk9ajpSaEbMXOc7jPd0+ZReFbLWUlX55UjybGg5z0z07u7fr3Jy6VkMsXkozzOPcgTOvHGLy1zcNJ1O0u9OLsPYk5lIBi5MjK+4yXGunq3jRD9TW+C0agEsco5NblWyVDKqvlmj9Fzjj+fbqtzw3C6KJjHagIJugGJQ3XYYlENydiSh2uOsrTUo6LpdOOir3bUOZa/F0npf7giN21DmWvxdJ6X+4K7ov67frZUPGn4HP8A2/5NQ0u2vg/Pmzyg++j+REuJV218H582eUH30fyIlo26r55k0XP3VefSHyo+1Tfpokpimz1Xn0h8qPtU36aJKYpCiGiP7Z8nU3qWe4KxpT2wVdbPk6l9Uz3BToD2yyk2pX1HRD/ix/pHwRDbjsRjk+7BzfSgm3v2Iqsk2D261Q1rcgqFXMywppWN460NXcT9o3NqbVE4EaMsLdnnaudMn6gYN1p2Zuroyrswo3uHXabVh32HYf2ScIVDYa6SB/bHT1jb3E+5cb4rpncokHZPxS2u0DmF8TgQ5ji0jzg4IMu1I5zzqTly/sb46p9ygYXQynGXAcR3f9B96BKmhDzjgsxU08lrqnQSDTTxGxVvabk18Ykag230TxINRRhaIi1o7y+Q28NdsRNkrY5bnWtjDCIGEGZ/cA73pKazJWythiGXHoFIuNxZyFzj0CYGR0Jgybo2vxBcwvP/ACJKBr9KJr5WSNOIM5APo1fsmBeq2K1Wl8wwaWt0Im993cA//bAljiS7FxxJOsrT8Zysp6emt7TksAJ9gwPf1WLtDXSSSTnf/wCpp3j5Eq/9u/8AtKVZwwTUvPyHV/7d/wDaUp3PACHj4Znh/SfiisQyx/rR/kZeuzKfsGpf/iIm9q48tvSFX5b2frUhudO3tHH+eANh8L8e6hKlrJKaoZUQv0JGO0mkdxM6zXCmvdq65ot7YaE0R16Jw1j0KTaamPiCgNuqj/uNGWn1aH1jQ949qbq4X2+cVEY+ydR9ft4r3kyf+g0PqWpMZQfHTfbd7ynfbaZtHRxUzCXNjGi0nbhjqSSv/wAfN9t3vKXi2N0VNRsfqAQfYGqXw44OqJXDQkfEoCukelKdSkWal7calvqotKXYrSz04BGpZmSbljwuiS1HLDhFORtr7PudPSkdoXaUn2RrPR+KcNRC2anfAXOY17S0luogHvISzZW4RUc1xe3AyHrcf2Rt3n3KHl5dpf4qKWCeRjadvbaDyMXHWdneGG9a20yxWSzmsmbkynTTI2HuyfauZ3DnuNf5Jh6N+j8grwZH2rw6r/uDoVjZrRTWrrvYz5iJMC4PcCMR+CVjrrVg/wCcqP8AvO6VvpLtWMmjlbVTOLHBwBkJBwOwqupeJLXTSiWKj5SNweo/ZOy2mrewtdLkIyzg0WnTw17BrjPW5PQdnt96DAmi8Q3ezYDXFUw6vNiNW79ksZo3wzPhkGD2OLXDzgqLxtQtjq21cfoyD9x/Ix+6SzTl0Ridq1MrJf8Ap+h9UEua/wDz9R61/wDcUxsmPkCh9UEua/8Az9R61/8AcVM4v/DaL9P/AFamrV94m9fzKOshv6fj9Y/3qvu2VVVR3OopWUsL2xP0Q4uOJVjkN/T8frH+9B2Ux/6/XetPuCmXS4VNDYqR9O/lJDRt+XxTVNTxz1sokGR1+KIbdlgySZsdbTCJpOGmx2IHpCscq7Qy628yxAGoibjE4HU4bcPxS70gmNkbVGqsMOkdJ8RMRPo2ezBBw7dpL0JLfXnmBGQcAH9txqD4JbhStoi2eDpgpPXgHrZ1HFLvKMds5NrLij7FvNbAG4N64XNGHcOse9LDKSHW7UsxSRmnndE7VpI93RdGsU7Xhrhul/cQcSh6tGsomubMHOQ5Xt1lbGmK6HTnoq1yHMtfi6T0v9wRG/ahzLX4uk9L/cFdUX9dv1sqLjX8Dn/t/wAmoaXbXwfnzZ5QffR/IiXEq7a+D8+bPKD76P5ES0bdV88SaLn7qvPpD5Ufapv00SUxTZ6rz6Q+VH2qb9NElMUhRDRH9s+Tab1LPcFLiOBUS2fJtN6lnuCktOBWVk9Ir6kovusf6R8AregkwwRFbJ9Fw1oRpZcCFdUU+GGtV1RFlJPHzBMmw12jojFH+Tl5moqqOqppNGRnf2Ed498JMW2t0CNaLLVdsAMXLL1dK9jxJGcEdQVjbraxKD0yCukrHlNbLvC2OR7IJyMHRSHUfQTtC+VuSNoqXl8bZKdx7kTtW4/sklR3ZpaBpK5o8o6ynaGwV9RE3vNlOG7FWo4kZPGI7jTiTG+h+vUR6lz2Xh2aB5dTPLfBM6nyLtUbg6SSol17C4AewKdW3OzWGl6zpxRaAwbBFrcfw/cpT1GU9wmZoy3Kqe3vGU9KqKi7NBJ0vavN4ip6VpFupQxx3Ov17UjeH6mocPOJCR3fX8Iwv1+mutX1yU6ETcRHEDqaP3JUBkzXEa+6g+S8gO43tW2C7tO1yydTHPUyGaU5cdSr9lpMTA1gwAuhL07Cw1p71M/+0pLVdW1ndCgy36Z0ZBqpiCMCOunWh+53UYHByvb1cDeJWPEfLyjGufkFFs9ikpeZrjnPgiFtwGnhpIkyTv7rZXtmBLoX9rMwd1vfHnG1KRt1Ik4yvLbdxq7ZVrYJaWRs0Rw5vUK4rbOHxlrh0K6appoqiBk8Lw+N7Q5rhsISKv0gFRMMf9R3vKhx3yVkQaypka0bA2QgD8FTXO5g49t7Vb3m7uvAiBj5S3O+c5x4eCpLPYZKOR3XIPgvr3tMu1X1jidPNHBENKSRwa0ecoGFwBk2q9tV062Wua8tcNhBwIVRNTnAzotLV0snk8BdFgU9lsWvVFSw6/PgP3PvSavFxdLNLPI7GSRxe70k4qvmvkr4i19TK9p2h0hIPtQ7drqCD2ytLvcnXUxRtZyMYOgzn+NtFnrPYX073OeeYndWU10Ak4yn264B+HbJcz3EmTjK0tNzwIxcoEtBhi1M1rxH0C6KzZ3MVFvloHu7eA6TB9V3Qcd6r8vaPsa6tq2jBlS3E+Zw1H2YFLC3XlzMHMlcw4YYtcQfYrB16fIAJJ5H4bA55OHtUqqupntbaCWPJbjDs6Y06Y7umqxZscsVY6dh6HUY+t+qdeS5/wDL9D6kJbXB4FwqBj/qv/uKHhfJWNDW1MrQNgEhwC1G6tOJ09fpTV4uhuVNBAI+XyYxnOc9AO7wQ0dllp5HvJzzJyZBkHJ2M/8AyP8A7kDZWzBmUVeMf9Y+4IVF7kjZoxzyNA14NeQFX1t4xJc6QuJOsk4ko664mtoIaPyePJ4651wMaYTtHY5I6l8pOebbHiiPspuO1GebS4MNTUULnfGASMGO0jUfZhuSbbeBpcZWNHeC0hzZC1w2FpwKh2x8ltqmVLRnG3eCMFTq+zOnhMfemdnVoHDrNyYwlhb1qQgbDtaTvISWyjDe2V/W3uWSEsfUyuadodISD+CD75Wh+OtTaiZtbWuqGM5ebUZz19w1U6wW+WlY2N5zhCN2A0ihm4DWUQ3KTEnWhyvdrK0VKDhdIpgQAqyTjIby1+LpPS/3BEj9qG8tfi6T0v8AcFe0P9Zv1sqPjT8Dn/t/yahpdtfB+fNnlB99H8iJcSrtr4Pz5s8oPvo/kRLRt1XzzJoufuq8+kPlR9qm/TRJTFNnqvPpD5Ufapv00SUyRE3RH9s+Tab1TfcpCoMmrtCaZtFUyBj49THOOAcO95iFfAgjEEEelZmeN0chDgvpaw3Knr6GOSFwOAARuCB1B+uuq2MdgVPpZ8O6q3Ed8L2x+B2qO5nMrZwyiWlqsMNatqWuLcNaDoKnDujep0NZ9ZQJafKiSQByOaW6ubylOjvRHKQHHW/WW9td9ZQH0DTsoD7exx0Rs+9HDjKJUXdx5SFDW/WWt9Z9ZI2gaNkLLcxp0RE+5uJ4y2Q3Rw5SEzWDwvavTa3z+1PGjHcpBo2kaIyN3do8ZQKq4ufykPdm+da31g8JIyjAOiRlE1p6BXPZZ0scVNpbi5nKQp2YO+tsdZh3U46lBCdfTNcEaC7u0eOolTci7HtkNdm6tq8PrPrJptEAdEy2hYDnCvRWnSxxU2muZbykJdmDHatjKzDuo3UoITj6Vrhgoydd3aPGVfV3Avx7ZUBrdXGWmSsx5XtQsow06II6JrTkBWj6nF21SKWsLCNaGzV69q2R1n1lIdT5GFIdACMI2p7q5ow0lKbeThxkEMrdW1bOzT31DdQtOyhOt7CdEZm8u8JeDeHeGg/s3zrz2b9ZIKBvckFuZ3IydeHYcZRZ7oXcpC5rfrLw6s+sjbQtGyNtAwHREQuJ0uMpcF1c0cZB4rB4XtXttZ9ZE6jB2Ruo2kaIwluxI4yq6yuL+UqV1b51HmqxhxksdGGnRLFRtYei31s+OOtUlXJiVsqKnS7o3qE92J2qzhi5VYRt5V4Osody1+LpPS/3BX800ULDJNKxjQMSXOQblBcBcKwOjx6zGNFmPd16yragjc6UOGgWN48uNPDa30znDnfjA36EEn1dPeq1dtfB+fNnlB99H8iJcSrtr4Pz5s8oPvo/kRK/bquDyaJSdXNkpV2jO23KXrTjQX2ljc2QDtRNE0MezHv6IY78T3kgV+pGcTIrJ/L3Jeoydyjo+yKSXBzXNOjJDIOLIx3JcMTr85BxBIXIeWfUkZcUFa92S90td6oi49bFRIaado7gcMCw+kEeheIXmvGMFc5bf/sL6CR3SnTwXs8Hie1c6R9CzgvZ4PE9q50j6EmEQeBukvi7vnesxd33b06OC9ng8T2rnSPoWcF7PB4ntXOkfQkwl8p4pMtke08Z29SYqyRvKO9N3gvZ4PE9q50j6FnBezweKLVzpH0ITGDsjbO5uhStiucjeUd6kNu0gHHKZY6l/PAP/R7VzpH0LODBnh8T2rnSPoTRpmnZSm3GRvaS1N2kw4xWiS6SHlHemjwYM8Pii1c6R9C+cGDPD4ntXOkfQkFK0bJXXKQ9pKl1xkJ4zt6+tuMg5bt6avBfzweJ7VzpH0LOC/ng8T2rnSPoR+Qb3Jrz6T8yVv8AE5MOM7etT7hIeU7emvwX88Hie1c6R9CzgvZ4PFFq50j6F4U7RsvGukPaSk7Nkx4zt62R3CQcpya/BezweJ7VzpH0LOC9ng8T2rnSPoSmFp2QiseD6SVoucmHGdvXh9xkPKdvTV4L+eDxRaudI+hZwXs8Hii1c6R9CTzdvcjNfIe0lP2fL4Tt62MuUg5Tt6anBezweKLVzpH0LOC9ng8UWrnSPoXjA3uQiteO0labnJ4Tt60yXCR3KdvTY4L+eDxRaudI+hZwX88Hie1c6R9C8IGjZK6ukd2koDVyE8Z29bIq2Rp4zt6bfBezweJ7VzpH0LOC9ng8UWrnSPoRGIHZNiqcDnmStjucg5Z3raLrJ4Z3pm8F/PD4ntXOkfQvvBfzw+KLVzpH0Js0zTsnxcJB2ksTdZPDO9eTdJPCO9NDgv54PFFq50jXzgv54fE9q50j6F7zZvcl/wBRk/MlebpJ4R3rw+5SHlO3pp8F/PD4ntXOkfQs4L+eDxRaudI+hKKdo2Qm4SHtJU/xGXHjO3r225yDlu3pp8F/PB4ntXOkfQs4L+eDxPaudI+hKadvchFdIO0labnIeU7eo81dI7lO3ptcF/PB4otXOkfQs4L2eDxPaudI+heEDRsvOrpHauSbkne7lO3rWXOPKdvTo4L2eDxPaudI+hZwXs8Hie1c6R9CdDcbKOZc6lJY4nbifTrWfgnTwXs8Hie1c6R9C+s6l3O+5wabTaGg8o3NmA3BLgoeYd6SmrukYL9AeoxyUrcmMy9PUV8RhqrzUvuJjeCHNjcGtjxHnYwO/wCSBMzvUoQWq5wXnOFcKW5uhcJI7ZShxgLhrHXXuALwPBAAPdJGpdStaGtDWtAAGAHeRNCbe7PQL//Z'},
   {id:"gift", label:"\u30d7\u30ec\u30bc\u30f3\u30c8", url:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAA1UlEQVR4nO3SwRGCMBQEUMr2bCUUYRGWYgne4nh1wITw/xD07UxuzLJ5ME0iIiIigXlc5nKGzrC8x9XOCJ3haRm5dXRGZ0p6htYGZ3SmZM/QtcEZnQBGvfzn4IxOAAAAjH35zHMahMzO3bldn2XpHP11a2dtNwAAQQAjI3zbDCASYESE2t5wgJEQWramAGyBaH22p/NwgCWQXqyezuEA9vwtWe8FAAAAgK7c51IiTw0g+n3dFwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+EEBERH44Lx9MMHEivg2iAAAAAElFTkSuQmCC"},
@@ -1733,10 +1732,11 @@ function preloadStickerImages() {
   });
 }
 
-/* ══════════════════════════════════════════════
-   JAPANESE PUBLIC HOLIDAYS (fixed + rule-based)
-══════════════════════════════════════════════ */
-// Returns "YYYY-MM-DD" → holiday name map for a given year
+/* ════ JAPANESE PUBLIC HOLIDAYS｜祝日定義 ════
+   責務: 年ごとの祝日マップを生成（固定祝日 + 振替休日 + ルールベース）
+   依存: なし（純粋関数）
+════════════════════════════════════════════ */
+// 引数 year の "YYYY-MM-DD" → 祝日名 のマップを返す
 function getHolidays(year) {
   const hols = {};
   const add = (m, d, name) => { hols[`${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`] = name; };
@@ -1798,10 +1798,11 @@ function fmtDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-/* ══════════════════════════════════════════════
-   COLOR PALETTE  (8 colors as specified)
-══════════════════════════════════════════════ */
-// 黒, グレー, 青(暗), 青(明), 緑(暗), 緑(明), 赤(暗), 赤(明)
+/* ════ COLOR PALETTE｜カラーパレット定義 ════
+   責務: 14色のパレットを定義。ペン・マーカー・テキスト・期間枠で共用
+   依存: なし（定数定義のみ）
+════════════════════════════════════════════ */
+// 黒・グレー・ピンク・青×2・緑×2・赤×2・オレンジ×2・紫×2・ゴールド
 const PALETTE = [
   {hex:'#1c1a18', label:'黒'},
   {hex:'#888880', label:'グレー'},
@@ -1819,9 +1820,12 @@ const PALETTE = [
   {hex:'#c8960a', label:'ゴールド'},
 ];
 
-/* ══════════════════════════════════════════════
-   APP STATE (session only — no localStorage)
-══════════════════════════════════════════════ */
+/* ════ APP STATE｜アプリ状態・共通ユーティリティ ════
+   責務: グローバル状態変数（S / Draw / Cal）・共通定数・ユーティリティ関数・
+         ストレージ入出力（saveToStorage / loadFromStorage）
+   注意: SpanMode はこのセクションより後方（SPAN MODE セクション）で定義
+   依存: なし（他セクションの基盤）
+════════════════════════════════════════════ */
 const today = new Date();
 
 // 携帯電話（非タブレット）の判定：UA文字列でiPhone/Android端末を検出
@@ -1946,7 +1950,10 @@ function uid()     { return Math.random().toString(36).slice(2,9); }
 /** ディープコピーを返す */
 function clone(v)  { return JSON.parse(JSON.stringify(v)); }
 
-/* ════ I18N｜国際化・翻訳 ════ */
+/* ════ I18N｜国際化・翻訳 ════
+   責務: 日本語・英語の表示文字列を管理。L() で現在言語のオブジェクトを返す
+   依存: S.lang
+════════════════════════════════════════════ */
 const I18N = {
   en: {
     months:  ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
@@ -2083,7 +2090,10 @@ function commitCellObjs(key, arr, redrawMini = true) {
   if (redrawMini) renderMiniCanvases();
 }
 
-/* ════ CANVAS｜キャンバス初期化 ════ */
+/* ════ CANVAS｜キャンバス初期化 ════
+   責務: draw-canvas の取得・サイズ調整・テキストサイズ計算
+   依存: APP STATE（S.textSize）
+════════════════════════════════════════════ */
 const cvs = $id('draw-canvas');
 const cx  = cvs.getContext('2d');
 
@@ -2124,7 +2134,10 @@ function calcTextSizes() {
   S._textSmall = small;
 }
 
-/* ════ RENDER｜描画処理 ════ */
+/* ════ RENDER｜描画処理 ════
+   責務: キャンバスへの全オブジェクト再描画（差分なし・毎回全描画）
+   依存: APP STATE（Draw.objects）、CANVAS
+════════════════════════════════════════════ */
 /** 日付詳細画面のキャンバスを再描画 */
 function redraw() {
   cx.clearRect(0,0,CANVAS_PX,CANVAS_PX);
@@ -2619,6 +2632,8 @@ function evtCoords(e) {
 }
 
 /* ════ PEN OBJECT MANAGEMENT｜ペンオブジェクト管理 ════
+   責務: ペン・マーカーストロークの開始・追加・確定
+   依存: RENDER（redraw）、APP STATE（Draw.activeStroke）
    仕様：同じ色・同じ太さで描かれたものはひとつのペンオブジェクトとする。
    ツール切り替えをはさんでも、色と太さが同じなら同一オブジェクトに統合する。
 
@@ -2714,7 +2729,10 @@ cvs.addEventListener('pointerdown', e => {
   placeSticker(lp);
 }, {capture: false, passive: false});
 
-/* ════ POINTER INPUT｜ポインター入力処理 ════ */
+/* ════ POINTER INPUT｜ポインター入力処理 ════
+   責務: draw-canvas 上のポインターイベント処理（全ツール共通の入口）
+   依存: PEN、ERASER、TEXT、CLIP、STICKER、UNDO/REDO
+════════════════════════════════════════════ */
 cvs.addEventListener('pointerdown', e=>{
   e.preventDefault();
   Draw.isPointerDown=true;
@@ -3043,7 +3061,10 @@ function shiftObj(obj,dx,dy,orig) {
   } else { obj.x=orig.x+dx; obj.y=orig.y+dy; }
 }
 
-/* ════ ERASER｜消しゴム ════ */
+/* ════ ERASER｜消しゴム ════
+   責務: ペン・マーカーストロークの消去処理
+   依存: RENDER（redraw）、APP STATE（Draw.objects）
+════════════════════════════════════════════ */
 function eraseAt(lp) {
   const r=S.eraserSize/2; let dirty=false;
   Draw.objects=Draw.objects.filter(obj=>{
@@ -3064,7 +3085,10 @@ function eraseAt(lp) {
   if (dirty){flushAndRedraw();}
 }
 
-/* ════ TEXT｜テキストツール ════ */
+/* ════ TEXT｜テキストツール ════
+   責務: テキストオブジェクトの配置・編集（contenteditable overlay）
+   依存: RENDER、UNDO/REDO（pushUndo）
+════════════════════════════════════════════ */
 function showTextInput(x,y,editObj) {
   removeTextInput();
   const r  = cvs.getBoundingClientRect();
@@ -3168,7 +3192,10 @@ function removeTextInput(){
   }
 }
 
-/* ════ CLIP｜クリップツール ════ */
+/* ════ CLIP｜クリップツール ════
+   責務: 画像・PDF の貼り付け・表示・ビューワー起動
+   依存: RENDER、UNDO/REDO（pushUndo）、STORAGE
+════════════════════════════════════════════ */
 ;(function(){
   // LocalStorageキープレフィックス
   const CLIP_PREFIX = 'calapp_clip_';
@@ -3415,7 +3442,10 @@ function removeTextInput(){
   $id('clip-viewer-bd').addEventListener('click', _resetViewer);
 })();
 
-/* ════ STICKER｜スティッカーツール ════ */
+/* ════ STICKER｜スティッカーツール ════
+   責務: スティッカーオブジェクトの配置
+   依存: RENDER、UNDO/REDO（pushUndo）、STICKER DEFS
+════════════════════════════════════════════ */
 (function(){
   const dropdown = $id('stk-dropdown');
   const grid     = $id('stk-grid');
@@ -3549,7 +3579,10 @@ function placeSticker(lp) {
   }
 }
 
-/* ════ DELETE / FLUSH｜削除・保存 ════ */
+/* ════ DELETE / FLUSH｜削除・保存 ════
+   責務: オブジェクト削除・セルデータの保存（flushCell）・カレンダーへの反映
+   依存: STORAGE（saveToStorage）、CALENDAR RENDERING（renderMiniCanvases）
+════════════════════════════════════════════ */
 /** 指定IDのオブジェクトをフェードアウト後に削除 */
 function deleteObj(id){
   const obj=Draw.objects.find(o=>o.id===id); if(!obj) return;
@@ -3582,7 +3615,11 @@ function flushCell(){
 /** flushCell() + redraw() の組み合わせを一括実行するヘルパー */
 function flushAndRedraw() { flushCell(); redraw(); }
 
-/* ════ CALENDAR SCREEN UNDO/REDO｜カレンダー画面 Undo/Redo ════ */
+/* ════ CALENDAR SCREEN UNDO/REDO｜カレンダー画面 Undo/Redo ════
+   責務: カレンダー画面でのオブジェクト操作（D&D・削除など）の Undo/Redo
+   注意: 月遷移時に clearCalUR() でスタックをクリアする
+   依存: APP STATE（Cal.undoStk / Cal.redoStk）、STORAGE
+════════════════════════════════════════════ */
 /** カレンダー画面のUndoスタックにアクションを積む */
 function calPushUndo(act) {
   Cal.undoStk.push(act);
@@ -3683,7 +3720,11 @@ function doCalRedo() {
   syncCalUR();
 }
 
-/* ════ UNDO/REDO｜日付詳細画面 Undo/Redo ════ */
+/* ════ UNDO/REDO｜日付詳細画面 Undo/Redo ════
+   責務: 日付詳細画面でのオブジェクト操作の Undo/Redo
+   注意: 別日付を開いた時点でスタックをクリアする
+   依存: APP STATE（Draw.undoStk / Draw.redoStk）、RENDER（flushAndRedraw）
+════════════════════════════════════════════ */
 function pushUndo(act){ Draw.undoStk.push(act); Draw.redoStk=[]; syncUR(); }
 
 function syncUR(){
@@ -3700,7 +3741,10 @@ $id('btn-redo-l').addEventListener('click',doRedo);
 function doUndo(){ if(!Draw.undoStk.length)return; const a=Draw.undoStk.pop(); applyUndo(a); Draw.redoStk.push(a); syncUR(); flushAndRedraw(); }
 function doRedo(){ if(!Draw.redoStk.length)return; const a=Draw.redoStk.pop(); applyRedo(a); Draw.undoStk.push(a); syncUR(); flushAndRedraw(); }
 
-/* ════ OPEN / CLOSE DAY CELL｜日付詳細画面の開閉 ════ */
+/* ════ OPEN / CLOSE DAY CELL｜日付詳細画面の開閉 ════
+   責務: 日付詳細画面の遷移アニメーション・開閉・前後日ナビゲーション
+   依存: CALENDAR RENDERING、RENDER、UNDO/REDO
+════════════════════════════════════════════ */
 
 // 現在開いているセルのキー（goBackで戻る先のミニキャンバスを特定するため）
 
@@ -3945,7 +3989,10 @@ $id('btn-back-land').addEventListener('click', goBack);
 $id('btn-today-day').addEventListener('click', goToToday);
 $id('btn-today-day-l').addEventListener('click', goToToday);
 
-/* ════ 日付エリア ダブルタップ → 当日の詳細画面へ ════ */
+/* ════ 日付エリア ダブルタップ｜当日の詳細画面へ ════
+   責務: カレンダー画面の日付数字ダブルタップで当日の詳細画面を開く
+   依存: OPEN/CLOSE DAY CELL（openDayCell）
+════════════════════════════════════════════ */
 function goToToday() {
   const todayKey = cellKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
   if (S.currentKey === todayKey) return;
@@ -3982,7 +4029,10 @@ function addDoubleTap(el, fn) {
 addDoubleTap(document.querySelector('.day-num-text-group'), goToToday); // 縦長
 addDoubleTap(document.querySelector('.land-date-inner'),    goToToday); // 横長
 
-/* ════ 日付セル：前後移動 ════ */
+/* ════ 日付セル｜前後移動 ════
+   責務: 日付詳細画面での前日・翌日フリックナビゲーション
+   依存: OPEN/CLOSE DAY CELL（navigateDayCell）
+════════════════════════════════════════════ */
 
 // 現在セルを保存して次の操作に備えるユーティリティ
 function saveCurrentCell() {
@@ -4149,7 +4199,10 @@ function navigateDayCell(dir) {
   }
 })();
 
-/* ════ TOOL SWITCHING｜ツール切り替え ════ */
+/* ════ TOOL SWITCHING｜ツール切り替え ════
+   責務: ツールの切り替えとオプションバーの再描画
+   依存: APP STATE（S.tool）、CANVAS
+════════════════════════════════════════════ */
 
 // パレットのスウォッチHTMLを生成するヘルパー
 function buildSwatchesHTML(id, dataAttr, currentColor) {
@@ -4400,7 +4453,10 @@ function setEraserCursor() {
 }
 
 // portrait tool btn clicks
-/* ════ TOAST｜トースト通知 ════ */
+/* ════ TOAST｜トースト通知 ════
+   責務: 画面下部のトースト通知表示（showToast）
+   依存: なし
+════════════════════════════════════════════ */
 let _toastTimer = null;
 /** クリップ表示名入力モーダルを表示 */
 function showClipNameModal(onOk, initialValue = '', onCancel = null) {
@@ -4472,7 +4528,10 @@ document.querySelectorAll('.land-tool-btn').forEach(btn=>{
   });
 });
 
-/* ════ CALENDAR RENDERING｜カレンダー描画 ════ */
+/* ════ CALENDAR RENDERING｜カレンダー描画 ════
+   責務: カレンダーグリッドの DOM 生成・セルサイズ計算・ミニプレビュー描画
+   依存: APP STATE（S.year / S.month）、STORAGE（cellData）
+════════════════════════════════════════════ */
 
 // 日付エリアの固定サイズ
 const DATE_H  = 20;  // 縦長: 上部日付エリア高さ(px)
@@ -4487,7 +4546,12 @@ function isLandscapeCalendar() {
 }
 
 /** カレンダーグリッドを再描画 */
-/* ════ SPAN EVENTS｜期間イベント ════ */
+/* ════ SPAN EVENTS｜期間イベント ════
+   責務: 期間枠のデータ CRUD・SVG 描画・タブ配置・リサイズ・D&D・コンテキストメニュー
+   注意: SpanMode 定数は SPAN MODE セクションで定義（このセクションより後方）
+         関数内参照のため実行時には問題なし
+   依存: APP STATE（SpanMode）、CALENDAR RENDERING（getCellRect）、STORAGE
+════════════════════════════════════════════ */
 // ── SpanMode ユーティリティ ──────────────────────────────────
 /** ビューポート座標から有効な日付セルキーを返す（blank・inactive除外） */
 function getCellKeyAt(cx, cy) {
@@ -4905,6 +4969,18 @@ function _buildGridCtx() {
 
 /** 1イベント分の枠＋タブを描画 */
 function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gridCtx = null) {
+  // ─────────────────────────────────────────
+  // renderOneSpan: 1つの期間枠を描画する
+  //
+  // 処理の流れ:
+  //   [1] 表示月クランプ  → 月またがり時に表示範囲を絞り込む
+  //   [2] 行グループ化    → キーを曜日ベースで行ごとに分ける
+  //   [3] 外枠SVGパス生成 → セル単位の隣接判定で描く辺を決定
+  //   [4] リサイズボタン  → 選択中かつ月端のスパンに◀▶を付与
+  //   [5] 期間タブ描画    → 1行目に予定名ラベルを配置
+  // ─────────────────────────────────────────
+
+  // ── [1] 表示月クランプ ────────────────────
   // 月またがり期間枠：表示月に合わせて始点/終点をクランプ
   const visibleKeys = getVisibleKeys();
   let effectiveStartKey = ev.startKey;
@@ -4925,6 +5001,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
   // シードベース疑似乱数（同じev.idなら常に同じゆらぎ）
 
 
+  // ── [2] 行グループ化（Y座標で改行を検出）──────────
   // キーを行ごとにグループ化
   const rows = [];
   let curRow = [keys[0]];
@@ -4963,6 +5040,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
     twoRowNoOverlap = ![...row0Cols].some(c => row1Cols.has(c));
   }
 
+  // ── [3] 行ごとに外枠SVGパスを生成 ────────────────
   rows.forEach((rowKeys, rowIdx) => {
     const first = getCellRect(rowKeys[0]);
     const last  = getCellRect(rowKeys[rowKeys.length - 1]);
@@ -5090,6 +5168,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
     svg.appendChild(path);
 
     // 選択中：開始・終了の丸ボタン（◀▶）を最初・最後の行に描画
+    // ── [4] リサイズボタン（選択中かつ月端のみ）────────
     const isSelected = !isPreview && SpanMode.selectedSpanId === ev.id;
     if (isSelected) {
       const BTN_R = 14;
@@ -5139,7 +5218,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
       }
     }
 
-    // タブ：最初の行の上辺に1つだけ
+    // ── [5] 期間タブ描画（1行目のみ）────────────────
     if (isFirst && !isPreview && !skipTab && !tabDrawn) {
       tabDrawn = true;
       const tab = document.createElement('div');
@@ -6347,7 +6426,10 @@ function colOf(dow){
   return (dow+6)%7;
 }
 
-/* ════ MINI CANVAS PREVIEW｜ミニキャンバスプレビュー ════ */
+/* ════ MINI CANVAS PREVIEW｜ミニキャンバスプレビュー ════
+   責務: カレンダー画面の各セルに書き込み内容をサムネイル表示
+   依存: RENDER（drawObj 系）、APP STATE（cellData）
+════════════════════════════════════════════ */
 
 // カレンダー画面でのオブジェクト選択状態
 
@@ -6443,7 +6525,10 @@ function miniHitDeleteBtn(obj, sc, px, py) {
   return Math.hypot(px-btnX, py-btnY) < 10;
 }
 
-/* ════ CALENDAR OBJECT DRAG｜カレンダー画面オブジェクトD&D ════ */
+/* ════ CALENDAR OBJECT DRAG｜カレンダー画面オブジェクトD&D ════
+   責務: カレンダー画面でのオブジェクトのセル間 D&D
+   依存: CALENDAR SCREEN UNDO/REDO、MINI CANVAS PREVIEW
+════════════════════════════════════════════ */
 
 /**
  * ドラッグリスナーの共通登録ヘルパー
@@ -6877,7 +6962,10 @@ function drawObjMini(c,obj){
   }
 }
 
-/* ════ CELL CONTEXT MENU｜カレンダーセルコンテクストメニュー ════ */
+/* ════ CELL CONTEXT MENU｜カレンダーセルコンテクストメニュー ════
+   責務: カレンダーセル長押しで表示するコンテキストメニュー（貼り付けなど）
+   依存: CALENDAR OBJECT DRAG、CALENDAR SCREEN UNDO/REDO
+════════════════════════════════════════════ */
 
 /**
  * 長押し発火後にポインターを追跡して、離した位置のメニュー項目を実行する。
@@ -7011,7 +7099,10 @@ blinkAndExec('octx-cut',        () => execCalObjAction('cut'));
 blinkAndExec('octx-paste-obj',  () => execCalObjAction('paste-obj'));
 blinkAndExec('octx-paste-cell', () => execCalObjAction('paste-cell'));
 blinkAndExec('octx-delete',     () => execCalObjAction('delete'));
-/* ════ OBJECT CONTEXT MENU｜カレンダーオブジェクトコンテクストメニュー ════ */
+/* ════ OBJECT CONTEXT MENU｜カレンダーオブジェクトコンテクストメニュー ════
+   責務: カレンダー画面のオブジェクト長押しで表示するコンテキストメニュー
+   依存: CELL CONTEXT MENU、CALENDAR SCREEN UNDO/REDO
+════════════════════════════════════════════ */
 
 /** カレンダー画面のオブジェクトコンテクストメニューを表示 */
 function openObjCtx(clientX, clientY, key, objId) {
@@ -7087,7 +7178,10 @@ function execCalObjAction(action) {
   }
 }
 
-/* ════ DAY OBJECT CONTEXT MENU｜日付詳細画面コンテクストメニュー ════ */
+/* ════ DAY OBJECT CONTEXT MENU｜日付詳細画面コンテクストメニュー ════
+   責務: 日付詳細画面のオブジェクト長押しで表示するコンテキストメニュー
+   依存: UNDO/REDO（日付詳細）、RENDER
+════════════════════════════════════════════ */
 
 // 空白領域長押し時の貼り付け専用メニュー
 blinkAndExec('dpctx-paste', () => {
@@ -7161,7 +7255,10 @@ blinkAndExec('dctx-cut',     () => execDayObjAction('cut'));
 blinkAndExec('dctx-paste',   () => execDayObjAction('paste'));
 blinkAndExec('dctx-delete',  () => execDayObjAction('delete'));
 
-/* ════ SETTINGS｜設定 ════ */
+/* ════ SETTINGS｜設定 ════
+   責務: 言語・週の始まりなどのアプリ設定
+   依存: APP STATE（S.lang / S.weekStart）、I18N
+════════════════════════════════════════════ */
 $id('cal-btn-undo').addEventListener('click', doCalUndo);
 $id('cal-btn-redo').addEventListener('click', doCalRedo);
 
@@ -7252,7 +7349,10 @@ $id('lang-sel').addEventListener('change', e => {
   updateI18nDOM();
 });
 
-/* ════ YEAR-MONTH DRUM PICKER｜年月ドラムピッカー ════ */
+/* ════ YEAR-MONTH DRUM PICKER｜年月ドラムピッカー ════
+   責務: 年月をスクロールで選択するモーダル
+   依存: APP STATE（S.year / S.month）、CALENDAR NAV（navigateMonth）
+════════════════════════════════════════════ */
 ;(function() {
   const ITEM_H = 36;
   const YEAR_RANGE = 20; // 前後20年
@@ -7520,18 +7620,37 @@ $id('cal-tabs').addEventListener('click', e => {
   });
 })();
 
-/* ════ CALENDAR NAV｜カレンダーナビゲーション ════ */
+/* ════ CALENDAR NAV｜カレンダーナビゲーション ════
+   責務: 月遷移（navigateMonth）・カレンダータブ描画・フリック操作
+   注意: navigateMonth 中は #cal-grid-old がDOMに残るため
+         セル検索は必ず #cal-grid 配下のみを対象とする
+   依存: CALENDAR RENDERING、SPAN EVENTS（renderSpanOverlay）
+════════════════════════════════════════════ */
 // 月切り替えスライドアニメーション
 // dir: 'next'(翌月・右から入場) or 'prev'(前月・左から入場)
 let _monthNavigating = false; // 月遷移アニメーション中フラグ
 
 // skipSpanHide=true: D&D中など期間枠を非表示にしない
 function navigateMonth(dir, skipSpanHide = false) {
+  // ─────────────────────────────────────────
+  // navigateMonth: 月遷移スライドアニメーション
+  //
+  // 処理の流れ:
+  //   [1] 期間選択状態の整理  → 遷移後の月に存在しないスパンを非アクティブ化
+  //   [2] S.year/S.month 更新 → 月をインクリメント/デクリメント
+  //   [3] 旧グリッドをクローン → #cal-grid-old として DOM に追加
+  //   [4] 新グリッドを生成    → renderCalendar() で #cal-grid を上書き
+  //   [5] スライドアニメーション → rAF 2重でレイアウト確定後に開始
+  //   [6] cleanup            → oldClone 除去・期間枠再描画・フラグ解除
+  //
+  // 注意: アニメーション中は #cal-grid-old が DOM に残る
+  //       セル検索は必ず $id('cal-grid') 配下のみを対象とすること
+  // ─────────────────────────────────────────
   if (_monthNavigating) return;
   _monthNavigating = true;
 
-  // 期間設定モード中に選択中スパンがある場合、遷移後の月にそのスパンが
-  // 存在しないなら非アクティブ化（月またがりスパンは選択状態を維持）
+  // ── [1] 期間設定モード：遷移後の月に存在しないスパンを非アクティブ化 ──
+  // 月またがり期間枠は選択状態を維持する
   if (SpanMode.active && SpanMode.selectedSpanId) {
     const events = getSpanEvents();
     const ev = events.find(e => e.id === SpanMode.selectedSpanId);
@@ -7550,6 +7669,7 @@ function navigateMonth(dir, skipSpanHide = false) {
     }
   }
 
+  // ── [2] S.year / S.month 更新 ──────────────────────
   if (dir === 'next') {
     if(++S.month>11){S.month=0;S.year++;}
   } else {
@@ -7569,7 +7689,7 @@ function navigateMonth(dir, skipSpanHide = false) {
     if (spanTabLayer) spanTabLayer.style.display = 'none';
   }
 
-  // 旧グリッドをクローンして絶対位置で重ねる
+  // ── [3] 旧グリッドをクローンして絶対位置で重ねる ──
   const oldClone = oldGrid.cloneNode(true);
   oldClone.id = 'cal-grid-old';
   oldClone.style.cssText = `position:absolute;top:0;left:0;width:${oldGrid.offsetWidth}px;pointer-events:none;`;
@@ -7578,17 +7698,19 @@ function navigateMonth(dir, skipSpanHide = false) {
   // アニメーション中は横はみ出しを防ぐ
   area.style.overflowX = 'hidden';
 
-  // 新グリッドをレンダリング
+  // ── [4] 新グリッドをレンダリング ──────────────────
   renderCalendar();
 
   const inClass  = dir === 'next' ? 'slide-in-right' : 'slide-in-left';
   const outClass = dir === 'next' ? 'slide-out-left' : 'slide-out-right';
 
+  // ── [5] スライドアニメーション開始（rAF 2重でレイアウト確定後） ──
   requestAnimationFrame(() => requestAnimationFrame(() => {
     oldClone.classList.add(outClass);
     const newGrid = $id('cal-grid');
     newGrid.classList.add(inClass);
 
+    // ── [6] cleanup: oldClone 除去・期間枠再描画・フラグ解除 ──
     const cleanup = () => {
       oldClone.remove();
       newGrid.classList.remove(inClass);
@@ -7658,7 +7780,10 @@ $id('btn-next').addEventListener('click', e => {
   e.currentTarget.blur();
 });
 
-/* ════ SCREEN / ORIENTATION｜画面・向き検出 ════ */
+/* ════ SCREEN / ORIENTATION｜画面・向き検出 ════
+   責務: 縦長・横長レイアウトの切り替え・画面遷移
+   依存: CALENDAR RENDERING、OPEN/CLOSE DAY CELL
+════════════════════════════════════════════ */
 function showScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const map={calendar:'cal-screen',day:'day-screen'};
@@ -7704,14 +7829,24 @@ if (screen.orientation) {
   window.addEventListener('orientationchange', onOrientationChange);
 }
 
-/* ════ INIT｜初期化 ════ */
+/* ════ INIT｜初期化 ════
+   責務: アプリ起動時の初期描画（calcTextSizes → renderTabs → renderCalendar → renderOpts）
+   注意: SpanMode は INIT の直後に定義される（const のため巻き上げなし）
+   依存: 全セクション
+════════════════════════════════════════════ */
 calcTextSizes();
 
 renderTabs();
 renderCalendar();
 renderOpts();
 
-/* ════ SPAN MODE｜期間設定機能 ════ */
+/* ════ SPAN MODE｜期間設定機能 ════
+   責務: SpanMode 状態オブジェクトの定義・期間設定モードの起動・終了・
+         カラーパレット・新規期間枠D&D・月遷移・initSpanVisible
+   注意: const SpanMode はここで定義。SPAN EVENTS セクションの関数が
+         実行時に参照するため動作上の問題はないが、定義順としては後方にある
+   依存: SPAN EVENTS、CALENDAR NAV（navigateMonth）
+════════════════════════════════════════════ */
 const SpanMode = {
   active:         false,
   colorPicked:    true,
@@ -8228,7 +8363,10 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
   input.addEventListener('keydown', onKey);
 }
 
-/* ════ PC HOVER PREVIEW（全オブジェクト対応）→ _showObjPreview に統一 ════ */
+/* ════ PC HOVER PREVIEW｜カレンダー画面オブジェクトホバープレビュー ════
+   責務: PC でオブジェクトにホバーしたときのプレビューポップアップ
+   依存: CALENDAR RENDERING（getCellRect）、RENDER（drawObj 系）
+════════════════════════════════════════════ */
 (function() {
   let _hoverTimer    = null;
   let _currentObjId  = null;
@@ -8274,7 +8412,10 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
   };
 })();
 
-/* ════ OBJECT PREVIEW POPUP｜カレンダー画面オブジェクト短タッププレビュー ════ */
+/* ════ OBJECT PREVIEW POPUP｜カレンダー画面オブジェクト短タッププレビュー ════
+   責務: カレンダー画面でオブジェクトを短タップしたときのプレビューポップアップ
+   依存: CALENDAR RENDERING（getCellRect）、RENDER（drawObj 系）
+════════════════════════════════════════════ */
 (function() {
   const POPUP_SIZE = 240; // ポップアップ内キャンバスの一辺(px)（1.5倍）
   const SHOW_MS    = 1500; // 自動非表示までの時間(ms)
