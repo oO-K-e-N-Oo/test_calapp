@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v807</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v808</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1929,6 +1929,7 @@ const Cal = {
 let calDragInfo = null; // セルオブジェクトのD&D状態
 let _calDragJustEnded  = false; // セルD&D完了直後フリック抑制フラグ
 let _calGhostJustEnded = false; // クリップD&D完了直後フリック抑制フラグ
+let _spanDragJustEnded = false; // 期間枠D&D完了直後フリック抑制フラグ
 
 function clearCalDragInfo() {
   calDragInfo = null;
@@ -7766,6 +7767,7 @@ function navigateMonth(dir, skipSpanHide = false) {
     try { if (calDragInfo) return; } catch(err) {}
     if (hadMultiTouch) return; // ピンチ操作があったらフリックキャンセル
     if (SpanMode.dragging || SpanMode.resizing) return; // 期間枠D&D中はフリック無効
+    if (_spanDragJustEnded) return; // 期間枠D&D完了直後はフリック無効
     if (_monthNavigating) return; // 月遷移アニメーション中はフリック無効
     if (_calDragJustEnded) return; // セルD&D完了直後はフリック無効
     if (_calGhostJustEnded) return; // クリップD&D完了直後はフリック無効
@@ -8205,6 +8207,9 @@ function exitSpanMode() {
       document.removeEventListener('pointermove', onMove);
       if (!SpanMode.dragging) return;
       SpanMode.dragging = false;
+      // 期間枠D&D完了直後のフリック誤検知を防ぐ（touchend より先に onUp が走るため）
+      _spanDragJustEnded = true;
+      setTimeout(() => { _spanDragJustEnded = false; }, 300);
 
       // フリック判定：短時間で大きく横移動した場合はキャンセル（月遷移フリックと区別）
       // ただし moved=true（実際に期間を伸ばした）場合はフリックと区別してキャンセルしない
