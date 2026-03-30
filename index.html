@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v814</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v815</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -5613,18 +5613,7 @@ function startResizeDrag(el, ev, which) {
     };
     // transitioning / triggerArmed は resizeCtx 経由で読み書きする
     function checkMonthTransition(mv) {
-      // which による方向制限（リサイズ固有）
-      const grid = $id('cal-grid');
-      if (!grid) return false;
-      const allCells = grid.querySelectorAll('.cal-cell');
-      if (allCells.length === 0) return false;
-      const firstR = allCells[0].getBoundingClientRect();
-      const lastR  = allCells[allCells.length - 1].getBoundingClientRect();
-      const inPrevZone = mv.clientX < firstR.left + firstR.width / 2 && mv.clientY < firstR.bottom;
-      const inNextZone = mv.clientX > lastR.left  + lastR.width  / 2 && mv.clientY > lastR.top;
-      // リサイズ固有：which と方向が一致しない場合は発火しない
-      if (inNextZone && which === 'start' && !inPrevZone) { resizeCtx.triggerArmed = true; return false; }
-      if (inPrevZone && which === 'end'   && !inNextZone) { resizeCtx.triggerArmed = true; return false; }
+      // 共通関数に委譲（リサイズD&Dは方向制限なし・両方向に月遷移可能）
       return checkSpanDragMonthTransition(mv, resizeCtx);
     }
 
