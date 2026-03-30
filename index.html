@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v815</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v816</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -4713,7 +4713,12 @@ function checkSpanDragMonthTransition(mv, ctx) {
     .map(d => d.key);
 
   // 差分：呼び出し元がキーを確定する（currentKey or resizeKey）
-  ctx.onKeyConfirmed(dir, newDateKeys);
+  // false を返した場合は月遷移をキャンセル（最短1日制限など）
+  if (ctx.onKeyConfirmed(dir, newDateKeys) === false) {
+    ctx.triggerArmed  = false; // 一度ゾーン外に出るまで再発火しない
+    ctx.transitioning = false;
+    return false;
+  }
 
   // タブをクリア
   const tabLayerEl = $id('span-tab-layer');
@@ -5605,9 +5610,13 @@ function startResizeDrag(el, ev, which) {
         if (which === 'end') {
           const isOrig = nextY === new Date(origEndKey).getFullYear() && nextM === new Date(origEndKey).getMonth();
           SpanMode.resizeKey = isOrig ? origEndKey : newDateKeys[newDateKeys.length - 1];
+          // ▶ が ◀ を追い越して最短1日になっている場合は前月遷移しない
+          if (dir === 'prev' && SpanMode.resizeKey <= ev.startKey) return false;
         } else {
           const isOrig = nextY === new Date(origStartKey).getFullYear() && nextM === new Date(origStartKey).getMonth();
           SpanMode.resizeKey = isOrig ? origStartKey : newDateKeys[0];
+          // ◀ が ▶ を追い越して最短1日になっている場合は次月遷移しない
+          if (dir === 'next' && SpanMode.resizeKey >= ev.endKey) return false;
         }
       },
     };
