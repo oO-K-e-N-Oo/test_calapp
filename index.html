@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v806</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v807</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -8207,10 +8207,11 @@ function exitSpanMode() {
       SpanMode.dragging = false;
 
       // フリック判定：短時間で大きく横移動した場合はキャンセル（月遷移フリックと区別）
+      // ただし moved=true（実際に期間を伸ばした）場合はフリックと区別してキャンセルしない
       const dt = Date.now() - startTime;
       const dx = upEvent ? Math.abs(upEvent.clientX - downX) : 0;
       const dy = upEvent ? Math.abs(upEvent.clientY - downY) : 0;
-      if (dx > 30 && dy < dx && dt < 500) {
+      if (!moved && dx > 30 && dy < dx && dt < 500) {
         SpanMode.startKey   = null;
         SpanMode.currentKey = null;
         renderSpanOverlay();
