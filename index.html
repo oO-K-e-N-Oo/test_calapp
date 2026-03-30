@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v804</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v805</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -6399,10 +6399,11 @@ function applyCellSizes(numRows, isLand) {
        squareSz = cellH（プレビューキャンバスはセル高さと同じ）
        cellW = DATE_W + squareSz
     */
-    // cellH は areaH/6 固定、cellW は areaW/7 と DATE_W+cellH の小さい方
+    // cellH = areaH/6 固定（6行常に同じサイズ）
+    // cellW = areaW/7 固定（横幅をぴったり使う）
+    // squareSz = cellW - DATE_W（プレビュー幅）
     const cellH    = Math.floor(areaH / 6);
-    const cellWMax = Math.floor(areaW / 7);          // 横幅に収まる上限
-    const cellW    = Math.min(cellWMax, DATE_W + cellH);
+    const cellW    = Math.floor(areaW / 7);
     const squareSz = Math.max(cellW - DATE_W, 1);
     const totalW   = cellW * 7;
 
