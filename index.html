@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v816</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v817</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -8176,8 +8176,9 @@ function exitSpanMode() {
       transitioning:  false,
       triggerArmed:   true,
       onKeyConfirmed: (dir, newDateKeys) => {
-        // 新規D&D固有：currentKey を遷移先月の端日に更新
-        SpanMode.currentKey = dir === 'next' ? newDateKeys[0] : newDateKeys[newDateKeys.length - 1];
+        // 新規D&D固有：右方向のみ許可（左方向ドラッグ不可のため前月遷移しない）
+        if (dir === 'prev') return false;
+        SpanMode.currentKey = newDateKeys[0]; // 翌月先頭日
         moved = true;
       },
     };
