@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v819</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v824</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1849,6 +1849,7 @@ function switchCalendar(id) {
   activeCalendarId = id;
   S.cellData = getActiveCalendar().cellData;
   Cal.selCellKey = null; Cal.selObjId = null;
+  clearCalUR(); // タブ切り替え時は「見えていない画面のUndo」を残さない
   renderCalendar();
 
   // タブ切り替え時：期間バーの状態を更新
@@ -3622,7 +3623,8 @@ function flushAndRedraw() { flushCell(); redraw(); }
 
 /* ════ CALENDAR SCREEN UNDO/REDO｜カレンダー画面 Undo/Redo ════
    責務: カレンダー画面でのオブジェクト操作（D&D・削除など）の Undo/Redo
-   注意: 月遷移時に clearCalUR() でスタックをクリアする
+   注意: 「ユーザーに見えていない画面のUndoを残さない」方針により
+         月遷移・カレンダータブ切り替え・日付詳細画面を開く際に clearCalUR() を呼ぶ
    依存: APP STATE（Cal.undoStk / Cal.redoStk）、STORAGE
 ════════════════════════════════════════════ */
 /** カレンダー画面のUndoスタックにアクションを積む */
@@ -4206,6 +4208,8 @@ function navigateDayCell(dir) {
 
 /* ════ TOOL SWITCHING｜ツール切り替え ════
    責務: ツールの切り替えとオプションバーの再描画
+   注意: syncAllOpts() で縦長・横長の両コンテナを同時に更新する
+         syncActive(container, ...) は片方のコンテナのみ更新するため直接使わない
    依存: APP STATE（S.tool）、CANVAS
 ════════════════════════════════════════════ */
 
@@ -4284,48 +4288,55 @@ function syncActive(container, attr, currentVal) {
   });
 }
 
+function syncAllOpts(attr, currentVal) {
+  // 縦長・横長の両コンテナを同時に更新する
+  [$id('tb-opts-portrait'), $id('land-opts')].forEach(c => {
+    if (c) syncActive(c, attr, currentVal);
+  });
+}
+
 function bindOpts(container) {
   container.querySelectorAll('[data-color]').forEach(el => {
     el.addEventListener('click', () => {
       S.penColor = el.dataset.color;
-      syncActive(container, 'data-color', S.penColor);
+      syncAllOpts('data-color', S.penColor);
     });
   });
   container.querySelectorAll('[data-size]').forEach(el => {
     el.addEventListener('click', () => {
       S.penSize = +el.dataset.size;
-      syncActive(container, 'data-size', S.penSize);
+      syncAllOpts('data-size', S.penSize);
     });
   });
   container.querySelectorAll('[data-mcolor]').forEach(el => {
     el.addEventListener('click', () => {
       S.markerColor = el.dataset.mcolor;
-      syncActive(container, 'data-mcolor', S.markerColor);
+      syncAllOpts('data-mcolor', S.markerColor);
     });
   });
   container.querySelectorAll('[data-msize]').forEach(el => {
     el.addEventListener('click', () => {
       S.markerSize = +el.dataset.msize;
-      syncActive(container, 'data-msize', S.markerSize);
+      syncAllOpts('data-msize', S.markerSize);
     });
   });
   container.querySelectorAll('[data-esize]').forEach(el => {
     el.addEventListener('click', () => {
       S.eraserSize = +el.dataset.esize;
-      syncActive(container, 'data-esize', S.eraserSize);
+      syncAllOpts('data-esize', S.eraserSize);
       if (S.tool === 'eraser') setEraserCursor();
     });
   });
   container.querySelectorAll('[data-tcolor]').forEach(el => {
     el.addEventListener('click', () => {
       S.textColor = el.dataset.tcolor;
-      syncActive(container, 'data-tcolor', S.textColor);
+      syncAllOpts('data-tcolor', S.textColor);
     });
   });
   container.querySelectorAll('[data-tbold]').forEach(el => {
     el.addEventListener('click', () => {
       S.textBold = el.dataset.tbold === 'true';
-      syncActive(container, 'data-tbold', String(S.textBold));
+      syncAllOpts('data-tbold', String(S.textBold));
     });
   });
 
@@ -4555,6 +4566,8 @@ function isLandscapeCalendar() {
    責務: 期間枠のデータ CRUD・SVG 描画・タブ配置・リサイズ・D&D・コンテキストメニュー
    注意: SpanMode 定数は SPAN MODE セクションで定義（このセクションより後方）
          関数内参照のため実行時には問題なし
+   共通化: checkSpanDragMonthTransition(mv, ctx) で新規D&DとリサイズD&Dの月遷移ロジックを一本化
+           ctx.onKeyConfirmed(dir, newDateKeys) → false を返すとキャンセル
    依存: APP STATE（SpanMode）、CALENDAR RENDERING（getCellRect）、STORAGE
 ════════════════════════════════════════════ */
 // ── SpanMode ユーティリティ ──────────────────────────────────
@@ -5677,11 +5690,15 @@ function startResizeDrag(el, ev, which) {
         }
 
 
-        // 日付無しセル上（最終行） → 月最終日で固定
+        // 日付無しセル上（最終行のみ） → 月最終日で固定
+        // ※ 最初の行のブランクセルは start 側で処理するため、y座標でグリッド下半分に限定
         const blankCells_end = ($id('cal-grid') || document).querySelectorAll('.cal-cell.is-blank');
+        const gridEl_e = $id('cal-grid');
+        const gridMidY_e = gridEl_e ? gridEl_e.getBoundingClientRect().top + gridEl_e.getBoundingClientRect().height / 2 : 0;
         let inBlankEnd = false;
         for (const cell of blankCells_end) {
           const r = cell.getBoundingClientRect();
+          if (r.top < gridMidY_e) continue; // 最初の行のブランクセルは除外
           if (mv.clientX >= r.left && mv.clientX <= r.right &&
               mv.clientY >= r.top  && mv.clientY <= r.bottom) {
             inBlankEnd = true;
@@ -5762,10 +5779,14 @@ function startResizeDrag(el, ev, which) {
       }
 
 
-      // 日付無しセル上（最初の行） → 月初日で固定
+      // 日付無しセル上（最初の行のみ） → 月初日で固定
+      // ※ 最終行のブランクセルは end 側で処理するため、y座標でグリッド上半分に限定
       const blankCells_start = ($id('cal-grid') || document).querySelectorAll('.cal-cell.is-blank');
+      const gridEl_s = $id('cal-grid');
+      const gridMidY = gridEl_s ? gridEl_s.getBoundingClientRect().top + gridEl_s.getBoundingClientRect().height / 2 : Infinity;
       for (const cell of blankCells_start) {
         const r = cell.getBoundingClientRect();
+        if (r.top > gridMidY) continue; // 最終行のブランクセルは除外
         if (mv.clientX >= r.left && mv.clientX <= r.right &&
             mv.clientY >= r.top  && mv.clientY <= r.bottom) {
           const firstKey = allKeys[0];
@@ -7673,6 +7694,8 @@ $id('cal-tabs').addEventListener('click', e => {
    責務: 月遷移（navigateMonth）・カレンダータブ描画・フリック操作
    注意: navigateMonth 中は #cal-grid-old がDOMに残るため
          セル検索は必ず #cal-grid 配下のみを対象とする
+   通知: navigateMonth の cleanup で calapp-month-navigated イベントを発行
+         → D&D中の transitioning フラグはこのイベントで解除する
    依存: CALENDAR RENDERING、SPAN EVENTS（renderSpanOverlay）
 ════════════════════════════════════════════ */
 // 月切り替えスライドアニメーション
@@ -7686,11 +7709,14 @@ function navigateMonth(dir, skipSpanHide = false) {
   //
   // 処理の流れ:
   //   [1] 期間選択状態の整理  → 遷移後の月に存在しないスパンを非アクティブ化
+  //                             （リサイズD&D中は startKey/endKey が未確定のためスキップ）
   //   [2] S.year/S.month 更新 → 月をインクリメント/デクリメント
   //   [3] 旧グリッドをクローン → #cal-grid-old として DOM に追加
   //   [4] 新グリッドを生成    → renderCalendar() で #cal-grid を上書き
   //   [5] スライドアニメーション → rAF 2重でレイアウト確定後に開始
-  //   [6] cleanup            → oldClone 除去・期間枠再描画・フラグ解除
+  //   [6] cleanup            → oldClone 除去・期間枠再描画・_monthNavigating=false
+  //                             → calapp-month-navigated イベントを発行
+  //                               D&D中の transitioning フラグはこのイベントで解除
   //
   // 注意: アニメーション中は #cal-grid-old が DOM に残る
   //       セル検索は必ず $id('cal-grid') 配下のみを対象とすること
@@ -7760,7 +7786,7 @@ function navigateMonth(dir, skipSpanHide = false) {
     const newGrid = $id('cal-grid');
     newGrid.classList.add(inClass);
 
-    // ── [6] cleanup: oldClone 除去・期間枠再描画・フラグ解除 ──
+    // ── [6] cleanup: oldClone 除去・期間枠再描画・_monthNavigating=false・イベント発行 ──
     const cleanup = () => {
       oldClone.remove();
       newGrid.classList.remove(inClass);
@@ -8257,9 +8283,11 @@ function exitSpanMode() {
         SpanMode.startKey   = null;
         SpanMode.currentKey = null;
         renderSpanOverlay();
+        // rAF×2後に再描画して firstVisit による重なり回避を確実に実行
+        requestAnimationFrame(() => requestAnimationFrame(() => renderSpanOverlay()));
 
-        // 新規タブと既存タブの重なり回避（rAF後にレイアウト確定してから実行）
-        requestAnimationFrame(() => {
+        // 新規タブと既存タブの重なり回避（rAF×2後にレイアウト確定してから実行）
+        requestAnimationFrame(() => requestAnimationFrame(() => {
           const newTabEl = $id('span-tab-layer').querySelector(`[data-span-id="${newId}"]`);
           if (!newTabEl) return;
           const areaRect = $id('cal-grid-area').getBoundingClientRect();
@@ -8311,7 +8339,7 @@ function exitSpanMode() {
           const evList = getSpanEvents();
           const evObj  = evList.find(e => e.id === newId);
           if (evObj) { evObj.tabOffsets = ev.tabOffsets; evObj.tabOffset = ev.tabOffset; setSpanEvents(evList); saveToStorage(); }
-        });
+        }));
       }, () => {
         // キャンセル → モード継続
         SpanMode.dragging   = false;
