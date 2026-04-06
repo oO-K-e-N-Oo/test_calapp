@@ -1335,7 +1335,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v824</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v825</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1996,7 +1996,7 @@ const I18N = {
     stickerHint: 'Tap canvas to place',
     selectHint:  'Tap object to select / move',
     // toast
-    textToolPen: 'Use finger to select Text tool',
+
     // pdf error
     pdfError:    'Failed to load PDF',
     // day screen context menu (extra)
@@ -2042,7 +2042,7 @@ const I18N = {
     stickerHint: 'キャンバスをタップして配置',
     selectHint:  'オブジェクトをタップして選択・移動',
     // toast
-    textToolPen: 'テキストツールは指でタップしてください',
+
     // pdf error
     pdfError:    'PDFの読み込みに失敗しました',
     // day screen context menu (extra)
@@ -2936,16 +2936,15 @@ function onDownText(e, lp, pp, clientX, clientY) {
   if (Draw.textJustFinished) return;
 
   const now     = Date.now();
-  const isPen   = Draw._lastPointerType === 'pen';
   const hitText = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp.x, pp.y));
 
-  if (!isPen && now - (Draw._lastTextTap||0) < TAP_INTERVAL) {
+  if (now - (Draw._lastTextTap||0) < TAP_INTERVAL) {
     clearTimeout(Draw._textTapTimer);
     Draw._lastTextTap = 0;
     showTextInput(hitText ? hitText.x : lp.x, hitText ? hitText.y : lp.y, hitText || null);
     return;
   }
-  if (!isPen) Draw._lastTextTap = now;
+  Draw._lastTextTap = now;
 
   if (hitText) {
     let fingerUp = false;
@@ -2987,10 +2986,9 @@ function onDown(e) {
     if (obj && handleBBoxBtns(obj, pp, clientY)) return;
   }
 
-  // グローバルダブルタップ：テキスト編集 / クリップ表示名編集（textツール以外、ペン入力時は無効）
+  // グローバルダブルタップ：テキスト編集 / クリップ表示名編集（textツール以外）
   const nowDt = Date.now();
-  const isPen = Draw._lastPointerType === 'pen';
-  if (!isPen && S.tool !== 'text' && nowDt - (Draw._globalLastTap||0) < TAP_INTERVAL) {
+  if (S.tool !== 'text' && nowDt - (Draw._globalLastTap||0) < TAP_INTERVAL) {
     const hitText = [...Draw.objects].reverse().find(o => o.type==='text' && !o._hidden && hitObj(o, pp.x, pp.y));
     if (hitText) { showTextInput(hitText.x, hitText.y, hitText); Draw._globalLastTap = 0; return; }
     const hitClip = [...Draw.objects].reverse().find(o => o.type==='clip' && hitObj(o, pp.x, pp.y));
@@ -3005,7 +3003,7 @@ function onDown(e) {
       return;
     }
   }
-  if (!isPen) Draw._globalLastTap = nowDt;
+  Draw._globalLastTap = nowDt;
 
   // クリップオブジェクトへのヒット（select/text以外）
   if (S.tool !== 'select' && S.tool !== 'text' && !(S.tool === 'sticker' && Draw.pendingStickerId)) {
@@ -4518,28 +4516,13 @@ function showToast(msg, duration) {
 
 // portrait tool btn clicks
 document.querySelectorAll('.tool-btn').forEach(btn=>{
-  // ペンでテキストツールをタップしたらトーストを表示してswitchToolしない
-  btn.addEventListener('pointerdown', ev => {
-    if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') {
-      ev.preventDefault();
-      showToast(L().textToolPen);
-    }
-  });
   btn.addEventListener('click', ev => {
-    if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') return;
     switchTool(btn.dataset.tool);
   });
 });
 // landscape tool btn clicks
 document.querySelectorAll('.land-tool-btn').forEach(btn=>{
-  btn.addEventListener('pointerdown', ev => {
-    if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') {
-      ev.preventDefault();
-      showToast(L().textToolPen);
-    }
-  });
   btn.addEventListener('click', ev => {
-    if (ev.pointerType === 'pen' && btn.dataset.tool === 'text') return;
     switchTool(btn.dataset.tool);
   });
 });
@@ -6147,10 +6130,9 @@ function onCellPointerDown(e, el, desc) {
   const ly   = (e.clientY - r.top)  / r.height * (mc.height / sc);
   const objs = getCellObjs(desc.key);
 
-  // ダブルタップでクリップビューワー起動（最優先、ペン入力時は無効）
+  // ダブルタップでクリップビューワー起動（最優先）
   const now = Date.now();
-  const isPenInput = e.pointerType === 'pen';
-  if (!isPenInput && now - (onCellPointerDown._lastTap||0) < TAP_INTERVAL) {
+  if (now - (onCellPointerDown._lastTap||0) < TAP_INTERVAL) {
     const hitClip = objs.slice().reverse().find(o => o.type==='clip' && miniHitObj(o, lx, ly));
     if (hitClip) {
       onCellPointerDown._lastTap = 0;
@@ -6158,7 +6140,7 @@ function onCellPointerDown(e, el, desc) {
       return;
     }
   }
-  if (!isPenInput) onCellPointerDown._lastTap = now;
+  onCellPointerDown._lastTap = now;
 
   // ① 選択済み×ボタン
   if (miniHandleDeleteBtn(e, r, sc, desc.key, objs)) return;
@@ -6478,7 +6460,7 @@ function applyCellSizes(numRows, isLand) {
       const preview = el.querySelector('.cell-preview');
       if (preview){
         preview.style.width  = `${squareSz}px`;
-        preview.style.height = `${squareSz}px`;
+        preview.style.height = `${cellH}px`;
       }
       const top = el.querySelector('.cell-top');
       if (top){
