@@ -1361,7 +1361,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v832</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v842</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1694,6 +1694,12 @@ button:focus-visible { outline: none; background: transparent; }
   </div>
 </div>
 
+<div class="ctx-menu" id="ctx-swatch-delete">
+  <div class="ctx-item danger" id="sctx-swatch-delete">
+    <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>この色を削除
+  </div>
+</div>
+
 <!-- ══ SPAN NAME MODAL ══ -->
 <div id="span-name-modal">
   <div id="span-name-panel">
@@ -1834,10 +1840,10 @@ function fmtDate(d) {
 ════════════════════════════════════════════ */
 // 黒・赤・青・オレンジの4色（固定・削除不可）
 const PALETTE = [
-  {hex:'#1c1a18', label:'黒'},
-  {hex:'#e85454', label:'赤'},
-  {hex:'#1e4f8c', label:'青'},
-  {hex:'#f0a030', label:'オレンジ'},
+  {hex:'#000000', label:'黒'},
+  {hex:'#ff0000', label:'赤'},
+  {hex:'#0000ff', label:'青'},
+  {hex:'#ff8000', label:'オレンジ'},
 ];
 
 // カスタムカラー管理（最大8色・localStorageに保存）
@@ -1854,13 +1860,16 @@ function saveCustomColors(arr) {
   try { localStorage.setItem(CUSTOM_COLOR_KEY, JSON.stringify(arr)); } catch(e) {}
 }
 function addCustomColor(hex) {
+  // PALETTE固定色と一致 → 追加不要、そのhexを返す
+  if (PALETTE.some(c => c.hex === hex)) return hex;
   let colors = loadCustomColors();
-  // 重複チェック（PALETTE含む）
-  if (PALETTE.some(c => c.hex === hex)) return;
-  if (colors.includes(hex)) return;
+  // カスタムカラーに既存一致 → 追加不要、そのhexを返す
+  if (colors.includes(hex)) return hex;
+  // 追加余地なし（上限8色）→ 最古のカスタムカラー（先頭）を削除
+  if (colors.length >= CUSTOM_COLOR_MAX) colors = colors.slice(1);
   colors.push(hex);
-  if (colors.length > CUSTOM_COLOR_MAX) colors = colors.slice(-CUSTOM_COLOR_MAX); // 古いものを押し出す
   saveCustomColors(colors);
+  return hex;
 }
 function removeCustomColor(hex) {
   let colors = loadCustomColors();
@@ -1925,12 +1934,12 @@ const S = {
   // ── ツール設定 ──
   tool:       'pen',
   lang:       'ja',   // 'ja' | 'en'
-  penColor:   '#1c1a18',
+  penColor:   '#000000',
   penSize:    3,
   eraserSize: 12,
-  markerColor:'#1c1a18',
+  markerColor:'#000000',
   markerSize: 12,
-  textColor:  '#1c1a18',
+  textColor:  '#000000',
   textBold:   false,
   textSize:   null,   // openDayCell 時に calcTextSizes() で確定
   _textSmall: null,
@@ -2267,7 +2276,7 @@ function drawTextObj(c, obj, sc) {
   c.save();
   const weight = obj.bold ? '700' : '400';
   c.font         = `${weight} ${(obj.size||16)*sc}px 'Noto Sans JP',sans-serif`;
-  c.fillStyle    = obj.color||'#1c1a18';
+  c.fillStyle    = obj.color||'#000000';
   c.textBaseline = 'top';
   (obj.text||'').split('\n').forEach((line,i)=>{
     c.fillText(line, obj.x*sc, (obj.y + i*(obj.size||16)*1.35)*sc);
@@ -2838,8 +2847,25 @@ Draw._pinching = false;
 
 // オブジェクト選択＋ドラッグ待機（select/text/stickerツールで共用）
 /** オブジェクトを選択し、長押し・ドラッグ待機を開始 */
+/** オブジェクト選択時にそのカラーをパレットに反映する */
+function syncPaletteToObj(obj) {
+  const hex = obj.color;
+  if (!hex) return;
+  const type = obj.type;
+  // ツール色を更新
+  if (type === 'pen')    S.penColor    = hex;
+  if (type === 'text')   S.textColor   = hex;
+  // マーカーはalpha付きpenオブジェクト
+  if (type === 'pen' && obj.paths && obj.paths.some(p => p.alpha != null)) S.markerColor = hex;
+  // パレットに追加（既存色なら選択のみ、なければ追加）
+  addCustomColor(hex);
+  // オプションバー再描画
+  renderOpts();
+}
+
 function startObjSelect(found, lp, clientX, clientY) {
   Draw.selId = found.id;
+  syncPaletteToObj(found);
   redraw();
   const origObj = clone(found);
 
@@ -2996,7 +3022,7 @@ function onDownText(e, lp, pp, clientX, clientY) {
     document.addEventListener('pointerup', onUpEarly, { once:true });
     Draw._textTapTimer = setTimeout(() => {
       document.removeEventListener('pointerup', onUpEarly);
-      if (fingerUp) { Draw.selId = hitText.id; redraw(); }
+      if (fingerUp) { Draw.selId = hitText.id; syncPaletteToObj(hitText); redraw(); }
       else          { startObjSelect(hitText, lp, clientX, clientY); }
     }, TAP_INTERVAL);
   } else {
@@ -4394,33 +4420,45 @@ function bindOpts(container) {
     const input = btn.querySelector('input[type=color]');
     if (!input) return;
     const dataAttr = btn.dataset.picker;
-    input.addEventListener('input', e => {
+    input.addEventListener('change', e => {
       const hex = e.target.value;
-      // カスタムカラーとして追加
-      addCustomColor(hex);
+      addCustomColor(hex); // 既存色でも新規色でも処理（重複は内部で制御）
       // ツール色に反映
       if (dataAttr === 'data-color')  { S.penColor    = hex; }
       if (dataAttr === 'data-mcolor') { S.markerColor = hex; }
       if (dataAttr === 'data-tcolor') { S.textColor   = hex; }
-      // オプションバー再描画（カスタムカラーをパレットに反映）
+      // オプションバー再描画（パレット更新＋選択状態の反映）
       renderOpts();
     });
   });
 
-  // カスタムカラー長押し削除
+  // カスタムカラー長押し → コンテキストメニュー
   container.querySelectorAll('.swatch[data-deletable]').forEach(el => {
     let timer = null;
-    el.addEventListener('pointerdown', () => {
+    let startX = 0, startY = 0;
+    el.addEventListener('pointerdown', e => {
+      startX = e.clientX; startY = e.clientY;
       timer = setTimeout(() => {
         const hex = el.dataset.color || el.dataset.mcolor || el.dataset.tcolor;
         if (!hex) return;
-        removeCustomColor(hex);
-        // 削除した色が選択中だったら黒に戻す
-        if (S.penColor    === hex) S.penColor    = '#1c1a18';
-        if (S.markerColor === hex) S.markerColor = '#1c1a18';
-        if (S.textColor   === hex) S.textColor   = '#1c1a18';
-        renderOpts();
-      }, 600);
+        const menu = $id('ctx-swatch-delete');
+        menu.style.left = startX + 'px';
+        menu.style.top  = startY + 'px';
+        menu.classList.add('open');
+        $id('sctx-swatch-delete').onclick = () => {
+          const item = $id('sctx-swatch-delete');
+          item.classList.add('ctx-blink');
+          item.addEventListener('animationend', () => {
+            item.classList.remove('ctx-blink');
+            removeCustomColor(hex);
+            if (S.penColor    === hex) S.penColor    = '#000000';
+            if (S.markerColor === hex) S.markerColor = '#000000';
+            if (S.textColor   === hex) S.textColor   = '#000000';
+            closeContextMenus();
+            renderOpts();
+          }, { once: true });
+        };
+      }, 500);
     });
     el.addEventListener('pointerup',    () => clearTimeout(timer));
     el.addEventListener('pointerleave', () => clearTimeout(timer));
@@ -5327,6 +5365,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
         e.stopPropagation();
         if (!SpanMode.active) return;
         SpanMode.selectedSpanId = ev.id;
+        syncSpanPaletteToObj(ev);
         renderSpanOverlay();
         addResizeButtons(ev);
         openSpanTabCtx(e.clientX, e.clientY, ev.id);
@@ -5451,6 +5490,7 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
       tab.addEventListener('pointerdown', e => {
         e.stopPropagation();
         SpanMode.selectedSpanId = ev.id;
+        syncSpanPaletteToObj(ev);
         renderSpanOverlay(); // 即不透明化（タブが再生成される）
         addResizeButtons(ev);
 
@@ -7058,7 +7098,7 @@ function drawObjMini(c,obj){
   } else if (obj.type==='text'){
     c.save();
     c.font=`${obj.size||16}px 'Noto Sans JP',sans-serif`;
-    c.fillStyle=obj.color||'#1c1a18'; c.textBaseline='top';
+    c.fillStyle=obj.color||'#000000'; c.textBaseline='top';
     (obj.text||'').split('\n').forEach((l,i)=>c.fillText(l,obj.x,obj.y+i*(obj.size||16)*1.35));
     c.restore();
   } else if (obj.type==='sticker'){
@@ -7141,6 +7181,7 @@ function closeContextMenus(){
   $id('ctx-day-obj').classList.remove('open');
   $id('ctx-day-paste').classList.remove('open');
   $id('ctx-span-tab').classList.remove('open');
+  $id('ctx-swatch-delete').classList.remove('open');
   window._hideClipTooltip && _hideClipTooltip();
 }
 // メニュー外の pointerdown で閉じる
@@ -8001,7 +8042,7 @@ renderOpts();
 const SpanMode = {
   active:         false,
   colorPicked:    true,
-  color:          '#1c1a18',
+  color:          '#000000',
   dragging:       false,
   startKey:       null,
   currentKey:     null,
@@ -8011,6 +8052,15 @@ const SpanMode = {
   resizeEnd:      null,
   resizeKey:      null,
 };
+
+/** 期間枠オブジェクト選択時にそのカラーをパレットに反映する */
+function syncSpanPaletteToObj(ev) {
+  const hex = ev.color;
+  if (!hex) return;
+  SpanMode.color = hex;
+  addCustomColor(hex);
+  buildSpanPalette();
+}
 
 // カラーパレットを生成
 function buildSpanPalette() {
@@ -8036,14 +8086,28 @@ function buildSpanPalette() {
       $id('btn-span').style.setProperty('--span-color', hex);
     });
     if (!fixed) {
-      // 長押し削除
+      // 長押し → コンテキストメニュー
       let timer = null;
-      sw.addEventListener('pointerdown', () => {
+      let startX = 0, startY = 0;
+      sw.addEventListener('pointerdown', e => {
+        startX = e.clientX; startY = e.clientY;
         timer = setTimeout(() => {
-          removeCustomColor(hex);
-          if (SpanMode.color === hex) SpanMode.color = '#1c1a18';
-          buildSpanPalette();
-        }, 600);
+          const menu = $id('ctx-swatch-delete');
+          menu.style.left = startX + 'px';
+          menu.style.top  = startY + 'px';
+          menu.classList.add('open');
+          $id('sctx-swatch-delete').onclick = () => {
+            const item = $id('sctx-swatch-delete');
+            item.classList.add('ctx-blink');
+            item.addEventListener('animationend', () => {
+              item.classList.remove('ctx-blink');
+              removeCustomColor(hex);
+              if (SpanMode.color === hex) SpanMode.color = '#000000';
+              closeContextMenus();
+              buildSpanPalette();
+            }, { once: true });
+          };
+        }, 500);
       });
       sw.addEventListener('pointerup',    () => clearTimeout(timer));
       sw.addEventListener('pointerleave', () => clearTimeout(timer));
@@ -8059,7 +8123,7 @@ function buildSpanPalette() {
   pickerInput.type = 'color';
   pickerInput.value = SpanMode.color;
   pickerBtn.appendChild(pickerInput);
-  pickerInput.addEventListener('input', e => {
+  pickerInput.addEventListener('change', e => {
     e.stopPropagation();
     const hex = e.target.value;
     addCustomColor(hex);
