@@ -24,8 +24,8 @@
 
   /* Colors — surface */
   --bg:          #f5f3ef;
-  --surface:     #faf9f7;
-  --inactive-bg: #ece9e3;
+  --surface:     #ffffff;
+  --inactive-bg: #faf9f7;
 
   /* Colors — ink */
   --ink:       #2c2a26;
@@ -43,11 +43,11 @@
 
   /* Colors — semantic */
   --today-ring: #c8a84b;
-  --sun-bg:     rgba(180,40,40,.05);
+  --sun-bg:     transparent;
   --sun-txt:    #b42828;
-  --sat-bg:     rgba(40,80,180,.05);
+  --sat-bg:     transparent;
   --sat-txt:    #2850b4;
-  --hol-bg:     rgba(180,40,40,.05);
+  --hol-bg:     transparent;
   --hol-txt:    #b42828;
 
   /* Shadow */
@@ -462,9 +462,9 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-cell.is-blank           { background: var(--inactive-bg); }
 .cal-cell.is-blank .cell-top { background: none; }
 .cal-cell.today              { background: #fff8f0; }
-.cal-cell.is-sun             { background: var(--sun-bg); }
-.cal-cell.is-sat             { background: var(--sat-bg); }
-.cal-cell.is-hol             { background: var(--hol-bg); }
+.cal-cell.is-sun             { background: #ffffff; }
+.cal-cell.is-sat             { background: #ffffff; }
+.cal-cell.is-hol             { background: #ffffff; }
 .cal-cell.drag-over          { background: rgba(58,111,168,.10) !important; box-shadow: inset 0 0 0 2px #3a6fa8; }
 .cal-cell.last-row,
 .cal-cell.last-row.is-sun,
@@ -480,12 +480,12 @@ button:focus-visible { outline: none; background: transparent; }
   padding: 3px 5px 2px;
   flex-shrink: 0;
   height: var(--cell-date-h, 20px);
-  overflow: hidden;
-  background: linear-gradient(to bottom, rgba(44,42,38,.10), transparent);
+  overflow: visible;
+  background: transparent;
 }
 .cell-num {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 22px;
+  font-weight: 700;
   color: var(--ink-mid);
   line-height: 1;
   white-space: nowrap;
@@ -504,7 +504,9 @@ button:focus-visible { outline: none; background: transparent; }
   overflow: hidden;
   flex-shrink: 0;
 }
-.cell-remaining { flex: 1; background: var(--inactive-bg); }
+.cell-remaining { flex: 1; background: transparent; }
+.cal-cell.inactive .cell-remaining,
+.cal-cell.is-blank .cell-remaining { background: var(--inactive-bg); }
 
 /* セル — 数字カラー */
 .cal-cell.today .cell-num  { font-weight: 700; color: var(--ink); }
@@ -514,8 +516,8 @@ button:focus-visible { outline: none; background: transparent; }
 
 /* 横長グリッド */
 .cal-cell.landscape-cell               { flex-direction: row; }
-.cal-cell.landscape-cell .cell-top     { flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 4px 6px; overflow: hidden; height: auto; background: linear-gradient(to right, rgba(44,42,38,.10), transparent); }
-.cal-cell.landscape-cell .cell-num     { font-size: 14px; overflow: visible; }
+.cal-cell.landscape-cell .cell-top     { flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 4px 6px; overflow: visible; height: auto; background: transparent; }
+.cal-cell.landscape-cell .cell-num     { font-size: 22px; font-weight: 700; overflow: visible; }
 .cal-cell.landscape-cell .cell-hol-name{ font-size: 11px; white-space: nowrap; }
 .cal-cell.landscape-cell.is-blank .cell-top { background: none; }
 
@@ -1361,7 +1363,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v842</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v851</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1568,10 +1570,6 @@ button:focus-visible { outline: none; background: transparent; }
   <div class="ovl-bd" id="settings-bd"></div>
   <div class="settings-panel">
     <h3>設定</h3>
-    <div class="s-row">
-      <label>週の始まり</label>
-      <select id="week-start-sel"><option value="0">日曜日</option><option value="1">月曜日</option></select>
-    </div>
     <div class="s-row">
       <label>表示言語</label>
       <select id="lang-sel"><option value="ja">日本語</option><option value="en">English</option></select>
@@ -1927,7 +1925,7 @@ const S = {
   screen:    'calendar',
   year:      today.getFullYear(),
   month:     today.getMonth(),     // 0-indexed
-  weekStart: 0,
+  weekStart: 0, // 日曜固定
   get cellData() { return getActiveCalendar().cellData; },
   set cellData(v) { getActiveCalendar().cellData = v; },
   clipboard: null,                 // { type:'cell'|'obj', data:... }
@@ -2023,7 +2021,7 @@ const I18N = {
     monthFmt: (y, m) => `${['January','February','March','April','May','June','July','August','September','October','November','December'][m]} ${y}`,
     // UI strings
     settings: 'Settings',
-    weekStart: 'First day of week',
+    weekStart: '',
     language: 'Language',
     userMgmt: 'User management',
     userMgmtBtn: 'Manage users...',
@@ -2069,7 +2067,7 @@ const I18N = {
     monthFmt: (y, m) => `${y}年 ${m+1}月`,
     // UI strings
     settings: '設定',
-    weekStart: '週の始まり',
+    weekStart: '',
     language: '表示言語',
     userMgmt: 'ユーザー管理',
     userMgmtBtn: 'ユーザーを管理...',
@@ -5574,6 +5572,36 @@ function renderOneSpan(svg, tabLayer, ev, isPreview = false, skipTab = false, gr
       });
     }
   });
+
+  // ── [6] 行間繋ぎ目の縦線 ────────────────────────
+  for (let i = 0; i < rows.length - 1; i++) {
+    const curLast   = getCellRect(rows[i][rows[i].length - 1]);
+    const nextFirst = getCellRect(rows[i + 1][0]);
+    if (!curLast || !nextFirst) continue;
+
+    // 同じ列にある場合（重なりあり）は繋ぎ目不要
+    if (getCol(rows[i][rows[i].length - 1]) === getCol(rows[i + 1][0])) continue;
+
+    const isActive = isPreview || ev.id === SpanMode.selectedSpanId;
+
+    // 1行目末尾：右辺（PAD内側）をセル下端まで延ばす
+    const x1c = curLast.right - PAD;
+    const connTop    = curLast.bottom - PAD;
+    const connBottom = nextFirst.top  + PAD;
+
+    // 2行目先頭：左辺（PAD内側）をセル上端から延ばす
+    const x2c = nextFirst.left + PAD;
+
+    [x1c, x2c].forEach(x => {
+      const conn = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      conn.setAttribute('d', `M${x.toFixed(1)},${connTop.toFixed(1)} L${x.toFixed(1)},${connBottom.toFixed(1)}`);
+      conn.setAttribute('class', 'span-rect');
+      conn.setAttribute('stroke', color);
+      conn.style.opacity = isActive ? '1' : '0.45';
+      conn.style.pointerEvents = 'none';
+      svg.appendChild(conn);
+    });
+  }
 }
 
 /** タブを再生成せず伸縮ボタンだけSVGに追加する */
@@ -6045,7 +6073,7 @@ function renderCalendar() {
   $id('hdr-month').textContent = l.months[S.month];
   $id('hdr-year').textContent  = l.yearFmt(S.year);
 
-  const headers = S.weekStart === 0 ? l.weekSun : l.weekMon;
+  const headers = l.weekSun;
   const isLand = isLandscapeCalendar();
 
   renderWeekdayHeader(headers);
@@ -6086,13 +6114,8 @@ function renderWeekdayHeader(headers) {
   headers.forEach((d, i) => {
     const el = document.createElement('div');
     el.className = 'wd';
-    if (S.weekStart === 0) {
-      if (i === 0) el.classList.add('sun');
-      if (i === 6) el.classList.add('sat');
-    } else {
-      if (i === 5) el.classList.add('sat');
-      if (i === 6) el.classList.add('sun');
-    }
+    if (i === 0) el.classList.add('sun');
+    if (i === 6) el.classList.add('sat');
     el.textContent = d;
     wdEl.appendChild(el);
   });
@@ -6230,12 +6253,7 @@ function buildCellTop(desc) {
   num.className = 'cell-num';
   num.textContent = desc.type === 'date' ? desc.d : desc.label;
   top.appendChild(num);
-  if (desc.holName && S.lang !== 'en' && !IS_PHONE) {
-    const hn = document.createElement('div');
-    hn.className = 'cell-hol-name';
-    hn.textContent = desc.holName;
-    top.appendChild(hn);
-  }
+  // 祝日名テキストは非表示（文字色のみで表現）
   return top;
 }
 
@@ -6602,8 +6620,7 @@ function applyCellSizes(numRows, isLand) {
 }
 
 function colOf(dow){
-  if(S.weekStart===0) return dow;
-  return (dow+6)%7;
+  return dow; // 日曜始まり固定
 }
 
 /* ════ MINI CANVAS PREVIEW｜ミニキャンバスプレビュー ════
@@ -7449,9 +7466,6 @@ $id('btn-settings').addEventListener('click',()=>{
 $id('settings-bd').addEventListener('click',()=>{
   $id('settings-overlay').classList.remove('open');
 });
-$id('week-start-sel').addEventListener('change',e=>{
-  S.weekStart=+e.target.value; renderCalendar();
-});
 
 function updateI18nDOM() {
   const l = L();
@@ -7460,19 +7474,14 @@ function updateI18nDOM() {
   // 設定パネル
   document.querySelector('.settings-panel h3').textContent = l.settings;
   const sRows = document.querySelectorAll('.settings-panel .s-row label');
-  if (sRows[0]) sRows[0].textContent = l.weekStart;
-  if (sRows[1]) sRows[1].textContent = l.language;
-  if (sRows[2]) sRows[2].textContent = l.userMgmt;
+  if (sRows[0]) sRows[0].textContent = l.language;
+  if (sRows[1]) sRows[1].textContent = l.userMgmt;
   const userBtn = $id('btn-user-mgmt');
   if (userBtn) {
     const svg = userBtn.querySelector('svg');
     userBtn.textContent = l.userMgmtBtn;
     if (svg) userBtn.prepend(svg);
   }
-  const wSel = $id('week-start-sel');
-  wSel.options[0].text = isEn ? 'Sunday'  : '日曜日';
-  wSel.options[1].text = isEn ? 'Monday'  : '月曜日';
-
   // cell context menu
   const setText = (id, svgEl, txt) => {
     const el = $id(id);
