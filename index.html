@@ -826,7 +826,29 @@ button:focus-visible { outline: none; background: transparent; }
   outline-offset: 2px;
   transform: scale(1.1);
 }
-/* カラーピッカーボタン */
+/* 繰り返し予定テキスト */
+.cell-repeat-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  opacity: 0.7;
+  overflow: hidden;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  align-self: flex-end;
+  padding-bottom: 2px;
+}
+/* 横長レイアウト：縦書き */
+.cal-cell.landscape-cell .cell-repeat-name {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+  font-size: 12px;
+  padding-bottom: 0;
+  padding-top: 2px;
+  align-self: auto;
+}
 .color-picker-btn {
   width: 22px;
   height: 22px;
@@ -1363,7 +1385,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v851</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v856</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -1615,6 +1637,13 @@ button:focus-visible { outline: none; background: transparent; }
   </div>
   <div class="ctx-item" id="cctx-paste-obj" style="display:none">
     <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>オブジェクトを貼り付け
+  </div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="cctx-repeat-add" style="display:none">
+    <svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>繰り返し予定を追加
+  </div>
+  <div class="ctx-item danger" id="cctx-repeat-del" style="display:none">
+    <svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>繰り返し予定を削除
   </div>
   <div class="ctx-sep"></div>
   <div class="ctx-item danger" id="cctx-delete">
@@ -1926,6 +1955,7 @@ const S = {
   year:      today.getFullYear(),
   month:     today.getMonth(),     // 0-indexed
   weekStart: 0, // 日曜固定
+  repeatEvents: {}, // { "MM-DD": { name: "..." } }
   get cellData() { return getActiveCalendar().cellData; },
   set cellData(v) { getActiveCalendar().cellData = v; },
   clipboard: null,                 // { type:'cell'|'obj', data:... }
@@ -2117,6 +2147,17 @@ function saveToStorage() {
   } catch(e) { /* quota超過等は無視 */ }
 }
 
+const REPEAT_KEY = 'calapp_repeat_events';
+function saveRepeatEvents() {
+  try { localStorage.setItem(REPEAT_KEY, JSON.stringify(S.repeatEvents)); } catch(e) {}
+}
+function loadRepeatEvents() {
+  try {
+    const raw = localStorage.getItem(REPEAT_KEY);
+    if (raw) S.repeatEvents = JSON.parse(raw);
+  } catch(e) {}
+}
+
 /** localStorageからアプリ状態を復元 */
 function loadFromStorage() {
   try {
@@ -2136,6 +2177,7 @@ function loadFromStorage() {
 
 // 起動時に復元
 loadFromStorage();
+loadRepeatEvents();
 function getCellObjs(key)      { return getActiveCalendar().cellData[key] || []; }
 function setCellObjs(key, arr) { getActiveCalendar().cellData[key] = arr; }
 function cellKey(y,m1,d)       { return `${y}-${String(m1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
@@ -6253,6 +6295,17 @@ function buildCellTop(desc) {
   num.className = 'cell-num';
   num.textContent = desc.type === 'date' ? desc.d : desc.label;
   top.appendChild(num);
+  // 繰り返し予定テキスト表示
+  if (desc.type === 'date' && desc.key) {
+    const mmdd = desc.key.slice(5);
+    const re = S.repeatEvents[mmdd];
+    if (re) {
+      const rt = document.createElement('div');
+      rt.className = 'cell-repeat-name';
+      rt.textContent = re.name;
+      top.appendChild(rt);
+    }
+  }
   // 祝日名テキストは非表示（文字色のみで表現）
   return top;
 }
@@ -6503,17 +6556,18 @@ function handleCellHeaderTap(e, desc) {
     const showMenu     = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key);
     const showMenuLong = () => openCellCtx({ clientX: e.clientX, clientY: e.clientY }, desc.key);
     const hasObjs  = getCellObjs(desc.key).length > 0;
+    const hasRepeat = desc.key && !!S.repeatEvents[desc.key.slice(5)];
 
     if (upBeforeTimer) {
-      // オブジェクトあり、またはクリップボードありならメニュー表示
-      if (hasObjs || S.clipboard?.type) showMenu();
+      // オブジェクトあり、クリップボードあり、または繰り返し予定関連ならメニュー表示
+      if (hasObjs || S.clipboard?.type || desc.type === 'date') showMenu();
       return;
     }
     if (hasObjs) {
       // オブジェクトあり → D&D → 500ms後にメニュー
       startCellDrag(e, desc.key, showMenuLong, () => {});
-    } else if (S.clipboard?.type) {
-      // オブジェクトなし＋クリップボードあり → 直接メニュー
+    } else if (S.clipboard?.type || desc.type === 'date') {
+      // オブジェクトなし＋クリップボードあり or 日付セル → 直接メニュー
       showMenu();
     }
   }, LONG_PRESS_MS);
@@ -7188,6 +7242,13 @@ function openCellCtx(e, key) {
   $id('cctx-paste-cell').style.display  = (S.clipboard?.type === 'cell') ? '' : 'none';
   $id('cctx-paste-obj').style.display   = (S.clipboard?.type === 'obj')  ? '' : 'none';
 
+  // 繰り返し予定：日付セル（YYYY-MM-DD形式）のみ表示
+  const isDateCell = /^\d{4}-\d{2}-\d{2}$/.test(key);
+  const mmdd = key.slice(5); // YYYY-MM-DD → MM-DD
+  const hasRepeat = isDateCell && !!S.repeatEvents[mmdd];
+  $id('cctx-repeat-add').style.display = (isDateCell && !hasRepeat) ? '' : 'none';
+  $id('cctx-repeat-del').style.display = hasRepeat ? '' : 'none';
+
   m.classList.add('open');
 }
 
@@ -7291,6 +7352,24 @@ blinkAndExec('cctx-cut',        () => execCalCellAction('cut'));
 blinkAndExec('cctx-paste-cell', () => execCalCellAction('paste-cell'));
 blinkAndExec('cctx-paste-obj',  () => execCalCellAction('paste-obj'));
 blinkAndExec('cctx-delete',     () => execCalCellAction('delete'));
+blinkAndExec('cctx-repeat-add', () => {
+  const key = Cal.ctxCellKey;
+  if (!key) return;
+  const mmdd = key.slice(5);
+  showRepeatEventModal(name => {
+    S.repeatEvents[mmdd] = { name };
+    saveRepeatEvents();
+    renderCalendar();
+  });
+});
+blinkAndExec('cctx-repeat-del', () => {
+  const key = Cal.ctxCellKey;
+  if (!key) return;
+  const mmdd = key.slice(5);
+  delete S.repeatEvents[mmdd];
+  saveRepeatEvents();
+  renderCalendar();
+});
 blinkAndExec('octx-preview',    () => execCalObjAction('preview'));
 blinkAndExec('octx-copy',       () => execCalObjAction('copy'));
 blinkAndExec('octx-cut',        () => execCalObjAction('cut'));
@@ -8544,6 +8623,44 @@ function exitSpanMode() {
 })();
 
 // 予定名入力モーダル
+function showRepeatEventModal(onOk) {
+  const modal = $id('span-name-modal');
+  const input = $id('span-name-input');
+  const okBtn = $id('span-name-ok');
+  const canBtn = $id('span-name-cancel');
+  const title = $id('span-name-title');
+
+  title.textContent = '繰り返し予定を追加';
+  input.placeholder = '予定名（例：クロさんBD）';
+  okBtn.textContent  = 'OK';
+  canBtn.textContent = 'キャンセル';
+
+  input.value = '';
+  modal.classList.add('open');
+  setTimeout(() => input.focus(), 50);
+
+  const close = () => {
+    modal.classList.remove('open');
+    okBtn.removeEventListener('click', doOk);
+    canBtn.removeEventListener('click', doCancel);
+    input.removeEventListener('keydown', onKey);
+  };
+  const doOk = () => {
+    const name = input.value.trim();
+    if (!name) { input.focus(); return; }
+    close();
+    onOk(name);
+  };
+  const doCancel = () => close();
+  const onKey = e => {
+    if (e.key === 'Enter' && !e.isComposing) doOk();
+    if (e.key === 'Escape') doCancel();
+  };
+  okBtn.addEventListener('click',  doOk);
+  canBtn.addEventListener('click', doCancel);
+  input.addEventListener('keydown', onKey);
+}
+
 function showSpanNameModal(onOk, onCancel, initialValue = '') {
   const l     = L();
   const modal = $id('span-name-modal');
