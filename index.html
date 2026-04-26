@@ -465,6 +465,9 @@ button:focus-visible { outline: none; background: transparent; }
 .cal-cell.is-sun             { background: #ffffff; }
 .cal-cell.is-sat             { background: #ffffff; }
 .cal-cell.is-hol             { background: #ffffff; }
+.cal-cell.today.is-sun,
+.cal-cell.today.is-sat,
+.cal-cell.today.is-hol       { background: #fff8f0; }
 .cal-cell.drag-over          { background: rgba(58,111,168,.10) !important; box-shadow: inset 0 0 0 2px #3a6fa8; }
 .cal-cell.last-row,
 .cal-cell.last-row.is-sun,
@@ -1385,7 +1388,7 @@ button:focus-visible { outline: none; background: transparent; }
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
-  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v856</div>
+  <div style="position:fixed;bottom:0;right:8px;font-size:18px;color:#000;opacity:.5;pointer-events:none;z-index:9990;" id="_ver">v860</div>
 </div>
 <div id="day-screen" class="screen portrait">
 
@@ -8762,8 +8765,9 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
    依存: CALENDAR RENDERING（getCellRect）、RENDER（drawObj 系）
 ════════════════════════════════════════════ */
 (function() {
-  const POPUP_SIZE = 240; // ポップアップ内キャンバスの一辺(px)（1.5倍）
-  const SHOW_MS    = 1500; // 自動非表示までの時間(ms)
+  const POPUP_SIZE = 240;
+  const SHOW_MS    = 1500;
+  const MARGIN     = 8;
   let _timer = null;
 
   function hidePreview() {
@@ -8780,21 +8784,18 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
     popup.innerHTML = '';
 
     if (obj.type === 'clip') {
-      // クリップ：表示名テキスト
       if (!obj.displayName) return;
       const span = document.createElement('span');
       span.style.cssText = 'font-size:14px;font-weight:600;color:var(--ink);white-space:pre-wrap;max-width:200px;display:block;';
       span.textContent = obj.displayName;
       popup.appendChild(span);
     } else if (obj.type === 'span') {
-      // 期間タブ：タブ名テキスト
       if (!obj.name) return;
       const span = document.createElement('span');
       span.style.cssText = 'font-size:14px;font-weight:600;color:var(--ink);white-space:pre-wrap;max-width:200px;display:block;';
       span.textContent = obj.name;
       popup.appendChild(span);
     } else {
-      // ペン・テキスト・スティッカー：ミニキャンバスで拡大描画
       const cvs = document.createElement('canvas');
       cvs.width  = POPUP_SIZE;
       cvs.height = POPUP_SIZE;
@@ -8804,7 +8805,6 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
       const c = cvs.getContext('2d');
       c.clearRect(0, 0, POPUP_SIZE, POPUP_SIZE);
 
-      // オブジェクトのバウンディングボックスを論理座標で取得
       let bx0, by0, bx1, by1;
       if (obj.type === 'pen') {
         const pts = obj.paths.flatMap(p => p.points);
@@ -8839,73 +8839,68 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
       c.restore();
     }
 
-    // オブジェクトのスクリーン上の左上座標を計算
-    const POPUP_W = POPUP_SIZE + 24; // padding込みの概算幅
-    const GAP = 16; // オブジェクトとポップアップの間隔
-
-    let anchorX = clientX;
-    let anchorY = clientY;
-    let onLeft  = false;
+    // ── ポップアップ位置計算（MARGIN1つで4方向クランプ統一）──
+    const POPUP_W = POPUP_SIZE + 24;
+    const POPUP_H = POPUP_SIZE + 44;
+    const GAP     = 16;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
     if (mc) {
-      const r    = mc.getBoundingClientRect();
-      const scX  = r.width  / CANVAS_SRC; // 論理→スクリーンX変換係数
-      const scY  = r.height / CANVAS_SRC; // 論理→スクリーンY変換係数
+      // オブジェクトのスクリーン座標を求める
+      const r   = mc.getBoundingClientRect();
+      const scX = r.width  / CANVAS_SRC;
+      const scY = r.height / CANVAS_SRC;
 
-      // オブジェクトのスクリーン左上を求める
-      let objLeft = r.left, objTop = r.top;
+      let objLeft = clientX, objTop = clientY, objRight = clientX, objBottom = clientY;
       if (obj.type === 'pen') {
         const pts = obj.paths.flatMap(p => p.points);
         if (pts.length > 0) {
-          const lx0 = Math.min(...pts.map(p => p.x));
-          const ly0 = Math.min(...pts.map(p => p.y));
-          objLeft = r.left + lx0 * scX;
-          objTop  = r.top  + ly0 * scY;
+          objLeft   = r.left + Math.min(...pts.map(p => p.x)) * scX;
+          objTop    = r.top  + Math.min(...pts.map(p => p.y)) * scY;
+          objRight  = r.left + Math.max(...pts.map(p => p.x)) * scX;
+          objBottom = r.top  + Math.max(...pts.map(p => p.y)) * scY;
         }
       } else if (obj.x !== undefined) {
         const halfSz = (obj.size || 44) / 2;
-        objLeft = r.left + (obj.x - halfSz) * scX;
-        objTop  = r.top  + (obj.y - halfSz) * scY;
+        objLeft   = r.left + (obj.x - halfSz) * scX;
+        objTop    = r.top  + (obj.y - halfSz) * scY;
+        objRight  = r.left + (obj.x + halfSz) * scX;
+        objBottom = r.top  + (obj.y + halfSz) * scY;
       }
 
-      // オブジェクトの下端を計算（flipY時の下表示で使用）
-      let objBottom = objTop;
-      if (obj.type === 'pen') {
-        const pts = obj.paths.flatMap(p => p.points);
-        if (pts.length > 0) {
-          const ly1 = Math.max(...pts.map(p => p.y));
-          objBottom = r.top + ly1 * scY;
-        }
-      } else if (obj.x !== undefined) {
-        const halfSz = (obj.size || 44) / 2;
-        objBottom = r.top + (obj.y + halfSz) * scY;
-      }
-
-      // 画面左端に近い場合は右上に
-      onLeft = objLeft - POPUP_W - GAP < 8;
-      if (onLeft) {
-        // 右上：オブジェクト右端の右側の上
-        const halfSzX = (obj.size || 44) / 2;
-        const objRight = (obj.x !== undefined)
-          ? r.left + (obj.x + halfSzX) * scX
-          : objLeft + 40;
-        anchorX = objRight + GAP;
-        anchorY = objTop;
-      } else {
-        // 左上：オブジェクト左端の上
+      // X方向：左側優先、はみ出すなら右側
+      let anchorX, onLeft;
+      if (objLeft - POPUP_W - GAP >= MARGIN) {
         anchorX = objLeft;
-        anchorY = objTop;
+        onLeft  = false;
+      } else {
+        anchorX = objRight + GAP;
+        onLeft  = true;
       }
 
-      // CSS: transform で anchor に対して位置調整
-      // ポップアップサイズの概算（表示後に確定するため余裕を持った値を使う）
-      const POPUP_H = POPUP_SIZE + 44; // padding + tail 込みの概算高さ
-      const rawTopUp   = anchorY - GAP;       // 上表示：オブジェクト上端 - GAP
-      const rawTopDown = objBottom + GAP;     // 下表示：オブジェクト下端 + GAP
+      // Y方向：上側優先、はみ出すなら下側
+      let anchorY, flipY;
+      if (objTop - GAP - POPUP_H >= MARGIN) {
+        anchorY = objTop - GAP;
+        flipY   = false;
+      } else {
+        anchorY = objBottom + GAP;
+        flipY   = true;
+      }
 
-      // 上端が画面外に出る場合はオブジェクトの下側に出す
-      const flipY = rawTopUp - POPUP_H < 8;
-      const finalTop = flipY ? rawTopDown : rawTopUp;
+      // 4方向クランプ
+      if (!onLeft) {
+        const halfW = POPUP_W / 2;
+        anchorX = Math.max(MARGIN + halfW, Math.min(vw - MARGIN - halfW, anchorX));
+      } else {
+        anchorX = Math.min(vw - MARGIN - POPUP_W, anchorX);
+      }
+      if (!flipY) {
+        anchorY = Math.max(MARGIN + POPUP_H, anchorY);
+      } else {
+        anchorY = Math.min(vh - MARGIN - POPUP_H, anchorY);
+      }
 
       if (onLeft) {
         popup.classList.add('tail-left');
@@ -8918,26 +8913,24 @@ function showSpanNameModal(onOk, onCancel, initialValue = '') {
       }
 
       popup.style.left    = anchorX + 'px';
-      popup.style.top     = finalTop + 'px';
+      popup.style.top     = anchorY + 'px';
       popup.style.display = 'block';
-
       _timer = setTimeout(hidePreview, SHOW_MS);
-      return;
+
+    } else {
+      // mc なし（クリップ名のみ）：シンプルに上表示
+      const POPUP_H_SIMPLE = 60;
+      const rawTop = clientY - GAP;
+      const flipY  = rawTop - POPUP_H_SIMPLE < MARGIN;
+      popup.classList.remove('tail-left');
+      popup.style.transform = flipY
+        ? 'translateX(-50%) translateY(0)'
+        : 'translateX(-50%) translateY(-100%)';
+      popup.style.left    = clientX + 'px';
+      popup.style.top     = flipY ? (clientY + GAP) + 'px' : rawTop + 'px';
+      popup.style.display = 'block';
+      _timer = setTimeout(hidePreview, SHOW_MS);
     }
-
-    // mc なし（期間タブ・クリップ名のみ）：clientX/Y 基準でシンプルに上表示
-    const POPUP_H_SIMPLE = 60;
-    const rawTopSimple = anchorY - GAP;
-    const flipYSimple  = rawTopSimple - POPUP_H_SIMPLE < 8;
-    popup.classList.remove('tail-left');
-    popup.style.transform = flipYSimple
-      ? 'translateX(-50%) translateY(0)'
-      : 'translateX(-50%) translateY(-100%)';
-    popup.style.left    = anchorX + 'px';
-    popup.style.top     = flipYSimple ? (anchorY + GAP) + 'px' : rawTopSimple + 'px';
-    popup.style.display = 'block';
-
-    _timer = setTimeout(hidePreview, SHOW_MS);
   }
 
   // pointerdownで消す
